@@ -1,3 +1,5 @@
+import { demoProducts as products } from '../data/demoProducts';
+import { useFavorites } from '../hooks/useFavorites';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
 import { LocationButton } from '../components/ui/LocationButton';
@@ -11,13 +13,6 @@ import { readLocation, saveLocation, getCurrentLocation, type ExplorationLocatio
 import { theme } from '../constants/theme';
 
 const green = theme.colors.primary;
-const products = [
-  { id: 'carrot', name: '당근', store: '행복청과', distance: '0.2km', price: '2,500원' },
-  { id: 'apple', name: '햇사과', store: '송이네과일가게', distance: '0.4km', price: '5,000원' },
-  { id: 'potato', name: '감자', store: '싱싱야채', distance: '0.5km', price: '3,000원' },
-  { id: 'pear', name: '배', store: '우리과일', distance: '0.7km', price: '6,000원' },
-  { id: 'cucumber', name: '오이', store: '행복청과', distance: '0.2km', price: '2,000원' },
-];
 const markets = [{ name: '용산용문시장', distance: '0.3km' }, { name: '공덕시장', distance: '1.2km' }, { name: '만리시장', distance: '1.5km' }, { name: '후암시장', distance: '1.8km' }];
 const stores = [{ name: '행복청과', distance: '0.2km' }, { name: '송이네과일가게', distance: '0.4km' }, { name: '싱싱야채', distance: '0.5km' }, { name: '우리과일', distance: '0.7km' }];
 const tabs: { label: string; icon: IconName }[] = [{ label: '홈', icon: 'home' }, { label: '관심상품', icon: 'heart-outline' }, { label: '예약', icon: 'receipt' }, { label: '마이', icon: 'account-outline' }];
@@ -30,7 +25,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(140, (Math.min(width, 600) - 60) / 2.1);
   const [active, setActive] = useState('홈');
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const { favorites, toggleFavorite } = useFavorites();
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [location, setLocation] = useState<ExplorationLocation | null>(null);
@@ -38,7 +33,6 @@ export default function HomeScreen() {
   const radius = location?.radius ?? 1;
   useEffect(() => { let active = true; void (async () => { try { const saved = await readLocation(); const next = saved ?? await getCurrentLocation(); if (active) setLocation(next); } catch (error) { if (active) setLocationError(error instanceof Error ? error.message : '위치를 가져오지 못했어요.'); } })(); return () => { active = false; }; }, []);
 
-  const toggleFavorite = (id: string) => setFavorites(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
 
   return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <View style={styles.header}><Text style={styles.brand}>장보소</Text><View style={styles.headerActions}>
@@ -54,7 +48,7 @@ export default function HomeScreen() {
       {active === '홈' || active === '관심상품' ? <>
         <Text style={styles.sectionTitle}>{active === '홈' ? '나를 위한 추천 상품' : '관심상품'}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">{products.filter(item => active === '홈' || favorites.includes(item.id)).map(item => <View key={item.id} style={[styles.card, { width: cardWidth }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 상세`} onPress={() => notice(item.name)}><View style={styles.productImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={[styles.meta, { minHeight: 42 }]} numberOfLines={2}>{item.store} · {item.distance}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 상세`} onPress={() => router.push({ pathname: '/products/[productId]', params: { productId: item.id } })}><View style={styles.productImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={[styles.meta, { minHeight: 42 }]} numberOfLines={2}>{item.store} · {item.distance}</Text></Pressable>
           <View style={styles.priceRow}><Text style={styles.price}>{item.price}</Text><Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(item.id) }} hitSlop={10} onPress={() => toggleFavorite(item.id)}><AppIcon name={favorites.includes(item.id) ? "heart-filled" : "heart-outline"} size={27} color={favorites.includes(item.id) ? '#E84B4B' : '#777777'} /></Pressable></View>
         </View>)}</ScrollView>
         {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}

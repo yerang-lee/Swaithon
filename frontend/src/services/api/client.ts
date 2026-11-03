@@ -1,6 +1,6 @@
-export function postJson(path: string, body: unknown): Promise<unknown> { return requestJson(path, 'POST', body); }
+export function postJson(path: string, body: unknown, token?: string): Promise<unknown> { return requestJson(path, 'POST', body, token); }
 export function getJson(path: string): Promise<unknown> { return requestJson(path, 'GET'); }
-async function requestJson(path: string, method: 'POST' | 'GET', body?: unknown): Promise<unknown> {
+async function requestJson(path: string, method: 'POST' | 'GET', body?: unknown, token?: string): Promise<unknown> {
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!baseUrl) throw new Error('API 서버 주소가 설정되지 않았어요. EXPO_PUBLIC_API_URL을 설정해주세요.');
   const controller = new AbortController();
@@ -8,7 +8,7 @@ async function requestJson(path: string, method: 'POST' | 'GET', body?: unknown)
   try {
     const response = await fetch(`${baseUrl.replace(/\/$/, '')}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: method === 'POST' ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
