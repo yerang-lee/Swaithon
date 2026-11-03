@@ -3,8 +3,10 @@
 기획서의 React Native + Expo + TypeScript를 기준으로 구성했습니다.
 화면 경로는 Expo Router를 사용하는 것으로 가정했습니다. Expo Router는 기획서에 지정된 기술이 아니라 폴더 기반 화면 이동을 위한 구성 선택입니다.
 
-현재는 폴더와 빈 소스 파일만 있습니다. 패키지 설치, Expo 초기화, 설정, 화면 구현은 아직 하지 않았으므로 앱을 실행할 수 없습니다.
-실제 구현 시 package.json, app.json, tsconfig.json, expo-env.d.ts 등 Expo 설정을 추가해야 합니다.
+Expo 설정과 로그인·회원가입 화면을 추가했습니다. `npm install` 후 `npm start`로 실행합니다.
+로그인·회원가입 경로는 `src/app/(auth)`에 있습니다. 인증 서버는 아직 연결되지 않았습니다.
+미구현 소비자·상인 화면의 빈 파일은 Expo Router가 실제 화면으로 읽지 않도록 `src/planned-routes`에 보관했습니다. 화면 구현 시 `src/app`으로 옮깁니다.
+공통 초록 버튼은 `src/components/ui/PrimaryButton.tsx`를 사용합니다. 기본 색상은 `#53B175`, radius는 `19`이며 `src/constants/theme.ts`에서 관리합니다.
 
 ```text
 assets/
@@ -15,6 +17,7 @@ src/
   app/                     Expo Router 화면 경로
     _layout.tsx            최상위 레이아웃
     index.tsx              시작 화면 및 사용자 역할 진입
+  planned-routes/          미구현 화면 보관 (아래 그룹은 구현 후 app으로 이동)
     (consumer)/            소비자 화면 그룹
       (tabs)/              홈 / 관심 상품 / 마감 세일 / 마이페이지
       products/            상품 상세
