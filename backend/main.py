@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from database import test_connection, engine
 from models import Base, User
+from routers.auth import router as auth_router
 
 
 # 서버 시작 시 DB 테이블 생성
@@ -16,8 +17,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Jangboso API",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
+# 회원가입 및 인증 라우터 등록
+app.include_router(auth_router)
 
 
 @app.get("/")
