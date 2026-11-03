@@ -19,7 +19,7 @@ export function PrimaryButton({ title, loading = false, disabled, ...props }: Pr
 
 const styles = StyleSheet.create({
   button: { backgroundColor: theme.colors.primary, borderRadius: theme.button.radius, minHeight: theme.button.height, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  label: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  label: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.8 },
 });

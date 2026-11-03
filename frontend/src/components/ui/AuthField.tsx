@@ -23,7 +23,7 @@ export function AuthField({ label, password, valid, ...props }: Props) {
 
 const styles = StyleSheet.create({
   field: { marginBottom: 32 },
-  label: { color: theme.colors.muted, fontSize: 16, fontWeight: '600', marginBottom: 10 },
+  label: { color: theme.colors.muted, fontSize: 18, fontWeight: '600', marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border, minHeight: 44 },
-  input: { flex: 1, minWidth: 0, fontSize: 18, color: theme.colors.text, paddingVertical: 10, paddingRight: 12 },
+  input: { flex: 1, minWidth: 0, fontSize: 20, color: theme.colors.text, paddingVertical: 10, paddingRight: 12 },
 });
