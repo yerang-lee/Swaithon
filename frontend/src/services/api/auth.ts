@@ -18,6 +18,27 @@ let session: (LoginResponse & { expiresAt: number }) | null = null;
 export function getAuthSession() { return session ? { ...session } : null; }
 export function clearAuthSession() { session = null; }
 
+export async function logout(): Promise<void> {
+  const current = getAuthSession();
+  if (!current) return;
+  try {
+    const data = await postJson('/auth/logout', { refresh_token: current.refresh_token }, current.access_token);
+    if (!data || typeof data !== 'object' || !('message' in data) || typeof data.message !== 'string') {
+      throw new Error('로그아웃 응답을 확인할 수 없어요. 다시 시도해주세요.');
+    }
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 401) {
+        if (session?.access_token === current.access_token) clearAuthSession();
+        throw new ApiError(401, '인증이 만료되었거나 유효하지 않아요. 다시 로그인해주세요.');
+      }
+      if (error.status === 500) throw new Error('서버 오류로 로그아웃하지 못했어요. 잠시 후 다시 시도해주세요.');
+    }
+    throw error;
+  }
+  if (session?.access_token === current.access_token) clearAuthSession();
+}
+
 async function authRequest(path: string, body: unknown, signup: boolean) {
   try { return await postJson(path, body); }
   catch (error) {

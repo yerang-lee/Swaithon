@@ -1,5 +1,6 @@
 import { demoProducts as products } from '../data/demoProducts';
 import { useFavorites } from '../hooks/useFavorites';
+import { MyPage } from '../components/auth/MyPage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
 import { LocationButton } from '../components/ui/LocationButton';
@@ -53,7 +54,7 @@ export default function HomeScreen() {
         </View>)}</ScrollView>
         {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
         {active === '홈' && <><PlaceSection title="내 주변 시장" items={markets} cardWidth={cardWidth} /><PlaceSection title="내 주변 가게" items={stores} cardWidth={cardWidth} /></>}
-      </> : <View style={styles.placeholder}><Text style={styles.sectionTitle}>{active === '예약' ? '예약 내역' : '마이페이지'}</Text><Text style={styles.meta}>화면을 준비하고 있어요.</Text></View>}
+      </> : active === '마이' ? <MyPage /> : <View style={styles.placeholder}><Text style={styles.sectionTitle}>예약 내역</Text><Text style={styles.meta}>화면을 준비하고 있어요.</Text></View>}
       <Text style={styles.demo}>현재 상품·시장·가게는 화면 확인용 예시입니다.</Text>
     </ScrollView>
     <BottomNavigation active={active} onSelect={setActive} />
