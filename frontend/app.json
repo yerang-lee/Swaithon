@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "장보소",
+    "slug": "jangboso",
+    "scheme": "jangboso",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router", ["expo-location", { "locationWhenInUsePermission": "주변 시장을 찾기 위해 현재 위치를 사용합니다." }]],
+    "ios": { "supportsTablet": true },
+    "web": { "bundler": "metro" }
+  }
+}
