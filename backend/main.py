@@ -5,7 +5,10 @@ from fastapi import FastAPI
 
 from database import test_connection, engine
 from models import Base, User
+Base.metadata.create_all(bind=engine)
+
 from routers.auth import router as auth_router
+from routers.users import router as users_router
 
 
 # 서버 시작 시 DB 테이블 생성
@@ -22,6 +25,7 @@ app = FastAPI(
 
 # 회원가입 및 인증 라우터 등록
 app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.get("/")

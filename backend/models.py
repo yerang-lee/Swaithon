@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -46,15 +46,10 @@ class User(Base):
         nullable=False,
     )
 
-    # 프로필 이미지
-    profile_image: Mapped[str | None] = mapped_column(
-        String(500),
-        nullable=True,
-    )
-
     # 온보딩 정보
     market_id: Mapped[int | None] = mapped_column(
         Integer,
+        ForeignKey("markets.market_id"),
         nullable=True,
     )
 
@@ -85,4 +80,81 @@ class User(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    token_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id"),
+        nullable=False,
+    )
+
+    token_hash: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        unique=True,
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+# Market 모델
+class Market(Base):
+    __tablename__ = "markets"
+
+    # 시장 고유 ID
+    market_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # 시장 이름
+    market_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    # 시장 주소
+    address: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    # 위도
+    latitude: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    # 경도
+    longitude: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    # 생성 일시
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
