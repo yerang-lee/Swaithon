@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { PickupTimeSheet } from '../../components/reservations/PickupTimeSheet';
@@ -31,7 +32,7 @@ export default function ProductDetail() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [listingId, demo, retry]);
-  if (loading || (!demo && !data)) return <SafeAreaView style={styles.safe}><Pressable onPress={() => router.back()} style={styles.back}><AppIcon name="arrow-back" size={20} /></Pressable>{loading ? <ActivityIndicator color="#53B175" /> : <><Text style={styles.note}>{error}</Text><Pressable onPress={() => setRetry(v => v + 1)}><Text style={styles.note}>다시 시도</Text></Pressable></>}</SafeAreaView>;
+  if (loading || (!demo && !data)) return <SafeAreaView style={styles.safe}><PageHeader title="" onBack={() => router.back()} />{loading ? <ActivityIndicator color="#53B175" /> : <><Text style={styles.note}>{error}</Text><Pressable onPress={() => setRetry(v => v + 1)}><Text style={styles.note}>다시 시도</Text></Pressable></>}</SafeAreaView>;
   const id = data?.listing_id ?? demo!.id;
   const favorite = favorites.includes(id);
   const name = data?.product_name ?? demo!.name;
@@ -52,7 +53,7 @@ export default function ProductDetail() {
     finally { lock.current = false; setSubmitting(false); }
   }
   return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-    <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="뒤로 가기" style={styles.back} onPress={() => router.back()}><AppIcon name="arrow-back" size={20} /></Pressable></View>
+    <PageHeader title="" onBack={() => router.back()} />
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.hero}>
         {imageUrl && /^https?:\/\//.test(imageUrl) && !imageError ? <Image source={{ uri: imageUrl }} accessibilityLabel={name} resizeMode="contain" style={{ width: '100%', height: 240 }} onError={() => setImageError(true)} /> : <><Text style={styles.emoji}>{demo?.emoji ?? '🛍️'}</Text><Text style={styles.imageNote}>상품 이미지 {demo ? '연결 예정' : '없음'}</Text></>}

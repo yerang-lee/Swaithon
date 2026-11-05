@@ -1,9 +1,11 @@
 import { demoProducts as products } from '../data/demoProducts';
 import { useFavorites } from '../hooks/useFavorites';
+import { ReservationsScreen } from '../components/reservations/ReservationsScreen';
 import { MyPage } from '../components/auth/MyPage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
 import { LocationButton } from '../components/ui/LocationButton';
+import { PageHeader } from '../components/ui/PageHeader';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -41,10 +43,16 @@ export default function HomeScreen() {
   useEffect(() => { let active = true; void (async () => { try { const saved = await readLocation(); const next = saved ?? await getCurrentLocation(); if (active) setLocation(next); } catch (error) { if (active) setLocationError(error instanceof Error ? error.message : '위치를 가져오지 못했어요.'); } })(); return () => { active = false; }; }, []);
 
 
+  if (active === '예약') return <ReservationsScreen onTab={setActive} />;
+
+  if (active === '마이') return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <PageHeader title="마이" />
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled"><MyPage /></ScrollView>
+    <BottomNavigation active={active} onSelect={setActive} />
+  </SafeAreaView>;
+
   return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-    <View style={styles.header}><Text style={styles.brand}>장보소</Text><View style={styles.headerActions}>
-      <Pressable accessibilityRole="button" accessibilityLabel="알림" onPress={() => notice('알림')} style={styles.iconButton}><AppIcon name="bell" size={27} /></Pressable>
-    </View></View>
+    <PageHeader title="장보소" />
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <LocationButton location={location} error={locationError} onPress={() => { setLocationReady(false); setLocationOpen(true); }} />
       <View style={styles.shortcuts}>
@@ -63,7 +71,7 @@ export default function HomeScreen() {
         </View>)}</ScrollView>
         {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
         {active === '홈' && <><PlaceSection title="내 주변 시장" items={markets} cardWidth={cardWidth} kind="market" /><PlaceSection title="내 주변 가게" items={stores} cardWidth={cardWidth} kind="store" /></>}
-      </> : active === '마이' ? <MyPage /> : <View style={styles.placeholder}><Text style={styles.sectionTitle}>예약 내역</Text><Text style={styles.meta}>화면을 준비하고 있어요.</Text></View>}
+      </> : <View style={styles.placeholder}><Text style={styles.sectionTitle}>예약 내역</Text><Text style={styles.meta}>화면을 준비하고 있어요.</Text></View>}
       <Text style={styles.demo}>현재 상품·시장·가게는 화면 확인용 예시입니다.</Text>
     </ScrollView>
     <BottomNavigation active={active} onSelect={setActive} />

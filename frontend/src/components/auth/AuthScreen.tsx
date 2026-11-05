@@ -12,7 +12,7 @@ import { SignupRoleStep, type SignupProfile } from './SignupRoleStep';
 import { registerOnboarding } from '../../services/api/onboarding';
 import { ApiError } from '../../services/api/client';
 import { logApiError } from '../../utils/apiDiagnostics';
-import { setMockMode } from '../../services/devMock';
+import { prepareMockAccount, setMockMode } from '../../services/devMock';
 import { clearFavorites } from '../../hooks/useFavorites';
 
 export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
@@ -108,7 +108,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
           {!signup && <View style={styles.signupLink}><Text style={styles.smallMuted}>아직 계정이 없으신가요? </Text><Pressable accessibilityRole="link" onPress={() => router.push('/signup')} hitSlop={8}><Text style={[styles.smallMuted, styles.green]}>회원가입</Text></Pressable></View>}
           {!signup && __DEV__ && <View style={{ gap: 12, marginTop: 24 }}><Text style={styles.smallMuted}>서버 없이 테스트 (예시 데이터)</Text>{(['MERCHANT', 'CUSTOMER'] as const).map(role => <Pressable key={role} accessibilityRole="button" disabled={loading} style={styles.back} onPress={async () => {
             setLoading(true); setError(''); authApi.clearAuthSession(); clearFavorites(); setMockMode(true);
-            try { await authApi.login(role === 'MERCHANT' ? '01000000001' : '01000000002', 'mock-only'); router.replace('/home'); }
+            try { await authApi.login(prepareMockAccount(role), 'mock-only'); router.replace('/home'); }
             catch (e) { setError(e instanceof Error ? e.message : '테스트 입장에 실패했어요.'); }
             finally { setLoading(false); }
           }}><Text style={[styles.smallMuted, styles.green]}>{role === 'MERCHANT' ? '상인으로 테스트' : '고객으로 테스트'}</Text></Pressable>)}</View>}

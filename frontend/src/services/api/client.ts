@@ -1,7 +1,8 @@
 export function postJson(path: string, body: unknown, token?: string): Promise<unknown> { return requestJson(path, 'POST', body, token); }
 export function getJson(path: string, token?: string): Promise<unknown> { return requestJson(path, 'GET', undefined, token); }
 export function patchJson(path: string, body: unknown, token: string): Promise<unknown> { return requestJson(path, 'PATCH', body, token); }
-async function requestJson(path: string, method: 'POST' | 'GET' | 'PATCH', body?: unknown, token?: string): Promise<unknown> {
+export function deleteJson(path: string, token: string): Promise<unknown> { return requestJson(path, 'DELETE', undefined, token); }
+async function requestJson(path: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE', body?: unknown, token?: string): Promise<unknown> {
   if (isMockMode()) return mockRequest(path, method, body, token);
   if (token?.startsWith('mock-only-')) throw new Error('테스트 세션이 종료됐어요. 다시 로그인해주세요.');
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
