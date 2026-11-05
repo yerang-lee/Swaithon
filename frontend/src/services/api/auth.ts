@@ -1,4 +1,4 @@
-import { ApiError, postJson } from './client';
+import { ApiError, getJson, postJson } from './client';
 
 export type LoginResponse = {
   access_token: string;
@@ -14,9 +14,26 @@ export type SignupResponse = {
 };
 
 // 현재 세션에서만 유지합니다. 영구 저장은 추후 보안 저장소와 연결합니다.
-let session: (LoginResponse & { expiresAt: number }) | null = null;
+export type AccountRole = 'CUSTOMER' | 'MERCHANT';
+let session: (LoginResponse & { expiresAt: number; role?: AccountRole }) | null = null;
 export function getAuthSession() { return session ? { ...session } : null; }
 export function clearAuthSession() { session = null; }
+export function setAuthRole(role: AccountRole, accessToken: string) {
+  if (session?.access_token === accessToken) session.role = role;
+}
+
+// 임시 연동 가정: GET /users/me의 최상위 role. 상세 명세 확인 필요.
+async function loadAccountRole(accessToken: string): Promise<void> {
+  try {
+    const profile = await getJson('/users/me', accessToken);
+    if (profile && typeof profile === 'object' && 'role' in profile
+      && (profile.role === 'CUSTOMER' || profile.role === 'MERCHANT')) {
+      setAuthRole(profile.role, accessToken);
+    }
+  } catch {
+    // 역할 조회 실패로 로그인 자체를 실패시키지 않으며 상인 UI는 숨깁니다.
+  }
+}
 
 export async function logout(): Promise<void> {
   const current = getAuthSession();
@@ -63,6 +80,7 @@ export async function login(phone: string, password: string): Promise<LoginRespo
   }
   const result = data as LoginResponse;
   session = { ...result, expiresAt: Date.now() + result.expires_in * 1000 };
+  await loadAccountRole(result.access_token);
   return result;
 }
 

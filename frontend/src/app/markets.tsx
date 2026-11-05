@@ -45,7 +45,7 @@ export default function MarketsScreen() {
       <Text style={styles.heading}>주변 시장</Text>
       {loading || marketsLoading ? <ActivityIndicator accessibilityLabel="주변 시장 조회 중" color="#53B175" /> : error ? <Text style={styles.message}>{error}</Text> : marketsError ? <View><Text accessibilityRole="alert" style={styles.message}>{marketsError}</Text><Pressable accessibilityRole="button" onPress={() => setRetry(value => value + 1)}><Text style={{ color: '#53B175', paddingVertical: 12 }}>다시 시도</Text></Pressable></View> : <>
         {markets.length === 0 && <Text style={styles.message}>반경 {location?.radius ?? 1}km 안에 시장이 없어요. 위치나 탐색 범위를 변경해보세요.</Text>}
-        {markets.map(market => <Pressable key={market.market_id} accessibilityRole="button" onPress={() => Alert.alert(market.market_name, '시장 상세 화면은 준비 중이에요.')} style={styles.row}><View style={styles.rowText}><Text style={styles.marketName}>{market.market_name}</Text><Text style={styles.distance}>{(market.distance / 1000).toFixed(1)}km</Text></View><AppIcon name="arrow-right" size={16} color="#7C7C7C" /></Pressable>)}
+        {markets.map(market => <Pressable key={market.market_id} accessibilityRole="button" onPress={() => router.push({ pathname: '/markets/[marketId]', params: { marketId: String(market.market_id), marketName: market.market_name } })} style={styles.row}><View style={styles.rowText}><Text style={styles.marketName}>{market.market_name}</Text><Text style={styles.distance}>{(market.distance / 1000).toFixed(1)}km</Text></View><AppIcon name="arrow-right" size={16} color="#7C7C7C" /></Pressable>)}
       </>}
     </ScrollView>
     <BottomNavigation onSelect={tab => router.replace({ pathname: '/home', params: { tab } })} />

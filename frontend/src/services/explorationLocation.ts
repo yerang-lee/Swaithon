@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import { isMockMode, mockLocation } from './devMock';
 
 export type ExplorationLocation = { latitude: number; longitude: number; name: string; radius: number };
 const storageKey = 'jangboso.exploration-location.v1';
 export async function readLocation(): Promise<ExplorationLocation | null> {
+  if (isMockMode()) return { ...mockLocation };
   const raw = await AsyncStorage.getItem(storageKey);
   if (!raw) return null;
   try {
@@ -16,8 +18,9 @@ export function isLocation(value: unknown): value is ExplorationLocation {
   const p = value as ExplorationLocation;
   return Number.isFinite(p.latitude) && Math.abs(p.latitude) <= 90 && Number.isFinite(p.longitude) && Math.abs(p.longitude) <= 180 && typeof p.name === 'string' && Number.isFinite(p.radius) && p.radius >= 1 && p.radius <= 5;
 }
-export async function saveLocation(value: ExplorationLocation) { await AsyncStorage.setItem(storageKey, JSON.stringify(value)); }
+export async function saveLocation(value: ExplorationLocation) { if (isMockMode()) { Object.assign(mockLocation, value); return; } await AsyncStorage.setItem(storageKey, JSON.stringify(value)); }
 export async function getCurrentLocation(): Promise<ExplorationLocation> {
+  if (isMockMode()) return { ...mockLocation };
   const permission = await Location.requestForegroundPermissionsAsync();
   if (!permission.granted) throw new Error('위치 권한이 필요해요. 기기 설정에서 허용하거나 주소를 검색해주세요.');
   const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });

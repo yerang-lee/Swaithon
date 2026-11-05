@@ -12,6 +12,7 @@ import { AppIcon, IconName } from '../components/ui/AppIcon';
 import { LocationSettings } from '../components/maps/LocationSettings';
 import { readLocation, saveLocation, getCurrentLocation, type ExplorationLocation } from '../services/explorationLocation';
 import { theme } from '../constants/theme';
+import { getAuthSession } from '../services/api/auth';
 
 const green = theme.colors.primary;
 const markets = [{ name: '용산용문시장', distance: '0.3km' }, { name: '공덕시장', distance: '1.2km' }, { name: '만리시장', distance: '1.5km' }, { name: '후암시장', distance: '1.8km' }];
@@ -26,6 +27,11 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(140, (Math.min(width, 600) - 60) / 2.1);
   const [active, setActive] = useState('홈');
+  const [isMerchant, setIsMerchant] = useState(false);
+  useFocusEffect(useCallback(() => {
+    const session = getAuthSession();
+    setIsMerchant(!!session && session.expiresAt > Date.now() && session.role === 'MERCHANT');
+  }, []));
   const { favorites, toggleFavorite } = useFavorites();
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
@@ -38,7 +44,6 @@ export default function HomeScreen() {
   return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <View style={styles.header}><Text style={styles.brand}>장보소</Text><View style={styles.headerActions}>
       <Pressable accessibilityRole="button" accessibilityLabel="알림" onPress={() => notice('알림')} style={styles.iconButton}><AppIcon name="bell" size={27} /></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="설정" onPress={() => notice('설정')} style={styles.iconButton}><AppIcon name="settings" size={27} /></Pressable>
     </View></View>
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <LocationButton location={location} error={locationError} onPress={() => { setLocationReady(false); setLocationOpen(true); }} />
@@ -46,6 +51,10 @@ export default function HomeScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/markets', params: location ? { selectedLocation: JSON.stringify(location) } : {} })} style={styles.shortcut}><AppIcon name="storefront" size={34} color={green} /><Text style={styles.shortcutLabel}>시장 찾기</Text></Pressable>
         <Pressable accessibilityRole="button" onPress={() => notice('마감 세일')} style={styles.shortcut}><AppIcon name="clock" size={34} color={green} /><Text style={styles.shortcutLabel}>마감 세일</Text></Pressable>
       </View>
+      {active === '홈' && isMerchant && <Pressable accessibilityRole="button" accessibilityLabel="상품 등록/수정하기" onPress={() => router.push('/voice')} style={({ pressed }) => [styles.merchantButton, pressed && styles.merchantButtonPressed]}>
+        <View style={styles.merchantPlusCircle}><View style={styles.merchantPlusHorizontal} /><View style={styles.merchantPlusVertical} /></View>
+        <Text style={styles.merchantButtonLabel}>상품 등록/수정하기</Text>
+      </Pressable>}
       {active === '홈' || active === '관심상품' ? <>
         <Text style={styles.sectionTitle}>{active === '홈' ? '나를 위한 추천 상품' : '관심상품'}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">{products.filter(item => active === '홈' || favorites.includes(item.id)).map(item => <View key={item.id} style={[styles.card, { width: cardWidth }]}>
@@ -78,6 +87,12 @@ const styles = StyleSheet.create({
   locationText: { flex: 1 }, locationCaption: { fontSize: 14, color: theme.colors.muted, marginBottom: 3 }, locationLine: { flexDirection: 'row', alignItems: 'center', gap: 8 }, neighborhood: { fontSize: 20, fontWeight: '700', color: '#333333' }, radius: { fontSize: 14, color: theme.colors.muted },
   shortcuts: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 30 }, shortcut: { flex: 1, borderRadius: theme.radii.card, backgroundColor: '#F5FAF7', borderWidth: 1, borderColor: '#E9EFEB', minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 5 }, shortcutLabel: { fontSize: 16, fontWeight: '600', color: '#424743' },
   sectionTitle: { fontSize: 23, fontWeight: '800', color: theme.colors.text, marginBottom: 16 }, carousel: { marginRight: -24 }, grid: { gap: 12, paddingRight: 24 },
+  merchantButton: { backgroundColor: green, borderRadius: 11, minHeight: 176, paddingHorizontal: 16, paddingVertical: 32, alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 32 },
+  merchantButtonPressed: { opacity: 0.85 },
+  merchantPlusCircle: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  merchantPlusHorizontal: { position: 'absolute', width: 22, height: 5, borderRadius: 3, backgroundColor: green },
+  merchantPlusVertical: { position: 'absolute', width: 5, height: 22, borderRadius: 3, backgroundColor: green },
+  merchantButtonLabel: { color: '#FFFFFF', fontSize: 28, fontWeight: '600', textAlign: 'center' },
   card: { flexShrink: 0, minWidth: 0, borderRadius: theme.radii.card, borderWidth: 1, borderColor: '#E8E8E8', padding: 11 }, productImage: { height: 116, backgroundColor: '#DCDCDC', borderRadius: theme.radii.small, marginBottom: 10 }, cardTitle: { fontSize: 17, fontWeight: '700', color: theme.colors.text, marginBottom: 3 }, meta: { fontSize: 14, color: theme.colors.muted, lineHeight: 21 }, priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }, price: { fontSize: 21, fontWeight: '700', color: theme.colors.text },
   placeSection: { marginTop: 34 }, placeCard: { minHeight: 184 }, placeImage: { height: 104, borderRadius: theme.radii.small, backgroundColor: '#DCDCDC', marginBottom: 10 },
   tabbar: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#F0F0F0', backgroundColor: '#FFFFFF', borderTopLeftRadius: theme.radii.card, borderTopRightRadius: theme.radii.card, paddingTop: 12, paddingBottom: 8, boxShadow: '0 -3px 14px rgba(0,0,0,0.04)' }, tab: { flex: 1, alignItems: 'center', gap: 5, paddingVertical: 4 }, tabLabel: { fontSize: 13, fontWeight: '600', color: theme.colors.text },

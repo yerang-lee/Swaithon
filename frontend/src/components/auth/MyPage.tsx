@@ -12,7 +12,7 @@ export function MyPage() {
   const lock = useRef(false);
   function goToLogin() {
     clearFavorites();
-    router.dismissAll();
+    if (router.canDismiss()) router.dismissAll();
     router.replace('/login');
   }
   async function handleLogout() {
