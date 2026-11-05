@@ -1,13 +1,13 @@
 import { ApiError, getJson } from './client';
 export type ProductDetail = {
-  product_id: number; store_id: number; store_name: string; market_id: number;
+  listing_id: string; product_id: string | number; store_id: string | number; store_name: string; market_id: string | number;
   product_name: string; price: number; sale_price: number | null; category: string;
   description: string; is_sold_out: boolean; is_on_sale: boolean; image_url: string; created_at: string;
 };
-export async function getProduct(id: number): Promise<ProductDetail> {
-  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('잘못된 상품 ID예요.');
+export async function getProduct(listingId: string): Promise<ProductDetail> {
+  if (typeof listingId !== 'string' || !listingId.trim()) throw new Error('잘못된 판매 게시물 ID예요.');
   let data: unknown;
-  try { data = await getJson(`/products/${id}`); }
+  try { data = await getJson(`/products/${encodeURIComponent(listingId)}`); }
   catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 400) throw new Error('잘못된 상품 ID예요.');
@@ -17,10 +17,12 @@ export async function getProduct(id: number): Promise<ProductDetail> {
     throw error;
   }
   const p = data as ProductDetail | null;
-  if (!p || p.product_id !== id || !Number.isInteger(p.store_id) || !Number.isInteger(p.market_id)
+  if (!p || p.listing_id !== listingId || !isIdentifier(p.product_id) || !isIdentifier(p.store_id) || !isIdentifier(p.market_id)
     || typeof p.product_name !== 'string' || typeof p.store_name !== 'string' || !Number.isFinite(p.price) || p.price < 0
     || !(p.sale_price === null || (Number.isFinite(p.sale_price) && p.sale_price >= 0))
     || typeof p.is_sold_out !== 'boolean' || typeof p.is_on_sale !== 'boolean' || typeof p.description !== 'string'
     || typeof p.image_url !== 'string' || typeof p.category !== 'string' || typeof p.created_at !== 'string') throw new Error('상품 응답 형식이 명세와 달라요.');
   return p;
 }
+
+function isIdentifier(value: unknown): value is string | number { return typeof value === 'string' ? value.trim().length > 0 : typeof value === 'number' && Number.isSafeInteger(value) && value > 0; }

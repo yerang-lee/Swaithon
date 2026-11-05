@@ -15,8 +15,8 @@ import { theme } from '../constants/theme';
 import { getAuthSession } from '../services/api/auth';
 
 const green = theme.colors.primary;
-const markets = [{ name: '용산용문시장', distance: '0.3km' }, { name: '공덕시장', distance: '1.2km' }, { name: '만리시장', distance: '1.5km' }, { name: '후암시장', distance: '1.8km' }];
-const stores = [{ name: '행복청과', distance: '0.2km' }, { name: '송이네과일가게', distance: '0.4km' }, { name: '싱싱야채', distance: '0.5km' }, { name: '우리과일', distance: '0.7km' }];
+const markets = [{ id: 1, name: '용산용문시장', distance: '0.3km' }, { id: 2, name: '공덕시장', distance: '1.2km' }, { id: 3, name: '만리시장', distance: '1.5km' }, { id: 4, name: '후암시장', distance: '1.8km' }];
+const stores = [{ id: 101, name: '행복청과', distance: '0.2km' }, { id: 102, name: '송이네과일가게', distance: '0.4km' }, { id: 103, name: '싱싱야채', distance: '0.5km' }, { id: 104, name: '우리과일', distance: '0.7km' }];
 const tabs: { label: string; icon: IconName }[] = [{ label: '홈', icon: 'home' }, { label: '관심상품', icon: 'heart-outline' }, { label: '예약', icon: 'receipt' }, { label: '마이', icon: 'account-outline' }];
 const notice = (title: string) => Alert.alert(title, '이 화면은 준비 중이에요.');
 
@@ -58,11 +58,11 @@ export default function HomeScreen() {
       {active === '홈' || active === '관심상품' ? <>
         <Text style={styles.sectionTitle}>{active === '홈' ? '나를 위한 추천 상품' : '관심상품'}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">{products.filter(item => active === '홈' || favorites.includes(item.id)).map(item => <View key={item.id} style={[styles.card, { width: cardWidth }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 상세`} onPress={() => router.push({ pathname: '/products/[productId]', params: { productId: item.id } })}><View style={styles.productImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={[styles.meta, { minHeight: 42 }]} numberOfLines={2}>{item.store} · {item.distance}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 상세`} onPress={() => router.push({ pathname: '/products/[listingId]', params: { listingId: item.id } })}><View style={styles.productImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={[styles.meta, { minHeight: 42 }]} numberOfLines={2}>{item.store} · {item.distance}</Text></Pressable>
           <View style={styles.priceRow}><Text style={styles.price}>{item.price}</Text><Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(item.id) }} hitSlop={10} onPress={() => toggleFavorite(item.id)}><AppIcon name={favorites.includes(item.id) ? "heart-filled" : "heart-outline"} size={27} color={favorites.includes(item.id) ? '#E84B4B' : '#777777'} /></Pressable></View>
         </View>)}</ScrollView>
         {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
-        {active === '홈' && <><PlaceSection title="내 주변 시장" items={markets} cardWidth={cardWidth} /><PlaceSection title="내 주변 가게" items={stores} cardWidth={cardWidth} /></>}
+        {active === '홈' && <><PlaceSection title="내 주변 시장" items={markets} cardWidth={cardWidth} kind="market" /><PlaceSection title="내 주변 가게" items={stores} cardWidth={cardWidth} kind="store" /></>}
       </> : active === '마이' ? <MyPage /> : <View style={styles.placeholder}><Text style={styles.sectionTitle}>예약 내역</Text><Text style={styles.meta}>화면을 준비하고 있어요.</Text></View>}
       <Text style={styles.demo}>현재 상품·시장·가게는 화면 확인용 예시입니다.</Text>
     </ScrollView>
@@ -73,8 +73,8 @@ export default function HomeScreen() {
   </SafeAreaView>;
 }
 
-function PlaceSection({ title, items, cardWidth }: { title: string; items: typeof markets; cardWidth: number }) {
-  return <View style={styles.placeSection}><Text style={styles.sectionTitle}>{title}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid}>{items.map(item => <Pressable key={item.name} accessibilityRole="button" onPress={() => notice(item.name)} style={[styles.card, styles.placeCard, { width: cardWidth }]}><View style={styles.placeImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={styles.meta}>{item.distance}</Text></Pressable>)}</ScrollView></View>;
+function PlaceSection({ title, items, cardWidth, kind }: { title: string; items: typeof markets; cardWidth: number; kind: 'market' | 'store' }) {
+  return <View style={styles.placeSection}><Text style={styles.sectionTitle}>{title}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid}>{items.map(item => <Pressable key={item.name} accessibilityRole="button" onPress={() => kind === 'market' ? router.push({ pathname: '/markets/[marketId]', params: { marketId: String(item.id), marketName: item.name, preview: 'true' } }) : router.push({ pathname: '/stores/[storeId]', params: { storeId: String(item.id), storeName: item.name, preview: 'true' } })} style={[styles.card, styles.placeCard, { width: cardWidth }]}><View style={styles.placeImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={styles.meta}>{item.distance}</Text></Pressable>)}</ScrollView></View>;
 }
 
 const styles = StyleSheet.create({

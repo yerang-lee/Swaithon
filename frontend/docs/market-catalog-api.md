@@ -49,7 +49,7 @@ GET /stores/{store_id}/products를 모든 가게에 반복 호출해 합치는 �
 
 GET /stores/{store_id}의 store_id/store_name/market_id/market_name/category/address/description/phone/image_url을 검증하고 이름과 주소를 표시합니다. GET /stores/{store_id}/products?page=1&size=10에서 products/total_count/page/size를 사용하며 더 보기로 다음 페이지를 조회합니다. 품절 필터를 생략해 품절 상품도 표시합니다.
 
-상품의 listing_id는 String이며 관심 목록에서도 판매 게시물 ID로 구분합니다. product_id는 표준 상품 종류 ID이므로 상세 이동 ID로 사용하지 않습니다. 기존 상품 상세/예약 화면은 과거 정수 ID 명세를 쓰고 있어 실제 게시물 상세 연결은 보류하고 안내합니다. 새 상품 상세·예약·찜 필드 명세가 필요합니다. 테스트 상품은 기존 미리보기 상세로 연결합니다.
+상품의 listing_id는 String이며 관심 목록에서도 판매 게시물 ID로 구분합니다. product_id는 표준 상품 종류 ID이므로 상세 이동 ID로 사용하지 않습니다. 상품 상세 화면은 문자열 listing_id로 연결했습니다. 상세 응답·예약·찜의 최신 필드 명세 확인은 필요합니다. 문자열 product_id를 기존 정수 예약 API에 보내지 않습니다. 테스트 상품은 기존 미리보기 상세로 연결합니다.
 
 is_sold_out=true인 상품은 회색 배경/글자와 품절 배지를 표시하며 상세 선택을 막습니다. is_on_sale=true이고 sale_price가 유효하며 기본 가격보다 낮으면 원가를 작은 취소선으로 표시하고 할인 가격을 강조합니다. 상품명 굵기는 500이며 상품 행에 가게명/거리를 반복하지 않습니다.
 

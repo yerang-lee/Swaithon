@@ -11,8 +11,8 @@ import { getProduct, type ProductDetail as ProductData } from '../../services/ap
 import { reserveProduct } from '../../services/api/reservations';
 
 export default function ProductDetail() {
-  const { productId } = useLocalSearchParams<{ productId: string }>();
-  const demo = demoProducts.find(value => value.id === productId);
+  const { listingId } = useLocalSearchParams<{ listingId: string }>();
+  const demo = demoProducts.find(value => value.id === listingId);
   const [data, setData] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(!demo);
   const [error, setError] = useState('');
@@ -26,13 +26,13 @@ export default function ProductDetail() {
     let alive = true; setData(null); setError(''); setImageError(false);
     if (demo) { setLoading(false); return; }
     setLoading(true);
-    void getProduct(Number(productId)).then(result => { if (alive) setData(result); })
+    void getProduct(listingId).then(result => { if (alive) setData(result); })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : '상품 조회 실패'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [productId, demo, retry]);
+  }, [listingId, demo, retry]);
   if (loading || (!demo && !data)) return <SafeAreaView style={styles.safe}><Pressable onPress={() => router.back()} style={styles.back}><AppIcon name="arrow-back" size={20} /></Pressable>{loading ? <ActivityIndicator color="#53B175" /> : <><Text style={styles.note}>{error}</Text><Pressable onPress={() => setRetry(v => v + 1)}><Text style={styles.note}>다시 시도</Text></Pressable></>}</SafeAreaView>;
-  const id = String(data?.product_id ?? demo!.id);
+  const id = data?.listing_id ?? demo!.id;
   const favorite = favorites.includes(id);
   const name = data?.product_name ?? demo!.name;
   const store = data?.store_name ?? demo!.store;
@@ -42,6 +42,7 @@ export default function ProductDetail() {
   async function confirm(date: Date, quantity: number, note: string) {
     if (lock.current) return;
     if (!data) { Alert.alert('미리보기 상품', '실제 상품 ID와 서버가 연결되면 예약할 수 있어요.'); return; }
+    if (typeof data.product_id !== 'number') { Alert.alert('예약 안내', '판매 게시물 기준 예약 명세를 확인 중이에요.'); return; }
     lock.current = true; setSubmitting(true);
     try {
       const reservation = await reserveProduct(data.product_id, quantity, date, note);
