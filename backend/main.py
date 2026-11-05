@@ -4,12 +4,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from database import test_connection, engine
-from models import Base, User
+from models import Base, User, Store, Product, Listing
 Base.metadata.create_all(bind=engine)
 
 from routers.auth import router as auth_router
 from routers.users import router as users_router
-
+from routers.markets import router as markets_router
+from routers.stores import router as stores_router
+from routers.products import router as products_router
+from fastapi.middleware.cors import CORSMiddleware
 
 # 서버 시작 시 DB 테이블 생성
 @asynccontextmanager
@@ -23,10 +26,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # 회원가입 및 인증 라우터 등록
 app.include_router(auth_router)
 app.include_router(users_router)
-
+app.include_router(markets_router)
+app.include_router(stores_router)
+app.include_router(products_router)
 
 @app.get("/")
 def home():

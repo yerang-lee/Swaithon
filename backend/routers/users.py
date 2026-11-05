@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from database import get_db
 from dependencies import get_current_user
-from models import User, Market, RefreshToken
+from models import User, Market, Store, RefreshToken
 from schemas import (
   UserMeResponse, UserUpdateRequest, UserUpdateResponse, 
   OnboardingRequest, OnboardingResponse, DeleteAccountResponse
@@ -106,6 +106,7 @@ def update_my_info(
         "name": user.name,
     }
 
+
 # 온보딩 정보 등록
 @router.patch(
     "/me/onboarding",
@@ -117,7 +118,6 @@ def register_onboarding(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # 1. 사용자 정보 조회
     user = (
         db.query(User)
         .filter(
@@ -133,36 +133,74 @@ def register_onboarding(
             detail="사용자 정보를 찾을 수 없습니다.",
         )
 
-    # 2. 이미 온보딩을 완료한 경우
     if user.onboarding_completed:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="이미 온보딩 정보가 등록된 사용자입니다.",
         )
 
-    # 3. 시장 ID가 입력된 경우 시장 존재 여부 확인
-    if request.market_id is not None:
+    market = None
+    store = None
+
+    # 상인 온보딩
+    if request.role == "MERCHANT":
+
+        # 시장 선택 정보 확인
+        if not all([
+            request.kakao_place_id,
+            request.market_name,
+            request.address,
+            request.latitude is not None,
+            request.longitude is not None,
+            request.store_name,
+        ]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="상인은 시장 선택 및 가게 정보를 입력해야 합니다.",
+            )
+
+        # 카카오 장소 ID로 기존 시장 조회
         market = (
             db.query(Market)
-            .filter(Market.market_id == request.market_id)
+            .filter(
+                Market.kakao_place_id == request.kakao_place_id
+            )
             .first()
         )
 
-        if not market:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="시장 정보를 찾을 수 없습니다.",
+        # 기존 시장이 없으면 시장 정보 저장
+        if market is None:
+            market = Market(
+                kakao_place_id=request.kakao_place_id,
+                market_name=request.market_name,
+                address=request.address,
+                latitude=request.latitude,
+                longitude=request.longitude,
             )
 
-    # 4. 온보딩 정보 등록
+            db.add(market)
+            db.flush()
+
+        # 선택한 시장에 상인의 개별 가게 등록
+        store = Store(
+            market_id=market.market_id,
+            user_id=user.user_id,
+            store_name=request.store_name,
+            description=request.description,
+        )
+
+        db.add(store)
+
+    # 고객 온보딩
     user.role = request.role
-    user.market_id = request.market_id
-    user.store_name = request.store_name
     user.onboarding_completed = True
 
-    # 5. DB 저장
     try:
         db.commit()
+
+        if store is not None:
+            db.refresh(store)
+
         db.refresh(user)
 
     except Exception:
@@ -172,14 +210,15 @@ def register_onboarding(
             detail="온보딩 정보 등록 중 오류가 발생했습니다.",
         )
 
-    # 6. 응답 반환
     return {
         "user_id": user.user_id,
         "role": user.role,
-        "market_id": user.market_id,
-        "store_name": user.store_name,
+        "market_id": market.market_id if market else None,
+        "store_id": store.store_id if store else None,
+        "store_name": store.store_name if store else None,
         "onboarding_completed": user.onboarding_completed,
     }
+
 
 # 회원 탈퇴
 @router.delete("/me", response_model=DeleteAccountResponse)
