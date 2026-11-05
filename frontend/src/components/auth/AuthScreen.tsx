@@ -94,15 +94,15 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
 
   return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scroll, signup && styles.signupScroll]} keyboardShouldPersistTaps="handled">
         <View style={[styles.content, signup ? styles.signupContent : styles.loginContent]}>
           {signup ? <Text accessibilityRole="header" style={styles.heading}>회원가입</Text> : <View style={styles.logo}><BrandLogo /></View>}
-          {signup && <AuthField label="닉네임" value={nickname} onChangeText={setNickname} returnKeyType="next" />}
-          <AuthField label="전화번호" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" textContentType="telephoneNumber" autoComplete="tel" returnKeyType="next" />
-          <AuthField label="비밀번호" value={password} onChangeText={setPassword} password textContentType={signup ? 'newPassword' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} returnKeyType={signup ? 'next' : 'done'} onSubmitEditing={signup ? undefined : submit} />
-          {signup ? <AuthField label="비밀번호 확인" value={confirmation} onChangeText={setConfirmation} password valid={confirmation.length > 0 && confirmation === password} textContentType="newPassword" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
+          {signup && <AuthField compact={signup} label="닉네임" value={nickname} onChangeText={setNickname} returnKeyType="next" />}
+          <AuthField compact={signup} label="전화번호" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" textContentType="telephoneNumber" autoComplete="tel" returnKeyType="next" />
+          <AuthField compact={signup} label="비밀번호" value={password} onChangeText={setPassword} password textContentType={signup ? 'newPassword' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} returnKeyType={signup ? 'next' : 'done'} onSubmitEditing={signup ? undefined : submit} />
+          {signup ? <AuthField compact={signup} label="비밀번호 확인" value={confirmation} onChangeText={setConfirmation} password valid={confirmation.length > 0 && confirmation === password} textContentType="newPassword" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
             : <Pressable accessibilityRole="button" onPress={() => Alert.alert('비밀번호 찾기', '비밀번호 재설정 기능은 인증 서버 연결 후 제공됩니다.')} style={styles.forgot}><Text style={styles.smallMuted}>비밀번호를 잊어버리셨나요?</Text></Pressable>}
-          {signup && <Text style={styles.policy}>회원가입 시 <Text accessibilityRole="link" onPress={() => showPolicy('이용약관')} style={styles.green}>이용약관</Text> 및 <Text accessibilityRole="link" onPress={() => showPolicy('개인정보 처리방침')} style={styles.green}>개인정보 처리방침</Text>에 동의한 것으로 간주됩니다.</Text>}
+          {signup && <Text style={[styles.policy, styles.signupPolicy]}>회원가입 시 <Text accessibilityRole="link" onPress={() => showPolicy('이용약관')} style={styles.green}>이용약관</Text> 및 <Text accessibilityRole="link" onPress={() => showPolicy('개인정보 처리방침')} style={styles.green}>개인정보 처리방침</Text>에 동의한 것으로 간주됩니다.</Text>}
           {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           <PrimaryButton title={signup ? '다음' : '로그인'} onPress={submit} loading={loading} />
           {!signup && <View style={styles.signupLink}><Text style={styles.smallMuted}>아직 계정이 없으신가요? </Text><Pressable accessibilityRole="link" onPress={() => router.push('/signup')} hitSlop={8}><Text style={[styles.smallMuted, styles.green]}>회원가입</Text></Pressable></View>}
@@ -112,7 +112,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
             catch (e) { setError(e instanceof Error ? e.message : '테스트 입장에 실패했어요.'); }
             finally { setLoading(false); }
           }}><Text style={[styles.smallMuted, styles.green]}>{role === 'MERCHANT' ? '상인으로 테스트' : '고객으로 테스트'}</Text></Pressable>)}</View>}
-          {signup && <Pressable accessibilityRole="link" accessibilityLabel="로그인으로 돌아가기" onPress={() => router.replace('/login')} style={styles.back}><Text style={styles.smallMuted}>로그인으로 돌아가기</Text></Pressable>}
+          {signup && <Pressable accessibilityRole="link" accessibilityLabel="로그인으로 돌아가기" onPress={() => router.replace('/login')} style={[styles.back, styles.signupBack]}><Text style={styles.smallMuted}>로그인으로 돌아가기</Text></Pressable>}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -123,16 +123,19 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   safe: { flex: 1, backgroundColor: theme.colors.background },
   scroll: { flexGrow: 1 },
+  signupScroll: { justifyContent: 'center', paddingVertical: 20 },
   content: { width: '100%', maxWidth: 440, alignSelf: 'center', paddingHorizontal: 24, paddingBottom: 36 },
   loginContent: { paddingTop: 76 },
-  signupContent: { paddingTop: 126 },
+  signupContent: { paddingTop: 0, paddingBottom: 0 },
   logo: { marginBottom: 76 },
-  heading: { color: '#000000', fontSize: 28, fontWeight: '700', marginBottom: 48 },
+  heading: { color: '#000000', fontSize: 28, fontWeight: '700', marginBottom: 24 },
   forgot: { alignSelf: 'flex-end', marginTop: -18, marginBottom: 32, paddingVertical: 4 },
   smallMuted: { color: theme.colors.muted, fontSize: 15, fontWeight: '600' },
   green: { color: theme.colors.primary, fontWeight: '600' },
   policy: { color: theme.colors.muted, fontSize: 15, lineHeight: 20, marginTop: 10, marginBottom: 28 },
   signupLink: { flexDirection: 'row', justifyContent: 'center', marginTop: 30, flexWrap: 'wrap' },
+  signupPolicy: { marginTop: 4, marginBottom: 20 },
+  signupBack: { marginTop: 12 },
   back: { alignSelf: 'center', marginTop: 24, padding: 8 },
   error: { color: theme.colors.error, fontSize: 15, marginBottom: 14 },
 });

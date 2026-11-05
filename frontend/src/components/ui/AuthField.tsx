@@ -4,12 +4,12 @@ import type { TextInputProps } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { theme } from '../../constants/theme';
 
-type Props = TextInputProps & { label: string; password?: boolean; valid?: boolean };
+type Props = TextInputProps & { label: string; password?: boolean; valid?: boolean; compact?: boolean; labelColor?: string };
 
-export function AuthField({ label, password, valid, ...props }: Props) {
+export function AuthField({ label, password, valid, compact = false, labelColor, ...props }: Props) {
   const [visible, setVisible] = useState(false);
-  return <View style={styles.field}>
-    <Text style={styles.label}>{label}</Text>
+  return <View style={[styles.field, compact && styles.compactField]}>
+    <Text style={[styles.label, labelColor ? { color: labelColor } : undefined]}>{label}</Text>
     <View style={styles.row}>
       <TextInput {...props} accessibilityLabel={label} autoCapitalize="none" autoCorrect={false}
         secureTextEntry={password && !visible} style={styles.input} placeholderTextColor="#B0B0B0" />
@@ -23,6 +23,7 @@ export function AuthField({ label, password, valid, ...props }: Props) {
 
 const styles = StyleSheet.create({
   field: { marginBottom: 32 },
+  compactField: { marginBottom: 20 },
   label: { color: theme.colors.muted, fontSize: 18, fontWeight: '600', marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border, minHeight: 44 },
   input: { flex: 1, minWidth: 0, fontSize: 20, color: theme.colors.text, paddingVertical: 10, paddingRight: 12 },
