@@ -187,3 +187,70 @@ def test_api_explains_create_to_update_routing(svc):
     done=client.post(c['execution_endpoint'],json=body).json()
     assert done['status']=='SUCCEEDED'
     assert done['execution_endpoint'] is None
+
+
+def test_audio_followup_uses_existing_command(svc):
+    from unittest.mock import Mock
+    c=svc.analyze('사과 가격 바꿉니다','u','s')
+    svc.parser=Mock()
+    svc.parser.parse.return_value=Command(intent='PRODUCT_UPDATE',product_name='사과',price=6000)
+    stt=Mock()
+    stt.transcribe.return_value='6천 원'
+    app=FastAPI()
+    app.include_router(build_router(svc,lambda:Merchant('u','s'),stt))
+    client=TestClient(app)
+    response=client.post('/voice/commands/'+c['command_id']+'/answer-audio',
+        files={'file':('answer.m4a',b'fake-audio','audio/mp4')})
+    assert response.status_code==200
+    reply=response.json()
+    assert reply['command_id']==c['command_id']
+    assert reply['transcript']=='6천 원'
+    assert reply['status']=='NEEDS_CONFIRMATION'
+    assert reply['preview']['after']['price']==6000
+    assert reply['execution_endpoint']=='/voice/product-update'
+    svc.parser.parse.assert_called_once_with(['사과 가격 바꿉니다','6천 원'])
+    assert svc.products('s')[0]['price']==5000
+    with svc.store.transaction() as state:
+        assert len(state['commands'])==1
+    assert client.post(reply['execution_endpoint'],json={'command_id':c['command_id'],
+        'confirmed':True}).json()['status']=='SUCCEEDED'
+
+@pytest.mark.parametrize('scenario',['foreign','expired','cancelled','confirmed','invalid_audio','stt_failure','changed'])
+def test_audio_followup_rejects_invalid_requests(svc,scenario):
+    from unittest.mock import Mock
+    c=svc.analyze('사과 가격 바꿉니다','u','s')
+    actor=Merchant('u','s')
+    stt=Mock()
+    stt.transcribe.return_value='6천 원'
+    expected=409
+    if scenario=='foreign':
+        actor=Merchant('other','s')
+        expected=404
+    elif scenario=='expired':
+        svc.clock=lambda:NOW+timedelta(minutes=11)
+    elif scenario=='cancelled':
+        svc.cancel(c['command_id'],'u','s')
+    elif scenario=='confirmed':
+        c=svc.analyze('사과 가격 6천 원으로 바꿔','u','s')
+    elif scenario=='invalid_audio':
+        stt.transcribe.side_effect=ValueError('음성을 확인하지 못했습니다.')
+        expected=422
+    elif scenario=='stt_failure':
+        stt.transcribe.side_effect=RuntimeError('private-error')
+        expected=503
+    elif scenario=='changed':
+        def changed(*args):
+            with svc.store.transaction() as state:
+                state['commands'][c['command_id']]['revision']+=1
+            return '6천 원'
+        stt.transcribe.side_effect=changed
+    app=FastAPI()
+    app.include_router(build_router(svc,lambda:actor,stt))
+    client=TestClient(app)
+    result=client.post('/voice/commands/'+c['command_id']+'/answer-audio',
+        files={'file':('answer.wav',b'fake','audio/wav')})
+    assert result.status_code==expected
+    assert 'private-error' not in result.text
+    if scenario in ('foreign','expired','cancelled','confirmed'):
+        stt.transcribe.assert_not_called()
+    assert svc.products('s')[0]['price']==5000

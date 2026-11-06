@@ -35,8 +35,7 @@ def build_router(service, merchant_dependency, stt=None):
     def analyze(body:AnalyzeRequest, actor:Merchant=Depends(merchant_dependency)):
         return invoke(service.analyze,body.text,actor.user_id,actor.store_id)
 
-    @router.post('/voice/analyze-audio')
-    def audio(file:UploadFile=File(...), actor:Merchant=Depends(merchant_dependency)):
+    def transcribe_upload(file:UploadFile):
         try:
             data=file.file.read(10*1024*1024+1)
         finally:
@@ -51,7 +50,26 @@ def build_router(service, merchant_dependency, stt=None):
             raise HTTPException(422,str(e)) from None
         except Exception:
             raise HTTPException(503,'음성 인식에 실패했습니다. FFmpeg와 Whisper 설정을 확인하세요.') from None
+        return text
+
+    @router.post('/voice/analyze-audio')
+    def audio(file:UploadFile=File(...), actor:Merchant=Depends(merchant_dependency)):
+        text=transcribe_upload(file)
         result=invoke(service.analyze,text,actor.user_id,actor.store_id)
+        return {'transcript':text,**result}
+
+    @router.post('/voice/commands/{command_id}/answer-audio')
+    def answer_audio(command_id:str, file:UploadFile=File(...),
+                     actor:Merchant=Depends(merchant_dependency)):
+        # Check ownership/state before spending STT resources; check again after STT.
+        try:
+            revision=invoke(service.check_answerable,command_id,actor.user_id,actor.store_id)
+        except Exception:
+            file.file.close()
+            raise
+        text=transcribe_upload(file)
+        result=invoke(service.answer,command_id,actor.user_id,actor.store_id,
+                      text=text,expected_revision=revision)
         return {'transcript':text,**result}
 
     @router.post('/voice/commands/{command_id}/answer')

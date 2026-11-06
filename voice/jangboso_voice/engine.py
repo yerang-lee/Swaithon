@@ -63,11 +63,20 @@ class VoiceService:
             state['commands'][c['command_id']] = c
             return deepcopy(c)
 
-    def answer(self, cid, user, shop, text='', listing_id=None):
+    def check_answerable(self, cid, user, shop):
+        with self.store.transaction() as state:
+            c = self._owned(state, cid, user, shop)
+            if c['status'] not in ('NEEDS_INPUT', 'NEEDS_SELECTION'):
+                raise VoiceError('INVALID_STATE', '현재 명령에는 추가 답변을 할 수 없습니다.')
+            return c['revision']
+
+    def answer(self, cid, user, shop, text='', listing_id=None, expected_revision=None):
         with self.store.transaction() as state:
             c = deepcopy(self._owned(state, cid, user, shop))
             if c['status'] not in ('NEEDS_INPUT', 'NEEDS_SELECTION'):
                 raise VoiceError('INVALID_STATE', '현재 명령에는 추가 답변을 할 수 없습니다.')
+            if expected_revision is not None and c['revision'] != expected_revision:
+                raise VoiceError('STALE_COMMAND', '명령이 변경되었습니다. 다시 확인해 주세요.')
             revision = c['revision']
         if not text.strip() and not listing_id:
             raise VoiceError('EMPTY_ANSWER', '답변 또는 상품을 선택해 주세요.', 422)

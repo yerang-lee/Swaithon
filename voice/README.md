@@ -79,7 +79,7 @@ Google SDK의 generate_content + response_schema를 사용합니다. 모델 ID�
 
 상품명은 공백 제거 후 정확히 비교합니다. 품종/등급/원산지가 다른 상품은 정식 식별 필드 합의가 필요합니다.
 삭제/품절한 상품의 재판매, 판매 단위 자체의 수정, 복수 작업은 v1 범위 밖입니다.
-음성 후속 답변은 현재 앱에서 STT 텍스트로 변환하여 answer API로 보내거나 직접 입력합니다.
+음성 후속 답변은 POST /voice/commands/{command_id}/answer-audio에 녹음 파일을 보내세요. 기존 명령에 이어집니다.
 스토리지 인터페이스를 운영 DB에 맞게 구현하기 전에는 데모 앱을 운영 서비스로 배포하지 마세요.
 
 참고: https://ai.google.dev/gemini-api/docs/generate-content/structured-output
