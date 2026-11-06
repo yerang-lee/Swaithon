@@ -16,7 +16,7 @@ NOW=datetime.fromisoformat('2026-11-06T12:00:00+09:00')
 
 def product(id,name,quantity,unit,price,shop='s'):
     return dict(listing_id=id,store_id=shop,product_name=name,price=price,sale_quantity=quantity,
-        sale_unit=unit,stock_quantity=10,status='ACTIVE',sale=None,deleted_at=None,version=1)
+        sale_unit=unit,stock_quantity=10,is_sold_out=False,sale=None,deleted_at=None,version=1)
 
 @pytest.fixture
 def svc(tmp_path):
@@ -53,7 +53,8 @@ def test_thirty_contract_cases(svc,case):
                 assert state['products']['apple']['deleted_at'] is not None
                 assert state['products']['apple']['price']==5000
             if result['intent']=='SOLD_OUT':
-                assert actual['status']=='SOLD_OUT'
+                assert actual['is_sold_out'] is True
+                assert 'status' not in actual
             if result['intent']=='SALE_DELETE':
                 assert actual['sale'] is None
             if case['id']==27:
@@ -347,3 +348,22 @@ def test_backend_sale_price_schemas():
     for schema in (module.ProductDetailResponse,module.ProductListItem,module.StoreProductListItem):
         assert 'sale_price' in schema.model_fields
         assert 'discount_price' not in schema.model_fields
+
+def test_sold_out_uses_listing_boolean_field(svc):
+    c=svc.analyze('딸기 다 팔렸어','u','s')
+    done=svc.execute(c['command_id'],'u','s',True,{'SOLD_OUT'})
+    assert done['intent']=='SOLD_OUT'
+    assert done['result']['is_sold_out'] is True
+    assert 'status' not in done['result']
+    with svc.store.transaction() as state:
+        assert state['products']['berry']['is_sold_out'] is True
+        assert 'status' not in state['products']['berry']
+
+def test_legacy_demo_status_is_migrated_to_is_sold_out(svc):
+    with svc.store.transaction() as state:
+        product=state['products']['apple']
+        product.pop('is_sold_out')
+        product['status']='SOLD_OUT'
+    assert next(p for p in svc.products('s') if p['listing_id']=='apple')['is_sold_out'] is True
+    with svc.store.transaction() as state:
+        assert 'status' not in state['products']['apple']

@@ -238,6 +238,8 @@ VoiceIntent = Literal[
     "PRODUCT_UPDATE",
     "PRODUCT_DELETE",
     "PRODUCT_SOLD_OUT",
+    "SOLD_OUT",
+    "SALE_CREATE",
     "SALE_DELETE",
 ]
 

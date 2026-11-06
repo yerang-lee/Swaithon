@@ -17,6 +17,10 @@ class SQLiteStore:
         try:
             db.execute('BEGIN IMMEDIATE')
             state = json.loads(db.execute('SELECT data FROM voice_demo_state WHERE id=1').fetchone()[0])
+            for product in state['products'].values():
+                if 'is_sold_out' not in product:
+                    product['is_sold_out'] = product.get('status') == 'SOLD_OUT'
+                product.pop('status', None)
             for command in state['commands'].values():
                 parsed = command.get('parsed', {})
                 if 'discount_price' in parsed:

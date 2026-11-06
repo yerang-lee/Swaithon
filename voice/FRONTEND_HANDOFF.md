@@ -182,3 +182,10 @@ WRONG_ENDPOINT는 최근 execution_endpoint를 확인하고, EXPIRED/STALE_COMMA
 - 백엔드는 기존 listings 열이 discount_price라면 서버 재시작 전에 backend/migrations/20261106_rename_sale_price.sql을 개발 DB부터 검증 후 적용해야 합니다. 실제 DB에는 아직 실행하지 않았습니다.
 - 신규 DB는 변경된 모델로 sale_price 열을 생성합니다. create_all만으로 기존 열 이름이 변경되지는 않습니다.
 - 이전에 저장된 로컬 명령과 백엔드 분석 JSON은 읽을 때 이전 키를 새 키로 대응하여 금액이 누락되지 않도록 했습니다. 기존 분석 이력 JSON 자체를 일괄 변경한 것은 아닙니다.
+
+## 기존 DB 필드 기준 상품 표시
+
+- 상품 기본 가격은 `price`, 할인 가격은 `sale_price`, 품절 여부는 `is_sold_out`을 사용합니다.
+- 음성 명령의 `status`는 분석·확인·성공 같은 명령 화면 상태입니다. 품절 표시로 사용하지 않습니다.
+- `intent: "SOLD_OUT"` 실행이 성공하면 상품을 다시 조회해 `is_sold_out: true`를 확인하고, 소비자 상품 목록에서는 해당 항목을 제외합니다.
+- 새 요청·응답에는 `discount_price`나 문자열 상품 상태 `SOLD_OUT` 필드를 사용하지 않습니다.

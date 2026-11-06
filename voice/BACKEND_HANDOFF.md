@@ -209,3 +209,16 @@ STT 전에 소유권/상태를 검사하고 STT 이후 revision 변경 및 만�
 - 백엔드는 기존 listings 열이 discount_price라면 서버 재시작 전에 backend/migrations/20261106_rename_sale_price.sql을 개발 DB부터 검증 후 적용해야 합니다. 실제 DB에는 아직 실행하지 않았습니다.
 - 신규 DB는 변경된 모델로 sale_price 열을 생성합니다. create_all만으로 기존 열 이름이 변경되지는 않습니다.
 - 이전에 저장된 로컬 명령과 백엔드 분석 JSON은 읽을 때 이전 키를 새 키로 대응하여 금액이 누락되지 않도록 했습니다. 기존 분석 이력 JSON 자체를 일괄 변경한 것은 아닙니다.
+
+## 기존 DB 필드 매핑
+
+|음성 AI 명령 데이터|기존 DB의 저장 위치|처리 규칙|
+|---|---|---|
+|`product_name`|`Product.product_name`|같은 상점 안에서 상품 후보를 찾을 때 사용|
+|`price`|`Listing.price`|기본 판매 가격|
+|`sale_price`|`Listing.sale_price`|고정 할인 가격 또는 할인율로 계산한 결과 가격|
+|`SOLD_OUT` 의도|`Listing.is_sold_out = True`|`Listing.status`나 문자열 `SOLD_OUT` 열은 만들지 않음|
+|검증된 상점 ID|`Listing.store_id`|클라이언트 값이 아닌 로그인 사용자 소유권으로 서버가 결정|
+
+음성 명령의 최상위 `status`는 `NEEDS_CONFIRMATION`, `SUCCEEDED` 같은 **명령 처리 상태**입니다. `Listing`의 품절 상태가 아닙니다.
+품절 처리 뒤에는 `is_sold_out=True`로 저장하며, 소비자 목록은 이 값이 `False`인 항목만 노출합니다.

@@ -178,8 +178,9 @@ def apply_voice_analysis(
 
             db.delete(listing)
 
-        # 품절 처리
-        elif intent == "PRODUCT_SOLD_OUT":
+        # Voice engine SOLD_OUT and the legacy PRODUCT_SOLD_OUT both map to
+        # Listing.is_sold_out, which is the existing DB availability field.
+        elif intent in ("SOLD_OUT", "PRODUCT_SOLD_OUT"):
             if not listing:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -187,6 +188,27 @@ def apply_voice_analysis(
                 )
 
             listing.is_sold_out = True
+
+        # 할인 등록: Listing.sale_price stores either the spoken fixed price
+        # or the price calculated from discount_rate.
+        elif intent == "SALE_CREATE":
+            if not listing:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="할인할 상품이 없습니다.",
+                )
+
+            if result.get("sale_price") is not None:
+                listing.sale_price = result["sale_price"]
+            elif result.get("discount_rate") is not None:
+                listing.sale_price = int(
+                    listing.price * (1 - result["discount_rate"] / 100)
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="할인율 또는 할인 가격이 필요합니다.",
+                )
 
         # 할인 등록 취소
         elif intent == "SALE_DELETE":
