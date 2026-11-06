@@ -14,7 +14,7 @@ class Command(BaseModel):
     sale_unit: Literal['kg', 'g', '개', '봉지', '상자', '팩', '단', '마리', '근'] | None = None
     stock_quantity: int | None = Field(default=None, strict=True, ge=0, le=1000000)
     discount_rate: int | None = Field(default=None, strict=True, gt=0, lt=100)
-    discount_price: int | None = Field(default=None, strict=True, gt=0)
+    sale_price: int | None = Field(default=None, strict=True, gt=0)
     # Only an explicitly resolved, offset-bearing timestamp. Ambiguous times stay null.
     sale_ends_at: str | None = None
     sale_end_expression: str | None = Field(default=None, max_length=200,

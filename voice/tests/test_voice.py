@@ -16,7 +16,7 @@ NOW=datetime.fromisoformat('2026-11-06T12:00:00+09:00')
 
 def product(id,name,quantity,unit,price,shop='s'):
     return dict(listing_id=id,store_id=shop,product_name=name,price=price,sale_quantity=quantity,
-        sale_unit=unit,stock_quantity=10,status='ACTIVE',sale=None,deleted_at=None,version=1)
+        sale_unit=unit,stock_quantity=10,is_sold_out=False,sale=None,deleted_at=None,version=1)
 
 @pytest.fixture
 def svc(tmp_path):
@@ -53,7 +53,8 @@ def test_thirty_contract_cases(svc,case):
                 assert state['products']['apple']['deleted_at'] is not None
                 assert state['products']['apple']['price']==5000
             if result['intent']=='SOLD_OUT':
-                assert actual['status']=='SOLD_OUT'
+                assert actual['is_sold_out'] is True
+                assert 'status' not in actual
             if result['intent']=='SALE_DELETE':
                 assert actual['sale'] is None
             if case['id']==27:
@@ -256,7 +257,7 @@ def test_audio_followup_rejects_invalid_requests(svc,scenario):
     assert svc.products('s')[0]['price']==5000
 
 
-@pytest.mark.parametrize('sale_fields,discounted',[({'discount_rate':20},8000),({'discount_price':7000},7000)])
+@pytest.mark.parametrize('sale_fields,discounted',[({'discount_rate':20},8000),({'sale_price':7000},7000)])
 def test_sale_without_end_is_confirmed_and_persisted(svc,sale_fields,discounted):
     from unittest.mock import Mock
     svc.parser=Mock()
@@ -310,3 +311,59 @@ def test_unresolved_spoken_time_is_not_silently_open_ended(svc):
     c=svc.analyze('딸기 3시까지 20퍼센트 할인','u','s')
     assert c['status']=='NEEDS_INPUT'
     assert c['missing_fields']==['sale_ends_at']
+
+
+def test_sale_price_is_canonical_field():
+    command=Command(intent='SALE_CREATE',product_name='사과',sale_price=3000)
+    assert command.model_dump()['sale_price']==3000
+    assert 'discount_price' not in command.model_dump()
+    assert 'sale_price' in Command.model_json_schema()['properties']
+    with pytest.raises(ValueError):
+        Command(intent='SALE_CREATE',discount_price=3000)
+
+def test_old_saved_command_sale_price_is_preserved(svc):
+    from unittest.mock import Mock
+    svc.parser=Mock()
+    svc.parser.parse.return_value=Command(intent='SALE_CREATE',product_name='딸기',sale_price=7000)
+    c=svc.analyze('딸기 7천 원 할인','u','s')
+    with svc.store.transaction() as state:
+        d=state['commands'][c['command_id']]['parsed']
+        d['discount_price']=d.pop('sale_price')
+    done=svc.execute(c['command_id'],'u','s',True,{'SALE_CREATE'})
+    assert done['parsed']['sale_price']==7000
+    assert 'discount_price' not in done['parsed']
+    assert done['result']['effective_price']==7000
+
+def test_backend_sale_price_schemas():
+    import importlib.util
+    location=Path(__file__).resolve().parents[2]/'backend/schemas.py'
+    if not location.exists():
+        pytest.skip('Standalone Colab bundle does not contain backend sources')
+    spec=importlib.util.spec_from_file_location('backend_schema_field_test',location)
+    module=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    payload=module.VoiceAnalysisCreate(intent='PRODUCT_UPDATE',product_name='사과',sale_price=3000)
+    assert payload.model_dump()['sale_price']==3000
+    assert 'discount_price' not in payload.model_dump()
+    for schema in (module.ProductDetailResponse,module.ProductListItem,module.StoreProductListItem):
+        assert 'sale_price' in schema.model_fields
+        assert 'discount_price' not in schema.model_fields
+
+def test_sold_out_uses_listing_boolean_field(svc):
+    c=svc.analyze('딸기 다 팔렸어','u','s')
+    done=svc.execute(c['command_id'],'u','s',True,{'SOLD_OUT'})
+    assert done['intent']=='SOLD_OUT'
+    assert done['result']['is_sold_out'] is True
+    assert 'status' not in done['result']
+    with svc.store.transaction() as state:
+        assert state['products']['berry']['is_sold_out'] is True
+        assert 'status' not in state['products']['berry']
+
+def test_legacy_demo_status_is_migrated_to_is_sold_out(svc):
+    with svc.store.transaction() as state:
+        product=state['products']['apple']
+        product.pop('is_sold_out')
+        product['status']='SOLD_OUT'
+    assert next(p for p in svc.products('s') if p['listing_id']=='apple')['is_sold_out'] is True
+    with svc.store.transaction() as state:
+        assert 'status' not in state['products']['apple']

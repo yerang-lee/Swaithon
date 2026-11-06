@@ -182,6 +182,7 @@ class ProductDetailResponse(BaseModel):
     image_url: str | None
     price: int
     sale_price: int | None
+    sale_price: int | None
     is_sold_out: bool
     store_id: int
     store_name: str
@@ -261,6 +262,8 @@ VoiceIntent = Literal[
     "PRODUCT_UPDATE",
     "PRODUCT_DELETE",
     "PRODUCT_SOLD_OUT",
+    "SOLD_OUT",
+    "SALE_CREATE",
     "SALE_DELETE",
 ]
 

@@ -37,6 +37,14 @@ def sale_is_active(sale, now):
     # A null end is explicitly open-ended, not an invalid/missing timestamp.
     return bool(sale) and (sale.get('ends_at') is None or timestamp(sale['ends_at']) > now)
 
+def is_sold_out(product):
+    """Listing.is_sold_out is the canonical product availability field.
+
+    The fallback only reads pre-rename local demo data; new results never expose
+    the legacy listing-level status value.
+    """
+    return bool(product.get('is_sold_out', product.get('status') == 'SOLD_OUT'))
+
 def effective_price(product, now):
     sale = product.get('sale')
     if not sale_is_active(sale, now):
@@ -155,7 +163,7 @@ class VoiceService:
             self._ask(c, ['price'])
             return
         if c['intent']=='SALE_CREATE':
-            if d['discount_rate'] is None and d['discount_price'] is None:
+            if d['discount_rate'] is None and d['sale_price'] is None:
                 missing.append('discount')
             if d['sale_ends_at'] is None and d.get('sale_end_expression'):
                 c['message']='말씀하신 종료 시각의 날짜와 오전/오후를 확인해 주세요.'
@@ -168,13 +176,13 @@ class VoiceService:
             if missing:
                 self._ask(c, missing)
                 return
-            if p['status']!='ACTIVE':
+            if is_sold_out(p):
                 c['message']='품절 상품에는 할인을 설정할 수 없습니다.'
                 return
-            if d['discount_price'] is not None and d['discount_rate'] is not None:
+            if d['sale_price'] is not None and d['discount_rate'] is not None:
                 c['message']='할인율 또는 할인 가격 중 하나만 말씀해 주세요.'
                 return
-            if d['discount_price'] is not None and d['discount_price']>=p['price']:
+            if d['sale_price'] is not None and d['sale_price']>=p['price']:
                 c['message']='할인 가격은 기본 가격보다 낮아야 합니다.'
                 return
         if c['intent']=='PRODUCT_UPDATE' and p and d['price'] is not None:
@@ -205,7 +213,7 @@ class VoiceService:
         if p is None:
             return dict(listing_id='pending' if preview else str(uuid4()), store_id=c['store_id'],
                 product_name=d['product_name'].strip(), price=d['price'], sale_quantity=d['sale_quantity'],
-                sale_unit=d['sale_unit'], stock_quantity=d['stock_quantity'], status='ACTIVE',
+                sale_unit=d['sale_unit'], stock_quantity=d['stock_quantity'], is_sold_out=False,
                 sale=None, deleted_at=None, version=1)
         p=deepcopy(p)
         if intent=='PRODUCT_UPDATE':
@@ -215,11 +223,13 @@ class VoiceService:
         elif intent=='PRODUCT_DELETE':
             p['deleted_at']=self.clock().isoformat()
         elif intent=='SOLD_OUT':
-            p['status']='SOLD_OUT'
+            # Intent SOLD_OUT maps to Listing.is_sold_out=True in the real DB.
+            p['is_sold_out']=True
+            p.pop('status', None)
         elif intent=='SALE_DELETE':
             p['sale']=None
         elif intent=='SALE_CREATE':
-            p['sale']={'rate':d['discount_rate'], 'price':d['discount_price'],
+            p['sale']={'rate':d['discount_rate'], 'price':d['sale_price'],
                        'starts_at':self.clock().isoformat(), 'ends_at':d['sale_ends_at']}
         p['version']+=1
         return p
