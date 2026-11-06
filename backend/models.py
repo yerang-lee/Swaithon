@@ -350,3 +350,49 @@ class VoiceAnalysis(Base):
         DateTime,
         nullable=True,
     )
+
+    # 판매 묶음 정보
+    sale_quantity: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    sale_unit: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    # 남은 판매 묶음 재고
+    stock_quantity: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    # 동시 수정 감지용 버전
+    version: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        nullable=False,
+    )
+
+    # 논리 삭제
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    # 할인 정보
+    sale_rate: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    sale_starts_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    sale_ends_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
