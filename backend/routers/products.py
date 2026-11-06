@@ -22,22 +22,18 @@ def get_products(
     query = (
         db.query(Listing, Product, Store)
         .join(Product, Listing.product_id == Product.product_id)
-        .join(Store, Product.store_id == Store.store_id)
+        .join(Store, Listing.store_id == Store.store_id)
         .filter(Store.market_id == market_id)
     )
 
-    # 카테고리 필터
     if category_id is not None:
         query = query.filter(Product.category_id == category_id)
 
-    # 상품명 검색
     if keyword:
         query = query.filter(Product.product_name.ilike(f"%{keyword}%"))
 
-    # 필터 적용 후 전체 개수
     total_count = query.count()
 
-    # 최신 판매 게시물 순으로 정렬 및 페이지네이션
     results = (
         query
         .order_by(Listing.created_at.desc(), Listing.listing_id.desc())
@@ -79,7 +75,7 @@ def get_product_detail(
     result = (
         db.query(Listing, Product, Store, Market)
         .join(Product, Listing.product_id == Product.product_id)
-        .join(Store, Product.store_id == Store.store_id)
+        .join(Store, Listing.store_id == Store.store_id)
         .join(Market, Store.market_id == Market.market_id)
         .filter(Listing.listing_id == listing_id)
         .first()
