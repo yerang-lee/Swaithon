@@ -254,3 +254,59 @@ def test_audio_followup_rejects_invalid_requests(svc,scenario):
     if scenario in ('foreign','expired','cancelled','confirmed'):
         stt.transcribe.assert_not_called()
     assert svc.products('s')[0]['price']==5000
+
+
+@pytest.mark.parametrize('sale_fields,discounted',[({'discount_rate':20},8000),({'discount_price':7000},7000)])
+def test_sale_without_end_is_confirmed_and_persisted(svc,sale_fields,discounted):
+    from unittest.mock import Mock
+    svc.parser=Mock()
+    svc.parser.parse.return_value=Command(intent='SALE_CREATE',product_name='딸기',**sale_fields)
+    c=svc.analyze('딸기 할인','u','s')
+    assert c['status']=='NEEDS_CONFIRMATION'
+    assert c['missing_fields']==[]
+    assert c['preview']['after']['sale']['ends_at'] is None
+    done=svc.execute(c['command_id'],'u','s',True,{'SALE_CREATE'})
+    assert done['result']['effective_price']==discounted
+    svc.clock=lambda:NOW+timedelta(days=30)
+    berry=next(p for p in svc.products('s') if p['listing_id']=='berry')
+    assert berry['sale_active'] is True
+    assert berry['effective_price']==discounted
+    assert berry['price']==10000
+    svc.parser.parse.return_value=Command(intent='SALE_DELETE',product_name='딸기')
+    c=svc.analyze('딸기 할인 끝내','u','s')
+    done=svc.execute(c['command_id'],'u','s',True,{'SALE_DELETE'})
+    assert done['result']['effective_price']==10000
+
+def test_timed_sale_reverts_at_exact_end(svc):
+    c=svc.analyze(CASES[7]['text'],'u','s')
+    svc.execute(c['command_id'],'u','s',True,{'SALE_CREATE'})
+    end=datetime.fromisoformat('2026-11-06T19:00:00+09:00')
+    for time,expected in [(end-timedelta(seconds=1),8000),(end,10000),(end+timedelta(seconds=1),10000)]:
+        svc.clock=lambda:time
+        berry=next(p for p in svc.products('s') if p['listing_id']=='berry')
+        assert berry['effective_price']==expected
+        assert berry['sale_active']==(expected==8000)
+
+def test_open_ended_fixed_discount_blocks_invalid_base_price(svc):
+    with svc.store.transaction() as state:
+        state['products']['apple']['sale']={'rate':None,'price':4000,'ends_at':None}
+    c=svc.analyze('사과 10개 3천 원','u','s')
+    assert c['status']=='NEEDS_INPUT'
+    c=svc.analyze('사과 가격 6천 원으로 바꿔','u','s')
+    assert c['preview']['after']['effective_price']==4000
+
+def test_missing_discount_still_asks_but_not_end(svc):
+    from unittest.mock import Mock
+    svc.parser=Mock()
+    svc.parser.parse.return_value=Command(intent='SALE_CREATE',product_name='딸기')
+    c=svc.analyze('딸기 할인해','u','s')
+    assert c['status']=='NEEDS_INPUT'
+    assert c['missing_fields']==['discount']
+
+def test_unresolved_spoken_time_is_not_silently_open_ended(svc):
+    from unittest.mock import Mock
+    svc.parser=Mock()
+    svc.parser.parse.return_value=Command(intent='SALE_CREATE',product_name='딸기',discount_rate=20,sale_end_expression='3시까지')
+    c=svc.analyze('딸기 3시까지 20퍼센트 할인','u','s')
+    assert c['status']=='NEEDS_INPUT'
+    assert c['missing_fields']==['sale_ends_at']

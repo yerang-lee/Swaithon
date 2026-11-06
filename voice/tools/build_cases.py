@@ -11,7 +11,7 @@ rows = [
 ('사과 가격 6천 원으로 바꿔', 'PRODUCT_UPDATE', {'product_name':'사과','price':6000}, 'NEEDS_CONFIRMATION','PRODUCT_UPDATE','기존 기본 가격 변경'),
 ('사과 가격 바꿉니다', 'PRODUCT_UPDATE', {'product_name':'사과'}, 'NEEDS_INPUT','PRODUCT_UPDATE','변경할 가격 질문'),
 ('딸기 오늘 저녁 7시까지 20퍼센트 할인', 'SALE_CREATE', {'product_name':'딸기','discount_rate':20,'sale_ends_at':'2026-11-06T19:00:00+09:00'}, 'NEEDS_CONFIRMATION','SALE_CREATE','8,000원, 19시 종료 확인'),
-('딸기 20퍼센트 할인', 'SALE_CREATE', {'product_name':'딸기','discount_rate':20}, 'NEEDS_INPUT','SALE_CREATE','몇 시까지 할인을 할까요?'),
+('딸기 20퍼센트 할인', 'SALE_CREATE', {'product_name':'딸기','discount_rate':20}, 'NEEDS_CONFIRMATION','SALE_CREATE','종료 시각 null로 할인 확인, 기간 질문 없음'),
 ('딸기 오늘 저녁 8시까지 7천 원에 할인해', 'SALE_CREATE', {'product_name':'딸기','discount_price':7000,'sale_ends_at':'2026-11-06T20:00:00+09:00'}, 'NEEDS_CONFIRMATION','SALE_CREATE','고정 할인 가격 7,000원 설정'),
 ('사과 게시물 삭제해', 'PRODUCT_DELETE', {'product_name':'사과'}, 'NEEDS_CONFIRMATION','PRODUCT_DELETE','삭제 버튼 확인 후 deleted_at 기록'),
 ('딸기 다 팔렸어', 'SOLD_OUT', {'product_name':'딸기'}, 'NEEDS_CONFIRMATION','SOLD_OUT','품절 상태 변경 확인'),

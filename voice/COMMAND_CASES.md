@@ -14,7 +14,7 @@
 |6|사과 가격 6천 원으로 바꿔|기존 기본 가격 변경|`NEEDS_CONFIRMATION`|
 |7|사과 가격 바꿉니다|변경할 가격 질문|`NEEDS_INPUT`|
 |8|딸기 오늘 저녁 7시까지 20퍼센트 할인|8,000원, 19시 종료 확인|`NEEDS_CONFIRMATION`|
-|9|딸기 20퍼센트 할인|몇 시까지 할인을 할까요?|`NEEDS_INPUT`|
+|9|딸기 20퍼센트 할인|종료 시각 null로 할인 확인, 기간 질문 없음|`NEEDS_CONFIRMATION`|
 |10|딸기 오늘 저녁 8시까지 7천 원에 할인해|고정 할인 가격 7,000원 설정|`NEEDS_CONFIRMATION`|
 |11|사과 게시물 삭제해|삭제 버튼 확인 후 deleted_at 기록|`NEEDS_CONFIRMATION`|
 |12|딸기 다 팔렸어|품절 상태 변경 확인|`NEEDS_CONFIRMATION`|
