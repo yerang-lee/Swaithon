@@ -233,13 +233,17 @@ class ProductListItem(BaseModel):
     listing_id: int
     product_id: int
     store_id: int
+    market_id: int
     store_name: str
     product_name: str
     category_id: int | None = None
+    category: str | None = None
     price: int
     sale_price: int | None = None
+    is_on_sale: bool | None = None
     image_url: str | None = None
     is_sold_out: bool
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -320,3 +324,17 @@ class VoiceAnalysisResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+class StoreDetailResponse(BaseModel):
+    store_id: int
+    market_id: int
+    market_name: str
+    user_id: int
+    store_name: str
+    category: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    image_url: str | None = None
+    description: str | None = None
+
+    model_config = {"from_attributes": True}

@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Market, Store, User, Listing, Product
 from schemas import (
-  StoreCreateRequest, 
-  StoreCreateResponse,
-  StoreProductListResponse,
-  StoreProductListItem,
+    StoreCreateRequest,
+    StoreCreateResponse,
+    StoreDetailResponse,
+    StoreProductListResponse,
+    StoreProductListItem,
 )
 from dependencies import get_current_user
 
@@ -90,27 +91,42 @@ def create_store(
     return new_store
 
 # 가게 상세 조회
+# 가게 상세 조회
 @router.get(
     "/{store_id}",
-    response_model=StoreCreateResponse,
+    response_model=StoreDetailResponse,
 )
 def get_store(
     store_id: int,
     db: Session = Depends(get_db),
 ):
-    store = (
-        db.query(Store)
+    result = (
+        db.query(Store, Market)
+        .join(Market, Store.market_id == Market.market_id)
         .filter(Store.store_id == store_id)
         .first()
     )
 
-    if store is None:
+    if result is None:
         raise HTTPException(
             status_code=404,
             detail="가게를 찾을 수 없습니다.",
         )
 
-    return store
+    store, market = result
+
+    return StoreDetailResponse(
+        store_id=store.store_id,
+        market_id=store.market_id,
+        market_name=market.market_name,
+        user_id=store.user_id,
+        store_name=store.store_name,
+        category=store.category,
+        address=store.address,
+        phone=store.phone,
+        image_url=store.image_url,
+        description=store.description,
+    )
 
 # 가게 상품 목록 조회
 @router.get(
@@ -162,11 +178,12 @@ def get_store_products(
     if is_on_sale is not None:
         if is_on_sale:
             query = query.filter(
-                Listing.discount_price.isnot(None)
+                Listing.sale_price < Listing.price
             )
         else:
             query = query.filter(
-                Listing.discount_price.is_(None)
+                (Listing.sale_price.is_(None))
+                | (Listing.sale_price >= Listing.price)
             )
 
     # 6. 전체 개수
@@ -192,10 +209,10 @@ def get_store_products(
             store_id=listing.store_id,
             product_name=product.product_name,
             price=listing.price,
-            sale_price=listing.discount_price,
+            sale_price=listing.sale_price,
             category_id=product.category_id,
             is_sold_out=listing.is_sold_out,
-            is_on_sale=listing.discount_price is not None,
+            is_on_sale=listing.sale_price is not None,
             image_url=product.image_url,
             created_at=listing.created_at,
         )
