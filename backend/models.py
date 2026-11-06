@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Float, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -46,17 +46,7 @@ class User(Base):
         nullable=False,
     )
 
-    # 온보딩 정보
-    market_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("markets.market_id"),
-        nullable=True,
-    )
 
-    store_name: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
 
     onboarding_completed: Mapped[bool] = mapped_column(
         Boolean,
@@ -144,11 +134,13 @@ class Market(Base):
 
     # 위도
     latitude: Mapped[float | None] = mapped_column(
+        Float,
         nullable=True,
     )
 
     # 경도
     longitude: Mapped[float | None] = mapped_column(
+        Float,
         nullable=True,
     )
 
@@ -156,5 +148,143 @@ class Market(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
+        nullable=False,
+    )
+
+    # 카카오 장소 고유 ID
+    kakao_place_id: Mapped[str | None] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=True,
+    )
+
+
+class Store(Base):
+    __tablename__ = "stores"
+
+    store_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    market_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("markets.market_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"), nullable=False
+    )
+    store_name: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )
+    description: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    # 상품 고유 ID
+    product_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # 상품이 속한 가게
+    store_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("stores.store_id"),
+        nullable=False,
+        index=True,
+    )
+
+    # 상품명
+    product_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    # 상품 카테고리 ID
+    category_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    # 상품 설명
+    description: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    # 상품 이미지 URL
+    image_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class Listing(Base):
+    __tablename__ = "listings"
+
+    # 판매 게시물 고유 ID
+    listing_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # 판매할 상품
+    product_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("products.product_id"),
+        nullable=False,
+        index=True,
+    )
+
+    # 정상 판매 가격
+    price: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    # 할인 가격
+    discount_price: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    # 품절 여부
+    is_sold_out: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    # 판매 게시물 생성 일시
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )

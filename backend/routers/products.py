@@ -1,0 +1,110 @@
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models import Listing, Product, Store, Market
+from schemas import ProductDetailResponse, ProductListResponse, ProductListItem
+
+router = APIRouter(prefix="/products", tags=["Products"])
+
+
+# 상품 목록 조회
+@router.get("", response_model=ProductListResponse)
+def get_products(
+    market_id: int,
+    category_id: int | None = None,
+    keyword: str | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(Listing, Product, Store)
+        .join(Product, Listing.product_id == Product.product_id)
+        .join(Store, Product.store_id == Store.store_id)
+        .filter(Store.market_id == market_id)
+    )
+
+    # 카테고리 필터
+    if category_id is not None:
+        query = query.filter(Product.category_id == category_id)
+
+    # 상품명 검색
+    if keyword:
+        query = query.filter(Product.product_name.ilike(f"%{keyword}%"))
+
+    # 필터 적용 후 전체 개수
+    total_count = query.count()
+
+    # 최신 판매 게시물 순으로 정렬 및 페이지네이션
+    results = (
+        query
+        .order_by(Listing.created_at.desc(), Listing.listing_id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    products = [
+        ProductListItem(
+            listing_id=listing.listing_id,
+            product_id=product.product_id,
+            store_id=store.store_id,
+            store_name=store.store_name,
+            product_name=product.product_name,
+            category_id=product.category_id,
+            price=listing.price,
+            discount_price=listing.discount_price,
+            image_url=product.image_url,
+            is_sold_out=listing.is_sold_out,
+        )
+        for listing, product, store in results
+    ]
+
+    return ProductListResponse(
+        total_count=total_count,
+        page=page,
+        size=size,
+        products=products,
+    )
+
+
+# 상품 상세 조회
+@router.get("/{listing_id}", response_model=ProductDetailResponse)
+def get_product_detail(
+    listing_id: int,
+    db: Session = Depends(get_db),
+):
+    result = (
+        db.query(Listing, Product, Store, Market)
+        .join(Product, Listing.product_id == Product.product_id)
+        .join(Store, Product.store_id == Store.store_id)
+        .join(Market, Store.market_id == Market.market_id)
+        .filter(Listing.listing_id == listing_id)
+        .first()
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="상품을 찾을 수 없습니다.",
+        )
+
+    listing, product, store, market = result
+
+    return ProductDetailResponse(
+        listing_id=listing.listing_id,
+        product_id=product.product_id,
+        product_name=product.product_name,
+        category_id=product.category_id,
+        description=product.description,
+        image_url=product.image_url,
+        price=listing.price,
+        discount_price=listing.discount_price,
+        is_sold_out=listing.is_sold_out,
+        store_id=store.store_id,
+        store_name=store.store_name,
+        market_id=market.market_id,
+        market_name=market.market_name,
+    )
