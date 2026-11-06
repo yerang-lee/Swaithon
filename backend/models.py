@@ -177,10 +177,25 @@ class Store(Base):
     description: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
+
+    category: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    address: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    image_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    phone: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True
+    )
 
 class Product(Base):
     __tablename__ = "products"

@@ -28,6 +28,7 @@ router = APIRouter(
 @router.get("/search/kakao", response_model=KakaoMarketSearchResponse)
 async def search_kakao_markets(
     query: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
 ):
     kakao_key = os.getenv("KAKAO_REST_API_KEY")
 
@@ -56,16 +57,17 @@ async def search_kakao_markets(
             )
 
         if response.status_code != 200:
-          raise HTTPException(
-              status_code=502,
-              detail={
-                  "status_code": response.status_code,
-                  "kakao_error": response.text,
-              },
-          )
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "status_code": response.status_code,
+                    "kakao_error": response.text,
+                },
+            )
 
         data = response.json()
         documents = []
+        place_ids = []
 
         for place in data["documents"]:
 
@@ -81,8 +83,11 @@ async def search_kakao_markets(
             if not address:
                 continue
 
+            place_id = place["id"]
+            place_ids.append(place_id)
+
             documents.append({
-                "place_id": place["id"],
+                "place_id": place_id,
                 "market_name": place["place_name"],
                 "address": address,
                 "latitude": float(place["y"]),
@@ -90,6 +95,26 @@ async def search_kakao_markets(
                 "category_name": place["category_name"],
                 "place_url": place["place_url"],
             })
+
+        # 카카오 place_id와 DB의 kakao_place_id를 기준으로 매핑
+        registered_markets = (
+            db.query(Market)
+            .filter(Market.kakao_place_id.in_(place_ids))
+            .all()
+            if place_ids
+            else []
+        )
+
+        market_id_by_place_id = {
+            market.kakao_place_id: market.market_id
+            for market in registered_markets
+        }
+
+        # 모든 검색 결과에 market_id 추가
+        for document in documents:
+            document["market_id"] = market_id_by_place_id.get(
+                document["place_id"]
+            )
 
         return {
             "total_count": data["meta"]["total_count"],
@@ -168,12 +193,15 @@ def get_markets(
         "markets": markets,
     }
 
+
 # 주변 시장 조회 (카카오 Local API)
 @router.get("/nearby")
 async def get_nearby_markets(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
-    radius: float = Query(5, gt=0, le=20),
+    radius: float = Query(5000, gt=0, le=20000),
+    limit: int = Query(20, gt=0, le=20),
+    db: Session = Depends(get_db),
 ):
     kakao_key = os.getenv("KAKAO_REST_API_KEY")
 
@@ -191,7 +219,7 @@ async def get_nearby_markets(
         "query": "시장",
         "x": longitude,
         "y": latitude,
-        "radius": int(radius * 1000),
+        "radius": int(radius),
         "sort": "distance",
         "page": 1,
         "size": 15,
@@ -216,6 +244,7 @@ async def get_nearby_markets(
 
         data = response.json()
         documents = []
+        place_ids = []
 
         for place in data["documents"]:
 
@@ -231,17 +260,44 @@ async def get_nearby_markets(
             if not address:
                 continue
 
+            place_id = place["id"]
+            place_ids.append(place_id)
+
             documents.append({
-                "place_id": place["id"],
+                "place_id": place_id,
                 "market_name": place["place_name"],
                 "address": address,
                 "latitude": float(place["y"]),
                 "longitude": float(place["x"]),
-                "distance_km": round(
+                "distance": round(
                     float(place["distance"]) / 1000, 2
                 ),
+                "image_url": None,
                 "place_url": place["place_url"],
             })
+
+        # DB에 등록된 시장의 내부 market_id 조회
+        registered_markets = (
+            db.query(Market)
+            .filter(Market.kakao_place_id.in_(place_ids))
+            .all()
+            if place_ids
+            else []
+        )
+
+        market_id_by_place_id = {
+            market.kakao_place_id: market.market_id
+            for market in registered_markets
+        }
+
+        # 모든 검색 결과에 market_id 포함
+        for document in documents:
+            document["market_id"] = market_id_by_place_id.get(
+                document["place_id"]
+            )
+
+        # 요청한 개수만큼 반환
+        documents = documents[:limit]
 
         return {
             "total_count": len(documents),
@@ -253,6 +309,7 @@ async def get_nearby_markets(
             status_code=502,
             detail="Kakao API 서버에 연결할 수 없습니다.",
         )
+
 
 # 시장 상세 조회
 @router.get("/{market_id}", response_model=MarketResponse)
@@ -278,31 +335,41 @@ def get_market(
 @router.get("/{market_id}/stores", response_model=StoreListResponse)
 def get_market_stores(
     market_id: int,
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    keyword: str | None = None,
 ):
-    # 시장 존재 여부 확인
-    market = (
-        db.query(Market)
-        .filter(Market.market_id == market_id)
-        .first()
-    )
+    market = db.query(Market).filter(
+        Market.market_id == market_id
+    ).first()
 
     if market is None:
         raise HTTPException(
             status_code=404,
-            detail="존재하지 않는 시장입니다.",
+            detail="존재하지 않는 시장입니다."
         )
 
-    # 해당 시장에 속한 가게 조회
+    query = db.query(Store).filter(
+        Store.market_id == market_id
+    )
+
+    if keyword and keyword.strip():
+        query = query.filter(Store.store_name.ilike(f"%{keyword.strip()}%"))
+
+    total_count = query.count()
+
     stores = (
-        db.query(Store)
-        .filter(Store.market_id == market_id)
+        query
         .order_by(Store.store_id.asc())
+        .offset((page - 1) * size)
+        .limit(size)
         .all()
     )
 
     return {
-        "total_count": len(stores),
+        "total_count": total_count,
+        "page": page,
+        "size": size,
         "stores": stores,
     }
-

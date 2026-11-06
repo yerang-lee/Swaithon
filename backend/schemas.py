@@ -35,7 +35,7 @@ class UserMeResponse(BaseModel):
     phone: str
     name: str
     role: str
-    profile_image: str | None
+    profile_image: str | None = None
 
     onboarding_completed: bool
     created_at: datetime
@@ -110,6 +110,7 @@ class MarketListResponse(BaseModel):
 
 
 class KakaoMarketSearchItem(BaseModel):
+    market_id: int | None
     place_id: str
     market_name: str
     address: str
@@ -166,14 +167,10 @@ class StoreCreateResponse(BaseModel):
     store_name: str
     description: str | None
     created_at: datetime
-
     model_config = {
         "from_attributes": True
     }
 
-class StoreListResponse(BaseModel):
-    total_count: int
-    stores: list[StoreCreateResponse]
 
 
 class ProductDetailResponse(BaseModel):
@@ -185,6 +182,7 @@ class ProductDetailResponse(BaseModel):
     image_url: str | None
     price: int
     sale_price: int | None
+    sale_price: int | None
     is_sold_out: bool
     store_id: int
     store_name: str
@@ -192,31 +190,38 @@ class ProductDetailResponse(BaseModel):
     market_name: str
 
 
-class ProductListItem(BaseModel):
-    listing_id: int
-    product_id: int
+class StoreListItem(BaseModel):
     store_id: int
     store_name: str
-    product_name: str
-    category_id: int | None
-    price: int
-    sale_price: int | None
-    image_url: str | None
-    is_sold_out: bool
+    category: str | None = None
+    address: str | None = None
+    image_url: str | None = None
 
-# 특정 가게 상품 목록 조회 응답
+    model_config = {"from_attributes": True}
+
+
+class StoreListResponse(BaseModel):
+    total_count: int
+    page: int
+    size: int
+    stores: list[StoreListItem]
+
+
 class StoreProductListItem(BaseModel):
     listing_id: int
     product_id: int
     store_id: int
     product_name: str
     price: int
-    sale_price: int | None
-    category_id: int | None
+    sale_price: int | None = None
+    category_id: int | None = None
     is_sold_out: bool
     is_on_sale: bool
-    image_url: str | None
+    image_url: str | None = None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
 
 
 class StoreProductListResponse(BaseModel):
@@ -224,6 +229,25 @@ class StoreProductListResponse(BaseModel):
     total_count: int
     page: int
     size: int
+
+class ProductListItem(BaseModel):
+    listing_id: int
+    product_id: int
+    store_id: int
+    market_id: int
+    store_name: str
+    product_name: str
+    category_id: int | None = None
+    category: str | None = None
+    price: int
+    sale_price: int | None = None
+    is_on_sale: bool | None = None
+    image_url: str | None = None
+    is_sold_out: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
 
 class ProductListResponse(BaseModel):
     total_count: int
@@ -303,3 +327,17 @@ class VoiceAnalysisResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+class StoreDetailResponse(BaseModel):
+    store_id: int
+    market_id: int
+    market_name: str
+    user_id: int
+    store_name: str
+    category: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    image_url: str | None = None
+    description: str | None = None
+
+    model_config = {"from_attributes": True}

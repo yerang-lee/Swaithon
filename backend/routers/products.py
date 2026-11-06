@@ -42,18 +42,37 @@ def get_products(
         .all()
     )
 
+    category_map = {
+        1 : "채소",
+        2: "과일",
+        3: "정육·계란",
+        4: "수산물",
+        5: "반찬",
+        6: "가공식품",
+        7: "곡물·견과",
+        8: "떡·베이커리",
+        9: "기타",
+    }
+
     products = [
         ProductListItem(
             listing_id=listing.listing_id,
             product_id=product.product_id,
             store_id=store.store_id,
+            market_id=store.market_id,
             store_name=store.store_name,
             product_name=product.product_name,
             category_id=product.category_id,
+            category=category_map.get(product.category_id),
             price=listing.price,
             sale_price=listing.sale_price,
+            is_on_sale=(
+                listing.sale_price is not None
+                and listing.sale_price < listing.price
+            ),
             image_url=product.image_url,
             is_sold_out=listing.is_sold_out,
+            created_at=listing.created_at,
         )
         for listing, product, store in results
     ]
