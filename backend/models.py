@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Float, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Float, JSON, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -185,22 +185,14 @@ class Store(Base):
 class Product(Base):
     __tablename__ = "products"
 
-    # 상품 고유 ID
+    # 표준 상품 고유 ID
     product_id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True,
     )
 
-    # 상품이 속한 가게
-    store_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("stores.store_id"),
-        nullable=False,
-        index=True,
-    )
-
-    # 상품명
+    # 표준 상품명
     product_name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -237,7 +229,6 @@ class Product(Base):
         nullable=False,
     )
 
-
 class Listing(Base):
     __tablename__ = "listings"
 
@@ -248,10 +239,18 @@ class Listing(Base):
         autoincrement=True,
     )
 
-    # 판매할 상품
+    # 표준 상품 ID
     product_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("products.product_id"),
+        nullable=False,
+        index=True,
+    )
+
+    # 판매하는 가게 ID
+    store_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("stores.store_id"),
         nullable=False,
         index=True,
     )
@@ -275,7 +274,6 @@ class Listing(Base):
         nullable=False,
     )
 
-    # 판매 게시물 생성 일시
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -287,4 +285,53 @@ class Listing(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+
+class VoiceAnalysis(Base):
+    __tablename__ = "voice_analyses"
+
+    # 음성 분석 결과 고유 ID
+    analysis_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # 분석을 요청한 사용자 ID
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id"),
+        nullable=False,
+    )
+
+    # 분석 의도: PRODUCT_CREATE, PRODUCT_UPDATE 등
+    intent: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+    )
+
+    # LLM이 추출한 분석 결과 JSON
+    analysis_result: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    # 분석 상태: PENDING, APPLIED, CANCELLED
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="PENDING",
+    )
+
+    # 분석 결과 생성 시간
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    # 분석 결과 최종 반영 시간
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
     )

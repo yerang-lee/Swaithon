@@ -1,7 +1,8 @@
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # 회원가입 요청
 class SignupRequest(BaseModel):
@@ -203,9 +204,100 @@ class ProductListItem(BaseModel):
     image_url: str | None
     is_sold_out: bool
 
+# 특정 가게 상품 목록 조회 응답
+class StoreProductListItem(BaseModel):
+    listing_id: int
+    product_id: int
+    store_id: int
+    product_name: str
+    price: int
+    sale_price: int | None
+    category_id: int | None
+    is_sold_out: bool
+    is_on_sale: bool
+    image_url: str | None
+    created_at: datetime
+
+
+class StoreProductListResponse(BaseModel):
+    products: list[StoreProductListItem]
+    total_count: int
+    page: int
+    size: int
 
 class ProductListResponse(BaseModel):
     total_count: int
     page: int
     size: int
     products: list[ProductListItem]
+
+
+# 음성 분석 의도
+VoiceIntent = Literal[
+    "PRODUCT_CREATE",
+    "PRODUCT_UPDATE",
+    "PRODUCT_DELETE",
+    "PRODUCT_SOLD_OUT",
+    "SALE_DELETE",
+]
+
+
+# 음성 분석 결과 입력
+class VoiceAnalysisCreate(BaseModel):
+    intent: VoiceIntent
+
+    product_name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    price: int | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    quantity: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
+    unit: str | None = None
+
+    discount_rate: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    discount_price: int | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    needs_confirmation: bool = False
+
+    # 상품 수정 시 수정할 정보가 있는지 확인
+    @model_validator(mode="after")
+    def validate_update_fields(self):
+        if self.intent == "PRODUCT_UPDATE":
+            if (
+                self.price is None
+                and self.discount_price is None
+                and self.discount_rate is None
+            ):
+                raise ValueError("수정할 상품 정보가 없습니다.")
+
+        return self
+
+
+# 음성 분석 결과 응답
+class VoiceAnalysisResponse(BaseModel):
+    analysis_id: int
+    intent: str
+    analysis_result: dict
+    status: str
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
