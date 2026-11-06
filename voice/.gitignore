@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.pytest-tmp*/
+*.db
+*.db-*
+*.wav
+*.mp3
+*.m4a
+evaluation-result.json
