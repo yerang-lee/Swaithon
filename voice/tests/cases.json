@@ -1,0 +1,368 @@
+[
+  {
+    "id": 1,
+    "text": "사과 얼마에 올려놨어?",
+    "parsed": {
+      "intent": "PRODUCT_DETAIL",
+      "product_name": "사과"
+    },
+    "expected_status": "SUCCEEDED",
+    "expected_intent": "PRODUCT_DETAIL",
+    "description": "사과 10개 기본 가격 5,000원 조회"
+  },
+  {
+    "id": 2,
+    "text": "배 5개에 만 원 등록해",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "배",
+      "price": 10000,
+      "sale_quantity": 5,
+      "sale_unit": "개"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_CREATE",
+    "description": "배 5개 10,000원 신규 등록 확인"
+  },
+  {
+    "id": 3,
+    "text": "감자 1킬로에 삼천 원 등록해",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "감자",
+      "price": 3000,
+      "sale_quantity": 1,
+      "sale_unit": "kg"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_CREATE",
+    "description": "감자 1kg 신규 등록 확인"
+  },
+  {
+    "id": 4,
+    "text": "사과 5천 원",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "사과",
+      "price": 5000
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "PRODUCT_CREATE",
+    "description": "판매 수량과 단위 질문"
+  },
+  {
+    "id": 5,
+    "text": "사과 10개 3천 원",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "사과",
+      "price": 3000,
+      "sale_quantity": 10,
+      "sale_unit": "개"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "기존 사과 게시물 가격만 3,000원으로 변경"
+  },
+  {
+    "id": 6,
+    "text": "사과 가격 6천 원으로 바꿔",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "사과",
+      "price": 6000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "기존 기본 가격 변경"
+  },
+  {
+    "id": 7,
+    "text": "사과 가격 바꿉니다",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "사과"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "변경할 가격 질문"
+  },
+  {
+    "id": 8,
+    "text": "딸기 오늘 저녁 7시까지 20퍼센트 할인",
+    "parsed": {
+      "intent": "SALE_CREATE",
+      "product_name": "딸기",
+      "discount_rate": 20,
+      "sale_ends_at": "2026-11-06T19:00:00+09:00"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "SALE_CREATE",
+    "description": "8,000원, 19시 종료 확인"
+  },
+  {
+    "id": 9,
+    "text": "딸기 20퍼센트 할인",
+    "parsed": {
+      "intent": "SALE_CREATE",
+      "product_name": "딸기",
+      "discount_rate": 20
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "SALE_CREATE",
+    "description": "몇 시까지 할인을 할까요?"
+  },
+  {
+    "id": 10,
+    "text": "딸기 오늘 저녁 8시까지 7천 원에 할인해",
+    "parsed": {
+      "intent": "SALE_CREATE",
+      "product_name": "딸기",
+      "discount_price": 7000,
+      "sale_ends_at": "2026-11-06T20:00:00+09:00"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "SALE_CREATE",
+    "description": "고정 할인 가격 7,000원 설정"
+  },
+  {
+    "id": 11,
+    "text": "사과 게시물 삭제해",
+    "parsed": {
+      "intent": "PRODUCT_DELETE",
+      "product_name": "사과"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_DELETE",
+    "description": "삭제 버튼 확인 후 deleted_at 기록"
+  },
+  {
+    "id": 12,
+    "text": "딸기 다 팔렸어",
+    "parsed": {
+      "intent": "SOLD_OUT",
+      "product_name": "딸기"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "SOLD_OUT",
+    "description": "품절 상태 변경 확인"
+  },
+  {
+    "id": 13,
+    "text": "딸기 할인 끝내",
+    "parsed": {
+      "intent": "SALE_DELETE",
+      "product_name": "딸기"
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "SALE_DELETE",
+    "description": "할인 정보 해제, 기본 가격 유지"
+  },
+  {
+    "id": 14,
+    "text": "사과 등록하고 배는 삭제해",
+    "parsed": {
+      "intent": "MULTIPLE"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "MULTIPLE",
+    "description": "한 상품씩 한 작업 안내"
+  },
+  {
+    "id": 15,
+    "text": "사과 삭제하지 마",
+    "parsed": {
+      "intent": "CANCEL"
+    },
+    "expected_status": "CANCELLED",
+    "expected_intent": "CANCEL",
+    "description": "변경 없음"
+  },
+  {
+    "id": 16,
+    "text": "취소할게",
+    "parsed": {
+      "intent": "CANCEL"
+    },
+    "expected_status": "CANCELLED",
+    "expected_intent": "CANCEL",
+    "description": "변경 없음"
+  },
+  {
+    "id": 17,
+    "text": "바나나 얼마야?",
+    "parsed": {
+      "intent": "PRODUCT_DETAIL",
+      "product_name": "바나나"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "PRODUCT_DETAIL",
+    "description": "없는 상품 안내"
+  },
+  {
+    "id": 18,
+    "text": "오이 가격 2천 원으로 바꿔",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "오이",
+      "price": 2000
+    },
+    "expected_status": "NEEDS_SELECTION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "오이 1개 / 5개 선택"
+  },
+  {
+    "id": 19,
+    "text": "오이 5개 가격 4천 원으로 바꿔",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "오이",
+      "sale_quantity": 5,
+      "sale_unit": "개",
+      "price": 4000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "오이 5개 게시물만 수정"
+  },
+  {
+    "id": 20,
+    "text": "양파 1봉지 2천 원 등록해",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "양파",
+      "sale_quantity": 1,
+      "sale_unit": "봉지",
+      "price": 2000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_CREATE",
+    "description": "양파 신규 등록, 재고 추측 없음"
+  },
+  {
+    "id": 21,
+    "text": "사과 재고 8묶음으로 바꿔",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "사과",
+      "stock_quantity": 8
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "재고만 8, 판매 단위 10개 유지"
+  },
+  {
+    "id": 22,
+    "text": "사과 가격 오천 원 아니 육천 원으로 바꿔",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "사과",
+      "price": 6000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "정정된 최종 금액 사용"
+  },
+  {
+    "id": 23,
+    "text": "고구마 반 킬로에 이천오백 원 등록해",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "고구마",
+      "sale_quantity": 0.5,
+      "sale_unit": "kg",
+      "price": 2500
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_CREATE",
+    "description": "소수 판매 단위 지원"
+  },
+  {
+    "id": 24,
+    "text": "딸기 오늘 저녁 7시까지 할인해",
+    "parsed": {
+      "intent": "SALE_CREATE",
+      "product_name": "딸기",
+      "sale_ends_at": "2026-11-06T19:00:00+09:00"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "SALE_CREATE",
+    "description": "할인율 또는 할인 가격 질문"
+  },
+  {
+    "id": 25,
+    "text": "딸기 오늘 오전 9시까지 20퍼센트 할인",
+    "parsed": {
+      "intent": "SALE_CREATE",
+      "product_name": "딸기",
+      "discount_rate": 20,
+      "sale_ends_at": "2026-11-06T09:00:00+09:00"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "SALE_CREATE",
+    "description": "기준시각보다 과거이므로 종료 시각 재질문"
+  },
+  {
+    "id": 26,
+    "text": "딸기 오늘 저녁 7시까지 만이천 원으로 할인해",
+    "parsed": {
+      "intent": "SALE_CREATE",
+      "product_name": "딸기",
+      "discount_price": 12000,
+      "sale_ends_at": "2026-11-06T19:00:00+09:00"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "SALE_CREATE",
+    "description": "기본가보다 높은 할인 가격 거절"
+  },
+  {
+    "id": 27,
+    "text": "딸기 가격 2만 원으로 바꿔",
+    "parsed": {
+      "intent": "PRODUCT_UPDATE",
+      "product_name": "딸기",
+      "price": 20000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "기존 20% 할인 유지, 실제 가격 16,000원"
+  },
+  {
+    "id": 28,
+    "text": "사과 10개 5천 원",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "사과",
+      "sale_quantity": 10,
+      "sale_unit": "개",
+      "price": 5000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_UPDATE",
+    "description": "중복 등록 없이 기존 게시물 대상"
+  },
+  {
+    "id": 29,
+    "text": "사과 20개 만 원 등록해",
+    "parsed": {
+      "intent": "PRODUCT_CREATE",
+      "product_name": "사과",
+      "sale_quantity": 20,
+      "sale_unit": "개",
+      "price": 10000
+    },
+    "expected_status": "NEEDS_CONFIRMATION",
+    "expected_intent": "PRODUCT_CREATE",
+    "description": "다른 판매 묶음이므로 신규 게시물"
+  },
+  {
+    "id": 30,
+    "text": "오늘 날씨 어때?",
+    "parsed": {
+      "intent": "UNKNOWN"
+    },
+    "expected_status": "NEEDS_INPUT",
+    "expected_intent": "UNKNOWN",
+    "description": "상품 작업으로 다시 질문"
+  }
+]
