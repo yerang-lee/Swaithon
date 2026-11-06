@@ -35,7 +35,7 @@ class UserMeResponse(BaseModel):
     phone: str
     name: str
     role: str
-    profile_image: str | None
+    profile_image: str | None = None
 
     onboarding_completed: bool
     created_at: datetime
@@ -110,6 +110,7 @@ class MarketListResponse(BaseModel):
 
 
 class KakaoMarketSearchItem(BaseModel):
+    market_id: int | None
     place_id: str
     market_name: str
     address: str
@@ -166,14 +167,10 @@ class StoreCreateResponse(BaseModel):
     store_name: str
     description: str | None
     created_at: datetime
-
     model_config = {
         "from_attributes": True
     }
 
-class StoreListResponse(BaseModel):
-    total_count: int
-    stores: list[StoreCreateResponse]
 
 
 class ProductDetailResponse(BaseModel):
@@ -184,7 +181,7 @@ class ProductDetailResponse(BaseModel):
     description: str | None
     image_url: str | None
     price: int
-    discount_price: int | None
+    sale_price: int | None
     is_sold_out: bool
     store_id: int
     store_name: str
@@ -192,31 +189,38 @@ class ProductDetailResponse(BaseModel):
     market_name: str
 
 
-class ProductListItem(BaseModel):
-    listing_id: int
-    product_id: int
+class StoreListItem(BaseModel):
     store_id: int
     store_name: str
-    product_name: str
-    category_id: int | None
-    price: int
-    discount_price: int | None
-    image_url: str | None
-    is_sold_out: bool
+    category: str | None = None
+    address: str | None = None
+    image_url: str | None = None
 
-# 특정 가게 상품 목록 조회 응답
+    model_config = {"from_attributes": True}
+
+
+class StoreListResponse(BaseModel):
+    total_count: int
+    page: int
+    size: int
+    stores: list[StoreListItem]
+
+
 class StoreProductListItem(BaseModel):
     listing_id: int
     product_id: int
     store_id: int
     product_name: str
     price: int
-    sale_price: int | None
-    category_id: int | None
+    sale_price: int | None = None
+    category_id: int | None = None
     is_sold_out: bool
     is_on_sale: bool
-    image_url: str | None
+    image_url: str | None = None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
 
 
 class StoreProductListResponse(BaseModel):
@@ -224,6 +228,21 @@ class StoreProductListResponse(BaseModel):
     total_count: int
     page: int
     size: int
+
+class ProductListItem(BaseModel):
+    listing_id: int
+    product_id: int
+    store_id: int
+    store_name: str
+    product_name: str
+    category_id: int | None = None
+    price: int
+    sale_price: int | None = None
+    image_url: str | None = None
+    is_sold_out: bool
+
+    model_config = {"from_attributes": True}
+
 
 class ProductListResponse(BaseModel):
     total_count: int
@@ -269,7 +288,7 @@ class VoiceAnalysisCreate(BaseModel):
         le=100,
     )
 
-    discount_price: int | None = Field(
+    sale_price: int | None = Field(
         default=None,
         ge=0,
     )
@@ -282,7 +301,7 @@ class VoiceAnalysisCreate(BaseModel):
         if self.intent == "PRODUCT_UPDATE":
             if (
                 self.price is None
-                and self.discount_price is None
+                and self.sale_price is None
                 and self.discount_rate is None
             ):
                 raise ValueError("수정할 상품 정보가 없습니다.")

@@ -177,10 +177,20 @@ class Store(Base):
     description: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
+
+    category: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    address: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    image_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-
 
 class Product(Base):
     __tablename__ = "products"
@@ -262,7 +272,7 @@ class Listing(Base):
     )
 
     # 할인 가격
-    discount_price: Mapped[int | None] = mapped_column(
+    sale_price: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )
