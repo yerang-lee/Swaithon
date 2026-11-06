@@ -171,3 +171,14 @@ WRONG_ENDPOINT는 최근 execution_endpoint를 확인하고, EXPIRED/STALE_COMMA
 - 할인가 종료/복원 계산은 백엔드가 담당합니다. 앱은 서버의 effective_price와 sale_active를 사용합니다. 화면 새로고침/재진입 시 재조회하며 켜 둔 화면의 최신화 주기는 백엔드와 합의합니다.
 - 기간 미언급과 달리, 말한 시각이 모호하거나 과거인 경우에는 서버의 재확인 안내를 처리합니다. '3시'의 오전/오후를 앱에서 임의로 정하지 않습니다.
 - 추가 음성 답변의 answer-audio 연결 및 최종 확인 버튼은 변경 없습니다.
+
+
+## 할인 가격 필드명 변경: sale_price
+
+- 기존 discount_price를 sale_price로 변경했습니다. 음성 parsed JSON, Gemini 스키마, 백엔드 상품 응답/입력/모델이 해당합니다.
+- 할인율 discount_rate는 그대로입니다. 비율 할인은 sale_price=null로 추출하고 계산 규칙을 유지합니다.
+- 음성 로컬 데모의 내부 sale.price, 기본가 price, 최종 표시가 effective_price는 기존 구조를 유지합니다.
+- 프론트는 API의 sale_price를 사용합니다. 새 요청에 discount_price를 보내지 마세요.
+- 백엔드는 기존 listings 열이 discount_price라면 서버 재시작 전에 backend/migrations/20261106_rename_sale_price.sql을 개발 DB부터 검증 후 적용해야 합니다. 실제 DB에는 아직 실행하지 않았습니다.
+- 신규 DB는 변경된 모델로 sale_price 열을 생성합니다. create_all만으로 기존 열 이름이 변경되지는 않습니다.
+- 이전에 저장된 로컬 명령과 백엔드 분석 JSON은 읽을 때 이전 키를 새 키로 대응하여 금액이 누락되지 않도록 했습니다. 기존 분석 이력 JSON 자체를 일괄 변경한 것은 아닙니다.

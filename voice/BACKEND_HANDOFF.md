@@ -198,3 +198,14 @@ STT 전에 소유권/상태를 검사하고 STT 이후 revision 변경 및 만�
 - 프론트에는 종료 시간을 표시하지 않더라도 서버에 저장/전달할 시간 값은 제거하지 않습니다.
 - 명령 초안 expires_at(10분)과 할인 sale_ends_at은 서로 다른 값입니다. 명령 만료 규칙은 유지합니다.
 - 할인율/할인 가격 자체가 없으면 해당 값은 계속 질문합니다. 사용자 최종 확인도 유지합니다.
+
+
+## 할인 가격 필드명 변경: sale_price
+
+- 기존 discount_price를 sale_price로 변경했습니다. 음성 parsed JSON, Gemini 스키마, 백엔드 상품 응답/입력/모델이 해당합니다.
+- 할인율 discount_rate는 그대로입니다. 비율 할인은 sale_price=null로 추출하고 계산 규칙을 유지합니다.
+- 음성 로컬 데모의 내부 sale.price, 기본가 price, 최종 표시가 effective_price는 기존 구조를 유지합니다.
+- 프론트는 API의 sale_price를 사용합니다. 새 요청에 discount_price를 보내지 마세요.
+- 백엔드는 기존 listings 열이 discount_price라면 서버 재시작 전에 backend/migrations/20261106_rename_sale_price.sql을 개발 DB부터 검증 후 적용해야 합니다. 실제 DB에는 아직 실행하지 않았습니다.
+- 신규 DB는 변경된 모델로 sale_price 열을 생성합니다. create_all만으로 기존 열 이름이 변경되지는 않습니다.
+- 이전에 저장된 로컬 명령과 백엔드 분석 JSON은 읽을 때 이전 키를 새 키로 대응하여 금액이 누락되지 않도록 했습니다. 기존 분석 이력 JSON 자체를 일괄 변경한 것은 아닙니다.

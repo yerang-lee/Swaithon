@@ -184,7 +184,7 @@ class ProductDetailResponse(BaseModel):
     description: str | None
     image_url: str | None
     price: int
-    discount_price: int | None
+    sale_price: int | None
     is_sold_out: bool
     store_id: int
     store_name: str
@@ -200,7 +200,7 @@ class ProductListItem(BaseModel):
     product_name: str
     category_id: int | None
     price: int
-    discount_price: int | None
+    sale_price: int | None
     image_url: str | None
     is_sold_out: bool
 
@@ -269,7 +269,7 @@ class VoiceAnalysisCreate(BaseModel):
         le=100,
     )
 
-    discount_price: int | None = Field(
+    sale_price: int | None = Field(
         default=None,
         ge=0,
     )
@@ -282,7 +282,7 @@ class VoiceAnalysisCreate(BaseModel):
         if self.intent == "PRODUCT_UPDATE":
             if (
                 self.price is None
-                and self.discount_price is None
+                and self.sale_price is None
                 and self.discount_rate is None
             ):
                 raise ValueError("수정할 상품 정보가 없습니다.")

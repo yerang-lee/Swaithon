@@ -27,7 +27,7 @@ PROMPT = '''당신은 장보소 상인 발화를 구조화하는 추출기다. �
 상품명+판매 수량+가격만 말하면 PRODUCT_CREATE로 추출한다. 기존 게시물 가격 변경 여부는 서버가 결정한다.
 빠진 값은 null. sale_quantity와 sale_unit은 판매 묶음(사과 10개)의 10, 개.
 stock_quantity는 남은 판매 묶음 재고만. 수량으로 재고를 추측하지 마라.
-기본 가격과 할인 가격을 구별한다. 할인 가격은 discount_price. 할인율은 discount_rate.
+기본 가격과 할인 가격을 구별한다. 할인 가격은 sale_price. 할인율은 discount_rate.
 한국어 숫자/금액을 숫자로 변환한다. 정정 발화는 최종 값을 사용한다.
 대화 이력은 한 초안의 추가 답변이다. 기존 정보를 보존하여 전체 Command를 반환한다.
 sale_ends_at은 명시된 시각을 기준시각 Asia/Seoul에 따라 ISO8601 +09:00으로 반환한다.

@@ -118,7 +118,7 @@
     "parsed": {
       "intent": "SALE_CREATE",
       "product_name": "딸기",
-      "discount_price": 7000,
+      "sale_price": 7000,
       "sale_ends_at": "2026-11-06T20:00:00+09:00"
     },
     "expected_status": "NEEDS_CONFIRMATION",
@@ -308,7 +308,7 @@
     "parsed": {
       "intent": "SALE_CREATE",
       "product_name": "딸기",
-      "discount_price": 12000,
+      "sale_price": 12000,
       "sale_ends_at": "2026-11-06T19:00:00+09:00"
     },
     "expected_status": "NEEDS_INPUT",

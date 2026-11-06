@@ -17,6 +17,12 @@ class SQLiteStore:
         try:
             db.execute('BEGIN IMMEDIATE')
             state = json.loads(db.execute('SELECT data FROM voice_demo_state WHERE id=1').fetchone()[0])
+            for command in state['commands'].values():
+                parsed = command.get('parsed', {})
+                if 'discount_price' in parsed:
+                    if 'sale_price' not in parsed:
+                        parsed['sale_price'] = parsed['discount_price']
+                    del parsed['discount_price']
             yield state
             db.execute('UPDATE voice_demo_state SET data=? WHERE id=1', (json.dumps(state),))
             db.commit()

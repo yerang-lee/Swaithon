@@ -51,7 +51,7 @@ def get_products(
             product_name=product.product_name,
             category_id=product.category_id,
             price=listing.price,
-            discount_price=listing.discount_price,
+            sale_price=listing.sale_price,
             image_url=product.image_url,
             is_sold_out=listing.is_sold_out,
         )
@@ -97,7 +97,7 @@ def get_product_detail(
         description=product.description,
         image_url=product.image_url,
         price=listing.price,
-        discount_price=listing.discount_price,
+        sale_price=listing.sale_price,
         is_sold_out=listing.is_sold_out,
         store_id=store.store_id,
         store_name=store.store_name,

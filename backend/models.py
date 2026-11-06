@@ -262,7 +262,7 @@ class Listing(Base):
     )
 
     # 할인 가격
-    discount_price: Mapped[int | None] = mapped_column(
+    sale_price: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )

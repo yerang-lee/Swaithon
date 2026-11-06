@@ -32,7 +32,7 @@ def test_parser_uses_provider_schema_and_validates_response():
     with pytest.raises(ValueError):
         parser.parse(['test'])
 
-@pytest.mark.parametrize('field,value',[('price',0),('sale_quantity',0),('discount_rate',100),('discount_rate',0),('discount_price',0)])
+@pytest.mark.parametrize('field,value',[('price',0),('sale_quantity',0),('discount_rate',100),('discount_rate',0),('sale_price',0)])
 def test_strict_local_bounds_preserved(field,value):
     with pytest.raises(ValueError):
         Command(intent='PRODUCT_CREATE',**{field:value})

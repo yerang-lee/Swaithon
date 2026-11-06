@@ -162,11 +162,11 @@ def get_store_products(
     if is_on_sale is not None:
         if is_on_sale:
             query = query.filter(
-                Listing.discount_price.isnot(None)
+                Listing.sale_price.isnot(None)
             )
         else:
             query = query.filter(
-                Listing.discount_price.is_(None)
+                Listing.sale_price.is_(None)
             )
 
     # 6. 전체 개수
@@ -192,10 +192,10 @@ def get_store_products(
             store_id=listing.store_id,
             product_name=product.product_name,
             price=listing.price,
-            sale_price=listing.discount_price,
+            sale_price=listing.sale_price,
             category_id=product.category_id,
             is_sold_out=listing.is_sold_out,
-            is_on_sale=listing.discount_price is not None,
+            is_on_sale=listing.sale_price is not None,
             image_url=product.image_url,
             created_at=listing.created_at,
         )
