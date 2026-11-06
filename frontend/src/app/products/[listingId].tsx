@@ -9,10 +9,11 @@ import { PickupTimeSheet } from '../../components/reservations/PickupTimeSheet';
 import { demoProducts } from '../../data/demoProducts';
 import { useFavorites } from '../../hooks/useFavorites';
 import { getProduct, type ProductDetail as ProductData } from '../../services/api/products';
+import { isMockMode } from '../../services/devMock';
 import { reserveProduct } from '../../services/api/reservations';
 
 export default function ProductDetail() {
-  const { listingId } = useLocalSearchParams<{ listingId: string }>();
+  const { listingId, preview, requestId } = useLocalSearchParams<{ listingId: string; preview?: string; requestId?: string }>();
   const demo = demoProducts.find(value => value.id === listingId);
   const [data, setData] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(!demo);
@@ -27,13 +28,13 @@ export default function ProductDetail() {
     let alive = true; setData(null); setError(''); setImageError(false);
     if (demo) { setLoading(false); return; }
     setLoading(true);
-    void getProduct(listingId).then(result => { if (alive) setData(result); })
+    void getProduct(listingId, preview === 'true').then(result => { if (alive) setData(result); })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : '상품 조회 실패'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [listingId, demo, retry]);
+  }, [listingId, demo, retry, preview]);
   if (loading || (!demo && !data)) return <SafeAreaView style={styles.safe}><PageHeader title="" onBack={() => router.back()} />{loading ? <ActivityIndicator color="#53B175" /> : <><Text style={styles.note}>{error}</Text><Pressable onPress={() => setRetry(v => v + 1)}><Text style={styles.note}>다시 시도</Text></Pressable></>}</SafeAreaView>;
-  const id = data?.listing_id ?? demo!.id;
+  const id = String(data?.listing_id ?? demo!.id);
   const favorite = favorites.includes(id);
   const name = data?.product_name ?? demo!.name;
   const store = data?.store_name ?? demo!.store;
@@ -42,11 +43,10 @@ export default function ProductDetail() {
   const soldOut = data?.is_sold_out ?? false;
   async function confirm(date: Date, quantity: number, note: string) {
     if (lock.current) return;
-    if (!data) { Alert.alert('미리보기 상품', '실제 상품 ID와 서버가 연결되면 예약할 수 있어요.'); return; }
-    if (typeof data.product_id !== 'number') { Alert.alert('예약 안내', '판매 게시물 기준 예약 명세를 확인 중이에요.'); return; }
+    if (!data || preview === 'true' || isMockMode()) { Alert.alert('미리보기 상품', '실제 상품 ID와 서버가 연결되면 예약할 수 있어요.'); return; }
     lock.current = true; setSubmitting(true);
     try {
-      const reservation = await reserveProduct(data.product_id, quantity, date, note);
+      const reservation = await reserveProduct(String(data.listing_id), String(data.product_id), quantity, date, note, requestId);
       setSheet(false);
       Alert.alert('예약 완료', `${reservation.message}\n예약 번호: ${reservation.reservation_id}\n총 금액: ${reservation.total_price.toLocaleString('ko-KR')}원`);
     } catch (e) { Alert.alert('예약 안내', e instanceof Error ? e.message : '예약 결과를 확인해주세요.'); }

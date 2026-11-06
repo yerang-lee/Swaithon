@@ -81,6 +81,26 @@ export async function mockRequest(path: string, method: string, body?: unknown, 
     account.role = input.role;
     return { ...account, market_id: input.market_id, store_name: input.store_name, onboarding_completed: true };
   }
+  // Numeric category IDs below are test fixtures, not production mappings.
+  if (url.pathname === '/products' && method === 'GET' || /^\/products\/\d+$/.test(url.pathname) && method === 'GET') {
+    const categoryNames=['채소','과일','정육·계란','수산물','반찬','가공식품','곡물·견과','떡·베이커리','기타'];
+    const categoryCodes=['VEGETABLE','FRUIT','MEAT_EGGS','SEAFOOD','SIDE_DISH','PROCESSED_FOOD','GRAINS_NUTS','RICE_CAKE_BAKERY','OTHER'];
+    const all=Array.from({length:36},(_,i)=>({listing_id:1001+i,product_id:1+i,store_id:101+i%6,store_name:['행복청과','싱싱야채','우리정육'][i%3],market_id:i<27?1:2,product_name:['당근','사과','계란','고등어','김치','두부','쌀','빵','기타 상품'][i%9],category_id:i%9+1,category:categoryCodes[i%9],category_name:categoryNames[i%9],price:5000+i*100,sale_price:i%3===0?4000+i*100:null,is_sold_out:i%7===0,is_on_sale:i%3===0,image_url:null,created_at:new Date(Date.UTC(2026,10,6,12,0)-i*60000).toISOString()}));
+    if(url.pathname!=='/products'){
+      const product=all.find(p=>String(p.listing_id)===url.pathname.split('/').pop());
+      if(!product)throw new Error('상품을 찾을 수 없어요.');
+      return {...product,image_url:'',description:'화면 확인용 예시 상품입니다.'};
+    }
+    const filtered=all.filter(p=>(!url.searchParams.has('market_id')||p.market_id===Number(url.searchParams.get('market_id')))&&(!url.searchParams.has('category_id')||p.category_id===Number(url.searchParams.get('category_id')))&&(!url.searchParams.has('is_sold_out')||p.is_sold_out===(url.searchParams.get('is_sold_out')==='true'))&&(!url.searchParams.has('is_on_sale')||p.is_on_sale===(url.searchParams.get('is_on_sale')==='true'))&&p.product_name.includes(url.searchParams.get('keyword')??''));
+    const page=Number(url.searchParams.get('page')??1),size=Number(url.searchParams.get('size')??10);
+    return {products:filtered.slice((page-1)*size,page*size),total_count:filtered.length,page,size};
+  }
+  if (url.pathname === '/markets/search/kakao' && method === 'GET') {
+    const query=(url.searchParams.get('query')??'').trim();
+    if(!query)throw new Error('검색어를 입력해주세요.');
+    const documents=[{market_name:'용산용문시장',address:'서울 용산구 효창원로42길',latitude:37.539,longitude:126.96},{market_name:'망원시장',address:'서울 마포구 포은로8길 14',latitude:37.5563,longitude:126.9102},{market_name:'공덕시장',address:'서울 마포구 공덕동',latitude:37.544,longitude:126.953}].map((m,i)=>({...m,place_id:`mock-kakao-${i+1}`,market_id:[1,4,2][i],category_name:'가정,생활 > 시장',place_url:''})).filter(m=>m.market_name.includes(query)||m.address.includes(query));
+    return {documents,total_count:documents.length,is_end:true};
+  }
   if (url.pathname === '/markets/nearby' && method === 'GET') {
     const lat = Number(url.searchParams.get('latitude')), lng = Number(url.searchParams.get('longitude'));
     const radius = Number(url.searchParams.get('radius'));

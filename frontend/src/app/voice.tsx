@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { getAuthSession } from '../services/api/auth';
-import { submitVoice, voiceActions, type VoiceAction, type VoiceResult } from '../services/api/voice';
+import { mockVoiceAnalysis, submitVoice, voiceActions, type VoiceAction, type VoiceResult } from '../services/api/voice';
 import { VoiceResultScreen } from '../components/merchant/VoiceResultScreen';
 import { theme } from '../constants/theme';
 import { isMockMode } from '../services/devMock';
@@ -97,7 +97,7 @@ export default function VoiceScreen() {
         </View>
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       </View>
-      <View style={styles.footer}>{recordingNow && <Pressable accessibilityRole="button" onPress={() => void stop(true)} style={styles.cancel}><Text style={styles.cancelLabel}>취소</Text></Pressable>}{isMockMode() && phase === 'idle' && <Pressable accessibilityRole="button" onPress={() => setResult({ productId: 101, productName: '사과', price: 5000, unit: '3개', message: '테스트 분석 결과 · 실제 상품은 변경되지 않았어요.' })} style={styles.cancel}><Text style={styles.cancelLabel}>녹음 없이 결과 테스트</Text></Pressable>}</View>
+      <View style={styles.footer}>{recordingNow && <Pressable accessibilityRole="button" onPress={() => void stop(true)} style={styles.cancel}><Text style={styles.cancelLabel}>취소</Text></Pressable>}{isMockMode() && phase === 'idle' && <Pressable accessibilityRole="button" onPress={() => setResult(mockVoiceAnalysis(action, Number(id) || 101))} style={styles.cancel}><Text style={styles.cancelLabel}>녹음 없이 결과 테스트</Text></Pressable>}</View>
     </ScrollView>
     <Modal transparent visible={picker} animationType="fade" onRequestClose={() => setPicker(false)}><View style={styles.overlay}><View style={styles.sheet}><Text style={styles.sheetTitle}>어떤 작업을 할까요?</Text>{(Object.keys(voiceActions) as VoiceAction[]).map(key => <Pressable accessibilityRole="button" key={key} style={styles.option} onPress={() => { setAction(key); setId(''); setError(''); setPicker(false); }}><Text style={styles.optionText}>{voiceActions[key].title}</Text></Pressable>)}<Pressable accessibilityRole="button" style={styles.option} onPress={() => setPicker(false)}><Text style={styles.cancelLabel}>닫기</Text></Pressable></View></View></Modal>
   </SafeAreaView>;

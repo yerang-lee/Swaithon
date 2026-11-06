@@ -68,3 +68,21 @@
 마이 탭은 별도 프로필/메뉴 화면을 표시하며 GET /users/me에서 user_id/name/phone을 읽습니다. 조회 상세 응답은 아직 별도 명세 미제공이므로 기존 GET 경로 및 해당 필드 사용은 수정 응답과 일치한다고 가정한 임시 연동입니다. PATCH /users/me는 사용자 제공 상세 명세대로 변경된 name/phone만 JSON으로 보내고 200 응답 필드를 검증합니다. PATCH의 Bearer 인증 사용은 기존 인증 방식에 따른 가정입니다. 닉네임 1~50자와 국내 휴대전화 형식은 기존 가입 UI와 같은 클라이언트 검증입니다.
 
 DELETE /users/me는 명세의 Bearer 인증을 사용하며 요청 본문 없이 전송합니다. 탈퇴 확인 후 실행하고 정확한 완료 메시지를 확인한 경우에만 세션/관심 목록 및 사용자 온보딩 캐시를 지우고 로그인으로 이동합니다. 401은 재로그인으로 이동하고 404/409/500/통신 실패는 오류를 표시하며 완료로 처리하지 않습니다. 중복 저장/탈퇴 요청을 막습니다. 서버 없는 테스트 모드도 정보 수정 및 탈퇴를 메모리에서 처리합니다.
+
+## 최신 음성 상품 등록 분석 명세
+
+이 절이 앞선 신규 등록 즉시 저장/201 설명을 대체합니다. POST /voice/product-registration은 multipart audio_file을 받아 200으로 분석 결과만 반환하며 상품을 생성하지 않습니다. analysis_id, intent=PRODUCT_CREATE, status=READY, transcript, product_name, price, unit, category/category_name, missing_fields, needs_confirmation=true, expires_at, message를 보관합니다. 카테고리 코드 목록은 미확정이며 category/category_name=null일 때 missing_fields에 category가 있어야 합니다.
+
+화면에 카테고리·음성 인식 내용·누락 필드·만료를 표시합니다. 최종 반영 API 경로/메서드/필드가 없어 최종 등록은 비활성 상태입니다. 신규 등록 사진은 로컬 선택/미리보기만 하며 존재하지 않는 상품 ID로 업로드하지 않습니다. 분석 성공이나 홈 이동을 등록 완료로 처리하지 않고 다시 녹음 시 로컬 분석만 폐기합니다. 테스트 모드도 새 분석 응답을 사용합니다.
+
+수정/삭제/품절/할인 종료는 이번 변경 대상이 아니므로 이전 명세 처리를 유지합니다. 인증 헤더는 기존 Bearer 사용 가정이며 확정 명세 확인이 필요합니다. 사용자 보완 필드와 analysis_id 및 사진 연결을 포함할 최종 반영 API 상세 명세가 추가로 필요합니다.
+
+## 음성 분석 최종 반영·취소 연결 업데이트
+
+이 절과 voice-confirmation-api.md가 앞선 수정/삭제/할인 종료 즉시 처리 설명 및 최종 반영 미연결 설명을 대체합니다. 등록·수정·삭제·할인 종료는 200 분석 전용으로 처리하고 POST /voice/analysis/{analysis_id}/apply 성공 후에만 최종 반영 완료를 표시합니다. DELETE /voice/analysis/{analysis_id}로 분석 취소/다시 녹음/뒤로가기를 처리합니다. 품절은 새로운 분석 명세가 없어 기존 즉시 처리입니다.
+
+사용자 제공 표준 카테고리 VEGETABLE/FRUIT/MEAT_EGGS/SEAFOOD/SIDE_DISH/PROCESSED_FOOD/GRAINS_NUTS/RICE_CAKE_BAKERY/OTHER를 사용합니다. 사진은 최종 반영 성공 후 반환된 product_id에 연결합니다. 결과가 불확실한 반영 요청은 자동으로 재시도하지 않으며 사진만 실패하면 상품 작업을 재실행하지 않습니다. 자세한 응답 검증·예외 처리·미확정 사항은 voice-confirmation-api.md를 참고합니다.
+
+## 품절 분석 최신 명세 적용
+
+앞선 품절 즉시 처리 설명을 대체합니다. POST /voice/sold-out은 product_id와 audio_file을 보내 200 분석 응답(intent=SOLD_OUT)을 받습니다. is_sold_out=true는 최종 반영 예정 상태로 보관하며, 사용자가 확정하고 apply API가 성공해야 품절 완료로 표시합니다. 분석 취소·다시 녹음·뒤로가기·만료·중복 방지 및 테스트 모드도 다른 분석과 동일하게 적용합니다. 상품은 삭제되지 않으며 가격/카테고리는 응답에 없어 필수로 요구하지 않습니다.

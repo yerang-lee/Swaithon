@@ -1,8 +1,8 @@
-export function postJson(path: string, body: unknown, token?: string): Promise<unknown> { return requestJson(path, 'POST', body, token); }
+export function postJson(path: string, body: unknown, token?: string, expectedStatus?: number): Promise<unknown> { return requestJson(path, 'POST', body, token, expectedStatus); }
 export function getJson(path: string, token?: string): Promise<unknown> { return requestJson(path, 'GET', undefined, token); }
 export function patchJson(path: string, body: unknown, token: string): Promise<unknown> { return requestJson(path, 'PATCH', body, token); }
 export function deleteJson(path: string, token: string): Promise<unknown> { return requestJson(path, 'DELETE', undefined, token); }
-async function requestJson(path: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE', body?: unknown, token?: string): Promise<unknown> {
+async function requestJson(path: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE', body?: unknown, token?: string, expectedStatus?: number): Promise<unknown> {
   if (isMockMode()) return mockRequest(path, method, body, token);
   if (token?.startsWith('mock-only-')) throw new Error('테스트 세션이 종료됐어요. 다시 로그인해주세요.');
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
@@ -35,6 +35,7 @@ async function requestJson(path: string, method: 'POST' | 'GET' | 'PATCH' | 'DEL
       }).filter(Boolean).join('\n') : '';
       throw new ApiError(response.status, typeof detail === 'string' ? detail : validation || `요청에 실패했어요. (${response.status})`);
     }
+    if (expectedStatus !== undefined && response.status !== expectedStatus) throw new Error('서버 응답 상태가 명세와 달라요. 처리 내역을 확인해주세요.');
     return data;
   } catch (error) {
     if (!(error instanceof ApiError)) logApiError(method, path, controller.signal.aborted ? '15초 안에 서버 응답이 없어 시간 초과되었습니다.' : error instanceof Error ? error.message : '알 수 없는 요청 오류', undefined, undefined, privateValues);
