@@ -33,9 +33,13 @@ def timestamp(value):
     except (TypeError, ValueError):
         raise VoiceError('INVALID_TIME', '날짜와 오전/오후를 포함해 종료 시각을 알려주세요.', 422)
 
+def sale_is_active(sale, now):
+    # A null end is explicitly open-ended, not an invalid/missing timestamp.
+    return bool(sale) and (sale.get('ends_at') is None or timestamp(sale['ends_at']) > now)
+
 def effective_price(product, now):
     sale = product.get('sale')
-    if not sale or timestamp(sale['ends_at']) <= now:
+    if not sale_is_active(sale, now):
         return product['price']
     if sale.get('rate') is not None:
         return int((Decimal(product['price']) * (100-sale['rate']) / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
@@ -153,9 +157,11 @@ class VoiceService:
         if c['intent']=='SALE_CREATE':
             if d['discount_rate'] is None and d['discount_price'] is None:
                 missing.append('discount')
-            if not d['sale_ends_at']:
-                missing.append('sale_ends_at')
-            elif timestamp(d['sale_ends_at']) <= self.clock():
+            if d['sale_ends_at'] is None and d.get('sale_end_expression'):
+                c['message']='말씀하신 종료 시각의 날짜와 오전/오후를 확인해 주세요.'
+                c['missing_fields']=['sale_ends_at']
+                return
+            if d['sale_ends_at'] is not None and timestamp(d['sale_ends_at']) <= self.clock():
                 c['message']='종료 시간이 지났습니다. 앞으로의 종료 시각을 알려주세요.'
                 c['missing_fields']=['sale_ends_at']
                 return
@@ -173,7 +179,7 @@ class VoiceService:
                 return
         if c['intent']=='PRODUCT_UPDATE' and p and d['price'] is not None:
             sale=p.get('sale')
-            if sale and timestamp(sale['ends_at'])>self.clock() and sale.get('price') is not None and sale['price']>=d['price']:
+            if sale_is_active(sale, self.clock()) and sale.get('price') is not None and sale['price']>=d['price']:
                 c['message']='유지할 할인 가격보다 기본 가격이 낮거나 같습니다. 기본 가격을 다시 알려주세요.'
                 c['missing_fields']=['price']
                 return
@@ -184,14 +190,14 @@ class VoiceService:
     def _ask(self, c, missing):
         questions={'product_name':'어떤 상품인가요?', 'price':'가격을 얼마로 할까요?',
                    'sale_quantity':'몇 개인지도 알려주세요.', 'sale_unit':'판매 단위도 알려주세요.',
-                   'discount':'할인율 또는 할인 가격을 알려주세요.', 'sale_ends_at':'몇 시까지 할인을 할까요?'}
+                   'discount':'할인율 또는 할인 가격을 알려주세요.'}
         c['missing_fields']=missing
         c['message']=' '.join(questions[k] for k in missing)
 
     def _view(self, p):
         result=deepcopy(p)
         result['effective_price']=effective_price(p, self.clock())
-        result['sale_active']=bool(p.get('sale') and timestamp(p['sale']['ends_at'])>self.clock())
+        result['sale_active']=sale_is_active(p.get('sale'), self.clock())
         return result
 
     def _changed(self, p, c, preview=False):

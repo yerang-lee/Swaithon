@@ -108,9 +108,9 @@
       "product_name": "딸기",
       "discount_rate": 20
     },
-    "expected_status": "NEEDS_INPUT",
+    "expected_status": "NEEDS_CONFIRMATION",
     "expected_intent": "SALE_CREATE",
-    "description": "몇 시까지 할인을 할까요?"
+    "description": "종료 시각 null로 할인 확인, 기간 질문 없음"
   },
   {
     "id": 10,
