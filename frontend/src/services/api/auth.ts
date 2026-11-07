@@ -1,3 +1,4 @@
+import { logAppError } from '../../utils/appDiagnostics';
 import { ApiError, getJson, postJson } from './client';
 
 export type LoginResponse = {
@@ -30,7 +31,8 @@ async function loadAccountRole(accessToken: string): Promise<void> {
       && (profile.role === 'CUSTOMER' || profile.role === 'MERCHANT')) {
       setAuthRole(profile.role, accessToken);
     }
-  } catch {
+  } catch (error) { globalThis.__jangbosoLogError?.("services/api/auth.ts", error);
+    logAppError('auth/loadAccountRole', error);
     // 역할 조회 실패로 로그인 자체를 실패시키지 않으며 상인 UI는 숨깁니다.
   }
 }
@@ -43,7 +45,7 @@ export async function logout(): Promise<void> {
     if (!data || typeof data !== 'object' || !('message' in data) || typeof data.message !== 'string') {
       throw new Error('로그아웃 응답을 확인할 수 없어요. 다시 시도해주세요.');
     }
-  } catch (error) {
+  } catch (error) { globalThis.__jangbosoLogError?.("services/api/auth.ts", error);
     if (error instanceof ApiError) {
       if (error.status === 401) {
         if (session?.access_token === current.access_token) clearAuthSession();
@@ -58,7 +60,7 @@ export async function logout(): Promise<void> {
 
 async function authRequest(path: string, body: unknown, signup: boolean) {
   try { return await postJson(path, body); }
-  catch (error) {
+  catch (error) { globalThis.__jangbosoLogError?.("services/api/auth.ts", error);
     if (error instanceof ApiError) {
       const message = error.status === 400 ? '입력값 형식을 확인해주세요.'
         : error.status === 401 && !signup ? '전화번호 또는 비밀번호가 일치하지 않아요.'

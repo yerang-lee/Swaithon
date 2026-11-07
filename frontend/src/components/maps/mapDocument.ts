@@ -10,6 +10,7 @@ export function mapDocument(key: string, initial: ExplorationLocation | null, gp
   <script>
   const initial=${safeJson(initial)};let selected=initial,map,circle,marker,geocoder,places,revision=0,searchRevision=0;let radius=initial?Math.max(1,Math.min(5,Math.round(initial.radius))):1;
   const send=(data)=>{if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify(data));else window.parent.postMessage({source:'jangboso-map',...data},'*')};
+  window.addEventListener('error',()=>send({type:'diagnostic-error',message:'지도 JavaScript 실행 오류'}));window.addEventListener('unhandledrejection',()=>send({type:'diagnostic-error',message:'지도 비동기 처리 오류'}));
   const status=(text)=>{const el=document.getElementById('status');el.textContent=text;el.style.display=text?'block':'none'};
   let centerTimer;
   function updateRadius(fit=false){document.getElementById('distance').textContent=radius+' km';document.getElementById('slider').value=radius;if(circle){circle.setRadius(radius*1000);if(fit)map.setBounds(circle.getBounds(),36,36,36,36)}}
@@ -30,6 +31,6 @@ export function mapDocument(key: string, initial: ExplorationLocation | null, gp
   window.addEventListener('resize',resizeMap);
   window.visualViewport?.addEventListener('resize',resizeMap);
   window.startMap=()=>kakao.maps.load(()=>{map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(initial?.latitude||37.5665,initial?.longitude||126.978),level:7});geocoder=new kakao.maps.services.Geocoder();places=new kakao.maps.services.Places();circle=new kakao.maps.Circle({radius:radius*1000,strokeWeight:1.5,strokeColor:'#53B175',strokeOpacity:1,fillColor:'#53B175',fillOpacity:.22});kakao.maps.event.addListener(map,'center_changed',centerChanged);if(selected)locate(selected);else{status('현재 위치를 확인하거나 주소를 검색해주세요.');send({type:'gps-request'})}send({type:'ready'})});
-  updateRadius();const sdk=document.createElement('script');sdk.src='https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=services&appkey='+encodeURIComponent(${safeJson(key)});sdk.onload=window.startMap;sdk.onerror=()=>status('카카오 지도를 불러오지 못했어요. 앱 키·등록 도메인·네트워크를 확인해주세요.');document.head.append(sdk);
+  updateRadius();const sdk=document.createElement('script');sdk.src='https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=services&appkey='+encodeURIComponent(${safeJson(key)});sdk.onload=window.startMap;sdk.onerror=()=>{send({type:'diagnostic-error',message:'카카오 SDK 로드 실패: 앱 키·도메인·네트워크 확인 필요'});status('카카오 지도를 불러오지 못했어요. 앱 키·등록 도메인·네트워크를 확인해주세요.')};document.head.append(sdk);
   </script></body></html>`;
 }

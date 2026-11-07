@@ -1,3 +1,4 @@
+import { postMultipart } from './multipart';
 import { productCategories } from '../../constants/productCategories';
 import { Platform } from 'react-native';
 import { getAuthSession } from './auth';
@@ -89,7 +90,7 @@ export async function applyVoiceAnalysis(analysis: VoiceAnalysis, fields?: Confi
     const result = d as AppliedAnalysis | null;
     if (!result || result.analysis_id !== analysis.analysisId || result.intent !== analysis.intent || result.status !== 'APPLIED' || !positiveId(result.product_id) || !text(result.product_name) || !text(result.message) || analysis.productId !== undefined && result.product_id !== analysis.productId) throw new Error('반영 결과를 확인하지 못했어요. 중복 요청 전에 상품 상태를 확인해주세요.');
     return result;
-  } catch(e) { return analysisError(e); }
+  } catch(e) { globalThis.__jangbosoLogError?.("services/api/voice.ts", e);  return analysisError(e); }
 }
 export async function cancelVoiceAnalysis(analysisId: string): Promise<void> {
   const token = merchantToken();
@@ -103,7 +104,7 @@ export async function cancelVoiceAnalysis(analysisId: string): Promise<void> {
     }
     const d = await deleteJson(`/voice/analysis/${encodeURIComponent(analysisId)}`,token) as {analysis_id:string;status:string;message:string};
     if (!d || d.analysis_id !== analysisId || d.status !== 'CANCELLED' || !text(d.message)) throw new Error('분석 취소 결과를 확인하지 못했어요. 다시 시도해주세요.');
-  } catch(e) { analysisError(e); }
+  } catch(e) { globalThis.__jangbosoLogError?.("services/api/voice.ts", e);  analysisError(e); }
 }
 export async function submitVoice(action: VoiceAction, uri: string, id?: number): Promise<VoiceResult> {
   const token = merchantToken();
@@ -113,16 +114,16 @@ export async function submitVoice(action: VoiceAction, uri: string, id?: number)
   if (!base) throw new Error('API 서버 주소가 설정되지 않았어요.');
   const form=new FormData();
   if (action !== 'registration') form.append(action === 'saleDelete' ? 'sale_id' : 'product_id',String(id));
-  if (Platform.OS === 'web') {const blob=await(await fetch(uri)).blob();form.append('audio_file',blob,blob.type.includes('mp4')?'voice.m4a':'voice.webm');}
+  if (Platform.OS === 'web') {const blob=await(await fetch(uri)).blob();if(!blob.size||blob.size>10*1024*1024)throw new Error('빈 파일이 아닌 10MB 이내 녹음이 필요해요.');form.append('audio_file',blob,blob.type.includes('mp4')?'voice.m4a':'voice.webm');}
   else form.append('audio_file',{uri,name:'voice.m4a',type:'audio/mp4'} as unknown as Blob);
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),60000);
   try {
-    const response=await fetch(`${base.replace(/\/$/,'')}${voiceActions[action].path}`,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:form,signal:controller.signal});
+    const response=await postMultipart(`${base.replace(/\/$/,'')}${voiceActions[action].path}`,form,{headers:{Authorization:`Bearer ${token}`},signal:controller.signal});
     if (!response.ok) throw new ApiError(response.status,response.status === 422 ? '음성에서 상품 정보를 추출하지 못했어요. 다시 녹음해주세요.' : '음성 요청을 처리하지 못했어요.');
     const data=await response.json();
     if (response.status !== 200) throw new Error('음성 처리 응답 상태를 확인할 수 없어요.');
     return parseVoiceAnalysis(data,action,id);
-  } catch(e) {
+  } catch(e) { globalThis.__jangbosoLogError?.("services/api/voice.ts", e);
     if (controller.signal.aborted || e instanceof TypeError) throw new Error('분석 결과를 가져오지 못했어요. 다시 시도해주세요.');
     return analysisError(e);
   } finally {clearTimeout(timeout);}

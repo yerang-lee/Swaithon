@@ -1,3 +1,4 @@
+import { logAppError } from '../utils/appDiagnostics';
 import { demoProducts as products } from '../data/demoProducts';
 import { useFavorites } from '../hooks/useFavorites';
 import { ReservationsScreen } from '../components/reservations/ReservationsScreen';
@@ -25,7 +26,7 @@ const notice = (title: string) => Alert.alert(title, '이 화면은 준비 중�
 export default function HomeScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   useEffect(() => { if (tab && ['홈', '관심상품', '예약', '마이'].includes(tab)) setActive(tab); }, [tab]);
-  useFocusEffect(useCallback(() => { let alive = true; void readLocation().then(saved => { if (alive && saved) setLocation(saved); }).catch(() => {}); return () => { alive = false; }; }, []));
+  useFocusEffect(useCallback(() => { let alive = true; void readLocation().then(saved => { if (alive && saved) setLocation(saved); }).catch((__caughtError) => { logAppError("app/home.tsx", __caughtError); }); return () => { alive = false; }; }, []));
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(140, (Math.min(width, 600) - 60) / 2.1);
   const [active, setActive] = useState('홈');
@@ -40,7 +41,7 @@ export default function HomeScreen() {
   const [location, setLocation] = useState<ExplorationLocation | null>(null);
   const [locationError, setLocationError] = useState('');
   const radius = location?.radius ?? 1;
-  useEffect(() => { let active = true; void (async () => { try { const saved = await readLocation(); const next = saved ?? await getCurrentLocation(); if (active) setLocation(next); } catch (error) { if (active) setLocationError(error instanceof Error ? error.message : '위치를 가져오지 못했어요.'); } })(); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; void (async () => { try { const saved = await readLocation(); const next = saved ?? await getCurrentLocation(); if (active) setLocation(next); } catch (error) { logAppError("app/home.tsx", error);  if (active) setLocationError(error instanceof Error ? error.message : '위치를 가져오지 못했어요.'); } })(); return () => { active = false; }; }, []);
 
 
   if (active === '예약') return <ReservationsScreen onTab={setActive} />;
@@ -76,7 +77,7 @@ export default function HomeScreen() {
     </ScrollView>
     <BottomNavigation active={active} onSelect={setActive} />
     <Modal visible={locationOpen} presentationStyle="fullScreen" animationType="slide" onShow={() => setLocationReady(true)} onRequestClose={() => setLocationOpen(false)}>
-      {locationReady && <LocationSettings initial={location} onClose={() => setLocationOpen(false)} onApply={async next => { try { await saveLocation(next); setLocation(next); setLocationError(''); setLocationOpen(false); } catch { Alert.alert('저장 실패', '위치를 저장하지 못했어요. 다시 시도해주세요.'); } }} />}
+      {locationReady && <LocationSettings initial={location} onClose={() => setLocationOpen(false)} onApply={async next => { try { await saveLocation(next); setLocation(next); setLocationError(''); setLocationOpen(false); } catch (__caughtError) { logAppError("app/home.tsx", __caughtError);  Alert.alert('저장 실패', '위치를 저장하지 못했어요. 다시 시도해주세요.'); } }} />}
     </Modal>
   </SafeAreaView>;
 }

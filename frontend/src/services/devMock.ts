@@ -13,6 +13,9 @@ const accounts = new Map<string, Account>([
 ]);
 const sessions = new Map<string, Account>();
 let sequence = 100;
+const mockOnboarded = new Set<number>();
+const onboardingMarketIds = new Map<string,number>([['mock-kakao-1',1],['mock-kakao-2',4],['mock-kakao-3',2]]);
+let nextOnboardingMarketId = 5;
 const mockCancellations = new Map<number, Set<number>>();
 // 테스트 입장 버튼은 이전 정보 수정/탈퇴에 영향을 받지 않는 새 예시 계정을 준비합니다.
 export function prepareMockAccount(role: Account['role']): string {
@@ -21,7 +24,7 @@ export function prepareMockAccount(role: Account['role']): string {
   const phone = role === 'MERCHANT' ? '01000000001' : '01000000002';
   for (const [key, account] of accounts) if (account.user_id === userId) accounts.delete(key);
   for (const [key, account] of sessions) if (account.user_id === userId || account.phone === phone) sessions.delete(key);
-  mockCancellations.delete(userId);
+  mockCancellations.delete(userId); mockOnboarded.delete(userId);
   accounts.set(phone, { user_id: userId, phone, name: role === 'MERCHANT' ? '테스트 상인' : '테스트 고객', role });
   return phone;
 }
@@ -77,9 +80,14 @@ export async function mockRequest(path: string, method: string, body?: unknown, 
   }
 
   if (url.pathname === '/users/me/onboarding' && method === 'PATCH' && account) {
-    if (input.role !== 'MERCHANT' && input.role !== 'CUSTOMER') throw new Error('테스트 이용 유형을 확인해주세요.');
-    account.role = input.role;
-    return { ...account, market_id: input.market_id, store_name: input.store_name, onboarding_completed: true };
+    if(mockOnboarded.has(account.user_id))throw Object.assign(new Error('이미 온보딩이 완료된 계정이에요.'),{status:409});
+    if(input.role!=='MERCHANT'&&input.role!=='CUSTOMER')throw Object.assign(new Error('이용 유형을 확인해주세요.'),{status:400});
+    if(input.role==='MERCHANT'&&(!['kakao_place_id','market_name','address','store_name'].every(key=>typeof input[key]==='string'&&String(input[key]).trim())||typeof input.latitude!=='number'||!Number.isFinite(input.latitude)||Math.abs(input.latitude)>90||typeof input.longitude!=='number'||!Number.isFinite(input.longitude)||Math.abs(input.longitude)>180))throw Object.assign(new Error('상인 필수 정보를 확인해주세요.'),{status:400});
+    account.role=input.role;mockOnboarded.add(account.user_id);
+    if(input.role==='CUSTOMER')return {user_id:account.user_id,role:'CUSTOMER',market_id:null,store_id:null,store_name:null,onboarding_completed:true};
+    const place=String(input.kakao_place_id);
+    if(!onboardingMarketIds.has(place))onboardingMarketIds.set(place,nextOnboardingMarketId++);
+    return {user_id:account.user_id,role:'MERCHANT',market_id:onboardingMarketIds.get(place),store_id:++sequence,store_name:String(input.store_name).trim(),onboarding_completed:true};
   }
   // Numeric category IDs below are test fixtures, not production mappings.
   if (url.pathname === '/products' && method === 'GET' || /^\/products\/\d+$/.test(url.pathname) && method === 'GET') {
@@ -98,7 +106,7 @@ export async function mockRequest(path: string, method: string, body?: unknown, 
   if (url.pathname === '/markets/search/kakao' && method === 'GET') {
     const query=(url.searchParams.get('query')??'').trim();
     if(!query)throw new Error('검색어를 입력해주세요.');
-    const documents=[{market_name:'용산용문시장',address:'서울 용산구 효창원로42길',latitude:37.539,longitude:126.96},{market_name:'망원시장',address:'서울 마포구 포은로8길 14',latitude:37.5563,longitude:126.9102},{market_name:'공덕시장',address:'서울 마포구 공덕동',latitude:37.544,longitude:126.953}].map((m,i)=>({...m,place_id:`mock-kakao-${i+1}`,market_id:[1,4,2][i],category_name:'가정,생활 > 시장',place_url:''})).filter(m=>m.market_name.includes(query)||m.address.includes(query));
+    const documents=[{market_name:'용산용문시장',address:'서울 용산구 효창원로42길',latitude:37.539,longitude:126.96},{market_name:'망원시장',address:'서울 마포구 포은로8길 14',latitude:37.5563,longitude:126.9102},{market_name:'공덕시장',address:'서울 마포구 공덕동',latitude:37.544,longitude:126.953},{market_name:'미등록시장',address:'서울 테스트 주소',latitude:37.55,longitude:126.95}].map((m,i)=>({...m,place_id:`mock-kakao-${i+1}`,market_id:[1,4,2,null][i],category_name:'가정,생활 > 시장',place_url:''})).filter(m=>m.market_name.includes(query)||m.address.includes(query));
     return {documents,total_count:documents.length,is_end:true};
   }
   if (url.pathname === '/markets/nearby' && method === 'GET') {

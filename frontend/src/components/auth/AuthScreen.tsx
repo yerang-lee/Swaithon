@@ -1,3 +1,4 @@
+import { logAppError } from '../../utils/appDiagnostics';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +13,7 @@ import { SignupRoleStep, type SignupProfile } from './SignupRoleStep';
 import { registerOnboarding } from '../../services/api/onboarding';
 import { ApiError } from '../../services/api/client';
 import { logApiError } from '../../utils/apiDiagnostics';
-import { prepareMockAccount, setMockMode } from '../../services/devMock';
+import { isMockMode, prepareMockAccount, setMockMode } from '../../services/devMock';
 import { clearFavorites } from '../../hooks/useFavorites';
 
 export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
@@ -38,14 +39,16 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
       stage = '로그인';
       await authApi.login(phone, password);
       stage = '온보딩 저장';
-      const result = await registerOnboarding({ role: profile.role === 'merchant' ? 'MERCHANT' : 'CUSTOMER',
-        ...(profile.marketId !== undefined ? { market_id: profile.marketId } : {}),
-        ...(profile.role === 'merchant' ? { store_name: profile.storeName } : {}) });
+      const result = await registerOnboarding(profile.role === 'customer' ? {role:'CUSTOMER'} : {
+        role:'MERCHANT',kakao_place_id:profile.market.place_id,market_name:profile.market.market_name,
+        address:profile.market.address,latitude:profile.market.latitude,longitude:profile.market.longitude,
+        store_name:profile.storeName,...(profile.description?.trim()?{description:profile.description.trim()}:{})
+      });
       // 서버 저장이 완료된 뒤 캐시 실패가 온보딩 재등록으로 이어지지 않게 합니다.
-      await AsyncStorage.setItem(`jangboso.onboarding.${account.user_id}`, JSON.stringify({ ...profile, server: result })).catch(() => {});
+      await AsyncStorage.setItem(`jangboso.onboarding.${account.user_id}`, JSON.stringify({ ...profile, server: result })).catch((__caughtError) => { logAppError("components/auth/AuthScreen.tsx", __caughtError); });
       setPassword(''); setConfirmation('');
       router.replace('/home');
-    } catch (e) {
+    } catch (e) { logAppError("components/auth/AuthScreen.tsx", e);
       logApiError('FLOW', '/signup', `${stage} 단계 실패`, e instanceof ApiError ? e.status : undefined, e instanceof Error ? e.message : undefined, [password, phoneNumber, nickname]);
       const status = e instanceof ApiError ? ` · HTTP ${e.status}` : '';
       setError(`${stage} 실패${status}: ${e instanceof Error ? e.message : '다시 시도해주세요.'}`);
@@ -71,13 +74,16 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
     if (signup && nickname.trim().length > 50) {
       setError('닉네임은 50자 이내로 입력해주세요.'); return;
     }
+    // 일반 인증은 이전 테스트 입장 상태와 관계없이 실제 서버를 사용합니다.
+    if (isMockMode()) { authApi.clearAuthSession(); clearFavorites(); }
+    setMockMode(false);
     setError('');
     if (signup) { setRoleStep(true); return; }
     setLoading(true);
     try {
       await authApi.login(phone, password);
       router.replace('/home');
-    } catch (error) {
+    } catch (error) { logAppError("components/auth/AuthScreen.tsx", error);
       logApiError('FLOW', '/auth/login', '로그인 처리 실패', error instanceof ApiError ? error.status : undefined, error instanceof Error ? error.message : undefined, [password, phoneNumber]);
       setError(error instanceof Error ? error.message : '요청에 실패했어요. 다시 시도해주세요.');
     } finally { setLoading(false); }
@@ -109,7 +115,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
           {!signup && __DEV__ && <View style={{ gap: 12, marginTop: 24 }}><Text style={styles.smallMuted}>서버 없이 테스트 (예시 데이터)</Text>{(['MERCHANT', 'CUSTOMER'] as const).map(role => <Pressable key={role} accessibilityRole="button" disabled={loading} style={styles.back} onPress={async () => {
             setLoading(true); setError(''); authApi.clearAuthSession(); clearFavorites(); setMockMode(true);
             try { await authApi.login(prepareMockAccount(role), 'mock-only'); router.replace('/home'); }
-            catch (e) { setError(e instanceof Error ? e.message : '테스트 입장에 실패했어요.'); }
+            catch (e) { logAppError("components/auth/AuthScreen.tsx", e);  setError(e instanceof Error ? e.message : '테스트 입장에 실패했어요.'); }
             finally { setLoading(false); }
           }}><Text style={[styles.smallMuted, styles.green]}>{role === 'MERCHANT' ? '상인으로 테스트' : '고객으로 테스트'}</Text></Pressable>)}</View>}
           {signup && <Pressable accessibilityRole="link" accessibilityLabel="로그인으로 돌아가기" onPress={() => router.replace('/login')} style={[styles.back, styles.signupBack]}><Text style={styles.smallMuted}>로그인으로 돌아가기</Text></Pressable>}

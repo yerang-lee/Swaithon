@@ -1,3 +1,5 @@
+import { logAppError } from '../../utils/appDiagnostics';
+import { useCatalogRevision } from '../../services/catalogChanges';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +15,7 @@ import { isMockMode } from '../../services/devMock';
 import { reserveProduct } from '../../services/api/reservations';
 
 export default function ProductDetail() {
+  const catalogRevision = useCatalogRevision();
   const { listingId, preview, requestId } = useLocalSearchParams<{ listingId: string; preview?: string; requestId?: string }>();
   const demo = demoProducts.find(value => value.id === listingId);
   const [data, setData] = useState<ProductData | null>(null);
@@ -29,10 +32,10 @@ export default function ProductDetail() {
     if (demo) { setLoading(false); return; }
     setLoading(true);
     void getProduct(listingId, preview === 'true').then(result => { if (alive) setData(result); })
-      .catch(e => { if (alive) setError(e instanceof Error ? e.message : '상품 조회 실패'); })
+      .catch(e => { logAppError("app/products/[listingId].tsx", e);  if (alive) setError(e instanceof Error ? e.message : '상품 조회 실패'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [listingId, demo, retry, preview]);
+  }, [listingId, demo, retry, preview, catalogRevision]);
   if (loading || (!demo && !data)) return <SafeAreaView style={styles.safe}><PageHeader title="" onBack={() => router.back()} />{loading ? <ActivityIndicator color="#53B175" /> : <><Text style={styles.note}>{error}</Text><Pressable onPress={() => setRetry(v => v + 1)}><Text style={styles.note}>다시 시도</Text></Pressable></>}</SafeAreaView>;
   const id = String(data?.listing_id ?? demo!.id);
   const favorite = favorites.includes(id);
@@ -49,14 +52,14 @@ export default function ProductDetail() {
       const reservation = await reserveProduct(String(data.listing_id), String(data.product_id), quantity, date, note, requestId);
       setSheet(false);
       Alert.alert('예약 완료', `${reservation.message}\n예약 번호: ${reservation.reservation_id}\n총 금액: ${reservation.total_price.toLocaleString('ko-KR')}원`);
-    } catch (e) { Alert.alert('예약 안내', e instanceof Error ? e.message : '예약 결과를 확인해주세요.'); }
+    } catch (e) { logAppError("app/products/[listingId].tsx", e);  Alert.alert('예약 안내', e instanceof Error ? e.message : '예약 결과를 확인해주세요.'); }
     finally { lock.current = false; setSubmitting(false); }
   }
   return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <PageHeader title="" onBack={() => router.back()} />
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        {imageUrl && /^https?:\/\//.test(imageUrl) && !imageError ? <Image source={{ uri: imageUrl }} accessibilityLabel={name} resizeMode="contain" style={{ width: '100%', height: 240 }} onError={() => setImageError(true)} /> : <><Text style={styles.emoji}>{demo?.emoji ?? '🛍️'}</Text><Text style={styles.imageNote}>상품 이미지 {demo ? '연결 예정' : '없음'}</Text></>}
+        {imageUrl && /^https?:\/\//.test(imageUrl) && !imageError ? <Image source={{ uri: imageUrl }} accessibilityLabel={name} resizeMode="contain" style={{ width: '100%', height: 240 }} onError={event => { logAppError('product/image', new Error(event.nativeEvent.error)); setImageError(true); }} /> : <><Text style={styles.emoji}>{demo?.emoji ?? '🛍️'}</Text><Text style={styles.imageNote}>상품 이미지 {demo ? '연결 예정' : '없음'}</Text></>}
       </View>
       <View style={styles.details}><View style={styles.productRow}><Text style={styles.name}>{name} {demo?.quantity ?? ''}</Text><Text style={styles.price}>{price}</Text></View>
         <Pressable accessibilityRole="button" style={styles.store} onPress={() => Alert.alert(store, '점포 상세 화면은 준비 중이에요.')}><View style={{ flex: 1, gap: 6 }}><Text style={styles.storeName}>{store}</Text><Text style={styles.distance}>{demo ? `${demo.distance} · ${demo.market}` : ''}</Text></View><AppIcon name="arrow-right" size={14} color="#7C7C7C" /></Pressable>

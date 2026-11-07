@@ -19,14 +19,14 @@ function translate(error: unknown): never {
   throw error;
 }
 export async function getMyProfile(): Promise<UserProfile> {
-  try { return parseProfile(await getJson('/users/me', token())); } catch (e) { return translate(e); }
+  try { return parseProfile(await getJson('/users/me', token())); } catch (e) { globalThis.__jangbosoLogError?.("services/api/profile.ts", e);  return translate(e); }
 }
 export async function updateMyProfile(changes: { name?: string; phone?: string }): Promise<UserProfile> {
   if (changes.name !== undefined && (!changes.name.trim() || changes.name.trim().length > 50)) throw new Error('닉네임은 1~50자로 입력해주세요.');
   if (changes.phone !== undefined && !/^01\d{8,9}$/.test(changes.phone)) throw new Error('올바른 휴대전화번호를 입력해주세요.');
   if (changes.name === undefined && changes.phone === undefined) throw new Error('수정할 정보가 없어요.');
   try { return parseProfile(await patchJson('/users/me', { ...(changes.name !== undefined ? { name: changes.name.trim() } : {}), ...(changes.phone !== undefined ? { phone: changes.phone } : {}) }, token())); }
-  catch (e) {
+  catch (e) { globalThis.__jangbosoLogError?.("services/api/profile.ts", e);
     if (e instanceof ApiError && e.status === 409) throw new ApiError(409, '이미 가입된 전화번호예요.');
     return translate(e);
   }
@@ -37,7 +37,7 @@ export async function deleteMyAccount(): Promise<void> {
     const data = await deleteJson('/users/me', accessToken);
     if (!data || typeof data !== 'object' || !('message' in data) || data.message !== '회원 탈퇴가 완료되었습니다.') throw new Error('탈퇴 결과를 확인하지 못했어요. 계정 상태를 확인해주세요.');
     if (getAuthSession()?.access_token === accessToken) clearAuthSession();
-  } catch (e) {
+  } catch (e) { globalThis.__jangbosoLogError?.("services/api/profile.ts", e);
     if (e instanceof ApiError && e.status === 409) throw new ApiError(409, '처리 중인 예약 등으로 탈퇴할 수 없어요. 예약 상태를 확인해주세요.');
     translate(e);
   }

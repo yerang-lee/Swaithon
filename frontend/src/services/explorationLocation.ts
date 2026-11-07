@@ -11,7 +11,7 @@ export async function readLocation(): Promise<ExplorationLocation | null> {
   try {
     const value = JSON.parse(raw);
     return isLocation(value) ? value : null;
-  } catch { return null; }
+  } catch (__caughtError) { globalThis.__jangbosoLogError?.("services/explorationLocation.ts", __caughtError);  return null; }
 }
 export function isLocation(value: unknown): value is ExplorationLocation {
   if (!value || typeof value !== 'object') return false;
@@ -29,6 +29,6 @@ export async function getCurrentLocation(): Promise<ExplorationLocation> {
     const [address] = await Location.reverseGeocodeAsync(position.coords);
     const parts = [address?.district, address?.subregion, address?.city];
     name = parts.find(part => part && /[동읍면]$/.test(part)) || address?.district || address?.city || name;
-  } catch { /* 지도 SDK에서 동 이름을 다시 확인합니다. */ }
+  } catch (__caughtError) { globalThis.__jangbosoLogError?.("services/explorationLocation.ts", __caughtError);  /* 지도 SDK에서 동 이름을 다시 확인합니다. */ }
   return { latitude: position.coords.latitude, longitude: position.coords.longitude, name, radius: 1 };
 }

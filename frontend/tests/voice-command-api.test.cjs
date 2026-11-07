@@ -1,0 +1,45 @@
+const fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),assert=require('node:assert/strict');
+const source=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/services/api/voiceCommands.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+let mock=false,session={access_token:'real-test-token',role:'MERCHANT',expiresAt:Date.now()+600000};
+let response,status=200,network=false;const calls=[];const environment={env:{EXPO_PUBLIC_VOICE_COMMAND_API:'true',EXPO_PUBLIC_API_URL:'https://backend.invalid'}};
+const api={},platform={OS:'ios'};
+let fileSize=4;const audioBytes=new Uint8Array([1,2,3,4]);
+class File{constructor(uri){this.uri=uri;return new Proxy(this,{has:(target,key)=>key==='bytes'?false:Reflect.has(target,key)});}get size(){return fileSize;}get name(){return this.uri.split('/').pop();}get type(){return 'audio/mp4';}async bytes(){return audioBytes;}}
+class FormData{constructor(){this._parts=[];}get fields(){return this._parts;}}
+const formPatch={};const formPatchSource=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../node_modules/expo/src/winter/FormData.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+new Function('exports',formPatchSource)(formPatch);formPatch.installFormDataPatch(FormData);
+const converter={};const converterSource=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../node_modules/expo/src/winter/fetch/convertFormData.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+new Function('require','exports',converterSource)(()=>({blobToArrayBufferAsync:blob=>blob.arrayBuffer()}),converter);
+const transport=async(url,options)=>{calls.push({url,...options});if(network)throw new TypeError('offline');return {ok:status<400,status,json:async()=>response};};
+new Function('require','exports','fetch','FormData','process',source)(name=>name==='./multipart'?{postMultipart:(url,body,options)=>transport(url,{method:'POST',body,...options})}:name==='expo-file-system'?{File}:name==='react-native'?{Platform:platform}:name==='./auth'?{getAuthSession:()=>session}:{isMockMode:()=>mock},api,transport,FormData,environment);
+const state=(status,extra={})=>({command_id:'cmd-1',status,intent:'PRODUCT_UPDATE',message:'질문',transcript:'사과',execution_endpoint:status==='NEEDS_CONFIRMATION'?'/voice/product-update':null,...(status==='NEEDS_CONFIRMATION'?{preview:{before:{price:5000},after:{price:6000}}}:{}),...extra});
+async function main(){
+ response=state('NEEDS_INPUT');const initial=await api.analyzeText('사과 가격 바꿔');assert.deepEqual(JSON.parse(calls.at(-1).body),{text:'사과 가격 바꿔'});assert.equal(calls.at(-1).headers.Authorization,'Bearer real-test-token');
+ response=state('NEEDS_INPUT');const next=await api.answerText(initial,'6천 원');assert.ok(calls.at(-1).url.includes('/commands/cmd-1/answer'));assert.deepEqual(JSON.parse(calls.at(-1).body),{text:'6천 원'});assert.equal(next.expiresAt,initial.expiresAt);
+ response=state('NEEDS_CONFIRMATION',{parsed:{intent:'PRODUCT_CREATE'},preview:{before:{price:5000},after:{price:6000}}});const confirmed=await api.answerAudio(next,{uri:'file:///voice.m4a',durationMillis:1000,fileSize:1024});assert.ok(calls.at(-1).url.endsWith('/commands/cmd-1/answer-audio'));assert.equal(calls.at(-1).body.fields[0][0],'file');assert.equal(calls.at(-1).headers['Content-Type'],undefined);assert.equal(confirmed.intent,'PRODUCT_UPDATE');assert.equal(confirmed.expiresAt,initial.expiresAt);const multipart=calls.at(-1).body;assert.deepEqual(multipart.fields[0][1],{uri:'file:///voice.m4a',name:'voice.m4a',type:'audio/mp4'});const unsupported=new FormData();unsupported.append('file',{uri:'file:///old.m4a',name:'voice.m4a',type:'audio/mp4'});await assert.rejects(()=>converter.convertFormDataAsync(unsupported),/Unsupported FormDataPart/);response=state('NEEDS_INPUT');await api.analyzeAudio({uri:'file:///voice.m4a',durationMillis:1000,fileSize:1024});assert.equal(calls.at(-1).body.fields[0][1].uri,'file:///voice.m4a');for(const invalidSize of [0,11*1024*1024]){fileSize=invalidSize;await assert.rejects(()=>api.analyzeAudio({uri:'file:///voice.m4a',durationMillis:1000,fileSize:1024}),/10MB/);}fileSize=4;
+ network=true;await assert.rejects(()=>api.executeCommand(confirmed),e=>e.code==='NETWORK');const failed=calls.at(-1);network=false;response=state('SUCCEEDED',{result:{price:6000}});const done=await api.executeCommand(confirmed,true);assert.equal(done.status,'SUCCEEDED');assert.equal(calls.at(-1).url,failed.url);assert.deepEqual(JSON.parse(calls.at(-1).body),{command_id:'cmd-1',confirmed:true});
+ assert.throws(()=>api.parseCommand(state('NEEDS_CONFIRMATION',{execution_endpoint:'https://evil.invalid/voice/product-delete'})));
+ assert.throws(()=>api.parseCommand(state('NEEDS_INPUT',{execution_endpoint:'/voice/product-update'})));
+ assert.throws(()=>api.parseCommand(state('NEEDS_INPUT',{command_id:'other'}),'cmd-1'));
+ await assert.rejects(()=>api.executeCommand(initial));
+ const selection=api.parseCommand(state('NEEDS_SELECTION',{candidates:[{listing_id:'listing-2',product_name:'사과',sale_quantity:3,sale_unit:'개',price:5000}]}));
+ response=state('NEEDS_CONFIRMATION');await api.selectCandidate(selection,'listing-2');assert.deepEqual(JSON.parse(calls.at(-1).body),{listing_id:'listing-2'});await assert.rejects(()=>api.selectCandidate(selection,'first-guess'));
+ response=state('CANCELLED');await api.cancelCommand(selection);assert.ok(calls.at(-1).url.endsWith('/commands/cmd-1/cancel'));assert.equal(calls.at(-1).body,undefined);
+ status=503;response={detail:{code:'SERVICE_UNAVAILABLE',message:'private connection credentials'}};await assert.rejects(()=>api.analyzeText('사과'),e=>!e.message.includes('credentials')&&e.status===503);status=200;
+ assert.throws(()=>api.checkAudio({uri:'file:///a.m4a',durationMillis:30001,fileSize:10}));assert.throws(()=>api.checkAudio({uri:'file:///a.m4a',durationMillis:10,fileSize:0}));assert.throws(()=>api.checkAudio({uri:'file:///a.m4a',durationMillis:10,fileSize:11*1024*1024}));
+ for(const times of [{},{starts_at:null,ends_at:null},{starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-30T00:00:00Z'}]){
+  const snapshot={product_name:'사과',price:5000,effective_price:4000,sale_active:true,...times};
+  response=state('NEEDS_CONFIRMATION',{intent:'SALE_CREATE',execution_endpoint:'/voice/sale-registration',preview:{before:null,after:snapshot}});
+  const unchanged=JSON.stringify(response);const discount=await api.analyzeText('사과 할인해 줘');assert.equal(discount.status,'NEEDS_CONFIRMATION');assert.deepEqual(discount.preview.after,snapshot);assert.equal(JSON.stringify(response),unchanged);
+  response=state('SUCCEEDED',{intent:'SALE_CREATE',result:{...snapshot}});const saved=await api.executeCommand(discount);assert.ok(calls.at(-1).url.endsWith('/voice/sale-registration'));assert.deepEqual(JSON.parse(calls.at(-1).body),{command_id:'cmd-1',confirmed:true});assert.deepEqual(saved.result,snapshot);assert.deepEqual(discount.preview.after,snapshot);
+ }
+ mock=true;let draft=await api.analyzeText('질문');assert.equal(draft.status,'NEEDS_INPUT');const answered=await api.answerText(draft,'6000');assert.equal(answered.command_id,draft.command_id);assert.equal(answered.expiresAt,draft.expiresAt);const applied=await api.executeCommand(answered);assert.equal((await api.executeCommand(answered,true)).status,'SUCCEEDED');await assert.rejects(()=>api.cancelCommand(applied));
+ draft=await api.analyzeText('후보');assert.equal(draft.status,'NEEDS_SELECTION');const selected=await api.selectCandidate(draft,draft.candidates[1].listing_id);assert.equal(selected.command_id,draft.command_id);
+ draft=await api.analyzeText('삭제');assert.equal(draft.intent,'PRODUCT_DELETE');assert.equal((await api.cancelCommand(draft)).status,'CANCELLED');
+ for(const [text,intent,endpoint] of [['사과 등록','PRODUCT_CREATE','/voice/product-registration'],['사과 품절','SOLD_OUT','/voice/sold-out'],['사과 할인','SALE_CREATE','/voice/sale-registration'],['사과 할인 종료','SALE_DELETE','/voice/sale-delete']]){const draft=await api.analyzeText(text);assert.equal(draft.intent,intent);assert.equal(draft.execution_endpoint,endpoint);const saved=await api.executeCommand(draft);assert.equal(saved.result.product_id,101);assert.equal(saved.result.store_id,101);}
+ draft=await api.analyzeText('조회');assert.equal(draft.intent,'PRODUCT_DETAIL');assert.equal(draft.status,'SUCCEEDED');
+ draft=await api.analyzeText('사과');session={...session,access_token:'other-account'};await assert.rejects(()=>api.cancelCommand(draft),e=>e.status===404);
+ mock=false;environment.env.EXPO_PUBLIC_VOICE_COMMAND_API='false';response=state('NEEDS_INPUT');await api.analyzeText('사과');assert.ok(calls.at(-1).url.endsWith('/voice/analyze'));session={...session,role:'CUSTOMER'};await assert.rejects(()=>api.analyzeText('사과'),e=>e.status===403);
+ console.log('PASS: initial/follow-up IDs, file field/MIME, selection, server execution allowlist, same-command retry, cancellation, error redaction, size/duration, mock ownership/idempotency, default command flow and merchant guard');
+}
+main().catch(e=>{console.error(e);process.exitCode=1});

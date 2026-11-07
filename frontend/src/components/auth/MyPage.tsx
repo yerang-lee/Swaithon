@@ -1,3 +1,4 @@
+import { logAppError } from '../../utils/appDiagnostics';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -30,7 +31,7 @@ export function MyPage() {
   }
   useEffect(() => {
     let active = true; setFetching(true); setError('');
-    void getMyProfile().then(value => { if (active) setProfile(value); }).catch(e => {
+    void getMyProfile().then(value => { if (active) setProfile(value); }).catch(e => { logAppError("components/auth/MyPage.tsx", e);
       if (!active) return;
       if (e instanceof ApiError && e.status === 401) goToLogin();
       else setError(e instanceof Error ? e.message : '내 정보를 불러오지 못했어요.');
@@ -44,7 +45,7 @@ export function MyPage() {
       if (action === 'logout') { await logout(); goToLogin(); }
       else if (action === 'delete') {
         await deleteMyAccount();
-        if (profile) await AsyncStorage.removeItem(`jangboso.onboarding.${profile.user_id}`).catch(() => {});
+        if (profile) await AsyncStorage.removeItem(`jangboso.onboarding.${profile.user_id}`).catch((__caughtError) => { logAppError("components/auth/MyPage.tsx", __caughtError); });
         goToLogin();
       } else {
         if (!profile) throw new Error('내 정보를 먼저 불러와주세요.');
@@ -53,7 +54,7 @@ export function MyPage() {
         if (Object.keys(changes).length === 0) { setPanel(null); return; }
         setProfile(await updateMyProfile(changes)); setPanel(null);
       }
-    } catch (e) {
+    } catch (e) { logAppError("components/auth/MyPage.tsx", e);
       if (e instanceof ApiError && e.status === 401) goToLogin();
       else (action === 'logout' ? setError : setPanelError)(e instanceof Error ? e.message : '처리하지 못했어요. 다시 시도해주세요.');
     } finally { lock.current = false; setLoading(false); }

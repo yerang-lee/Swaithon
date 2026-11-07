@@ -1,3 +1,4 @@
+import { logAppError } from '../../utils/appDiagnostics';
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,7 +58,7 @@ export function VoiceResultScreen({ result, action, onDone, onAgain }: { result:
     if (!analysis || applied || phase === 'uncertain') { next(); return; }
     lock.current=true;setPhase('cancelling');setError('');
     try { checkSession(); await cancelVoiceAnalysis(analysis.analysisId); next(); }
-    catch(e) { setError(e instanceof Error ? e.message : '분석을 취소하지 못했어요.'); setPhase(e instanceof ApiError && e.status===409 ? 'uncertain' : 'ready'); }
+    catch(e) { logAppError("components/merchant/VoiceResultScreen.tsx", e);  setError(e instanceof Error ? e.message : '분석을 취소하지 못했어요.'); setPhase(e instanceof ApiError && e.status===409 ? 'uncertain' : 'ready'); }
     finally { lock.current=false; }
   }
   useEffect(() => { const subscription=BackHandler.addEventListener('hardwareBackPress',()=>{void discard(onDone);return true;}); return ()=>subscription.remove(); });
@@ -65,7 +66,7 @@ export function VoiceResultScreen({ result, action, onDone, onAgain }: { result:
     if (lock.current || busy || phase==='uncertain') return;
     lock.current=true;setError('');
     try { const selection=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsMultipleSelection:false,quality:0.85}); if(!selection.canceled&&selection.assets[0]){setPhoto(selection.assets[0]);setUploaded(false);} }
-    catch(e){setError(e instanceof Error?e.message:'사진을 선택하지 못했어요.');}
+    catch(e){ logAppError("components/merchant/VoiceResultScreen.tsx", e); setError(e instanceof Error?e.message:'사진을 선택하지 못했어요.');}
     finally{lock.current=false;}
   }
   async function finish() {
@@ -80,7 +81,7 @@ export function VoiceResultScreen({ result, action, onDone, onAgain }: { result:
       if(photo&&!uploaded&&productId!==undefined){checkSession();setPhase('applying');await uploadProductImage(photo,productId);setUploaded(true);}
       setPhase('applied');
       if(!analysis)onDone();
-    }catch(e){
+    }catch(e){ logAppError("components/merchant/VoiceResultScreen.tsx", e);
       if(saved){setPhase('applied');setError(`상품 처리는 완료됐지만 사진 업로드는 확인이 필요해요. ${e instanceof Error?e.message:''}`);}
       else if(e instanceof ApiError){setPhase(e.status===409||e.status>=500?'uncertain':'ready');setError(e.message);}
       else {setPhase(submitted?'uncertain':'ready');setError(e instanceof Error?e.message:'처리 결과를 확인하지 못했어요.');}
@@ -92,7 +93,7 @@ export function VoiceResultScreen({ result, action, onDone, onAgain }: { result:
     <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
       <View style={styles.main}>
         <Text accessibilityRole="header" style={styles.title}>{applied?'처리 완료':'AI 분석 결과'}</Text>
-        <Text style={styles.subtitle}>{applied?applied.message:analysis?'내용을 확인한 후 반영해주세요.':'상품 처리가 완료되었어요.'}</Text>
+        <Text style={styles.subtitle}>{applied?applied.message:analysis?'AI가 상품명, 가격, 판매 의도를 분석했어요':'상품 처리가 완료되었어요.'}</Text>
         <View style={styles.card}>
           {editing&&canEdit&&!applied?<>{field('상품명',name,setName)}{field('판매 가격',price,setPrice,true)}{field('단위',unit,setUnit)}{action==='update'&&<>{field('할인율 (%)',rate,setRate,true)}{field('할인 가격',discountPrice,setDiscountPrice,true)}</>}</>:<><View style={styles.row}><Text style={styles.label}>상품명</Text><Text style={styles.value}>{(applied?.product_name??name)||'상품명 정보 없음'} {unit}</Text></View><View style={styles.row}><Text style={styles.label}>판매 가격</Text><Text style={styles.value}>{price!==''?`${Number(price).toLocaleString('ko-KR')}원`:'가격 정보 없음'}</Text>{action==='update'&&rate!==''&&<Text style={styles.label}>{rate}% 할인 · {Number(discountPrice).toLocaleString('ko-KR')}원</Text>}</View></>}
           {canEdit&&<View style={styles.row}><Text style={styles.label}>카테고리</Text><Text style={styles.value}>{(applied?.category_name??categoryName)||'분류 확인 필요'}</Text>{!applied&&editing&&<View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:12}}>{productCategories.map(item=><Pressable key={item.code} accessibilityRole="radio" accessibilityState={{checked:category===item.code}} disabled={busy} onPress={()=>{setCategory(item.code);setCategoryName(item.name);}} style={{paddingHorizontal:12,paddingVertical:10,borderRadius:10,borderWidth:1,borderColor:category===item.code?'#176735':'#A5C6B0',backgroundColor:category===item.code?'#C9E5D3':'transparent'}}><Text style={{fontSize:16,color:'#101C15',fontWeight:category===item.code?'700':'400'}}>{item.name}</Text></Pressable>)}</View>}</View>}

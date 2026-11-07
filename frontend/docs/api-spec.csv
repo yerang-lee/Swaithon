@@ -37,3 +37,9 @@ QR 스캔 및 픽업 완료 처리,/reservations/pickup/verify,POST,픽업 예�
 상품 음성 분석 결과 최종 반영,/voice/analysis/{analysis_id}/apply,POST,상품,시작 전,시작 전,시작 전
 상품 음성 분석 결과 취소,/voice/analysis/{analysis_id},DELETE,상품,시작 전,시작 전,시작 전
 카카오 장소 검색,/markets/search/kakao,GET,시장 및 가게,시작 전,시작 전,시작 전
+음성 텍스트 명령 분석(제안),/voice/analyze,POST,상품,시작 전,시작 전,진행 중
+음성 파일 명령 분석(제안),/voice/analyze-audio,POST,상품,시작 전,시작 전,진행 중
+음성 명령 추가 답변(제안),/voice/commands/{command_id}/answer,POST,상품,시작 전,시작 전,진행 중
+음성 명령 추가 녹음(제안),/voice/commands/{command_id}/answer-audio,POST,상품,시작 전,시작 전,진행 중
+음성 명령 취소(제안),/voice/commands/{command_id}/cancel,POST,상품,시작 전,시작 전,진행 중
+음성 할인 등록 명령 실행(제안),/voice/sale-registration,POST,상품,시작 전,시작 전,진행 중

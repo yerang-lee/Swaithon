@@ -76,3 +76,39 @@ GET /products에 market_id/page/size/keyword/category_id/is_sold_out/is_on_sale�
 ## 카테고리 숫자 ID 확정
 
 사용자 지시로 공통 목록 순서대로 1~9 매핑을 적용했습니다. 1=VEGETABLE(채소), 2=FRUIT(과일), 3=MEAT_EGGS(정육·계란), 4=SEAFOOD(수산물), 5=SIDE_DISH(반찬), 6=PROCESSED_FOOD(가공식품), 7=GRAINS_NUTS(곡물·견과), 8=RICE_CAKE_BAKERY(떡·베이커리), 9=OTHER(기타)입니다. 앞선 ID 미확정/응답에서 확인된 분류만 노출 설명을 대체합니다. productCategories.ts를 공통 기준으로 사용하고 상품별 탭은 전체+9개를 처음부터 고정 노출합니다. 전체는 category_id를 생략하고 나머지는 선택한 숫자 ID로 서버 필터링합니다. 음성 분석/최종 반영에서는 기존 문자열 category 코드를 유지합니다.
+
+
+## 시장 내 가게 목록의 nullable 필드
+
+사용자 합의에 따라 GET /markets/{market_id}/stores의 stores[].address는 String | null입니다. category와 image_url도 기존 변경대로 String | null을 허용합니다. 필드 누락(undefined)은 허용하지 않습니다. total_count/page/size 및 가게 ID/이름 검증은 유지합니다.
+
+주소가 null 또는 빈 문자열이면 목록에 “주소 정보 없음”을 표시하고, 가게 상세 이동 시 address 라우트 파라미터를 생략합니다. 이미지가 null이면 빈 이미지 영역을 표시합니다. 가게 상세 API 자체의 별도 응답 계약은 목록의 nullable 변경으로 추정하지 않습니다.
+
+검증: node tests/market-stores-api.test.cjs, npm run typecheck.
+
+
+## 상품 목록 할인 여부 nullable
+
+사용자 합의에 따라 GET /products의 products[].is_on_sale은 Boolean | null입니다. 필드 누락은 허용하지 않습니다. true일 때만 기존 유효 할인 가격 검사를 거쳐 할인을 표시하며 null은 할인 여부 미확정으로 취급해 기본 가격을 표시합니다. 응답의 null을 true/false로 덮어쓰거나 가격 차이로 할인 상태를 추정하지 않습니다. 조회 필터 is_on_sale은 기존 Boolean만 허용하며 명시적인 필터와 맞지 않는 응답을 정상 결과로 받지 않습니다. 다른 상품 필드 및 별도 상세/가게 상품 API의 계약은 이번 변경 대상이 아닙니다.
+
+
+## 상품 목록 할인 가격 필드명
+
+최신 사용자 지시에 따라 GET /products의 할인 가격 필드는 sale_price(Integer | null)를 사용합니다. 앞선 discount_price로의 변경을 되돌렸으며 타입·검증·화면 표시·테스트 응답도 sale_price로 통일합니다. is_on_sale=true이고 유효한 sale_price가 기본 가격보다 낮을 때만 할인 표시합니다. 0원은 유효하며 null은 할인 가격 없음입니다. sale_price 누락과 discount_price만 있는 응답은 허용하지 않습니다. is_on_sale의 null 허용은 유지합니다.
+
+
+## 가게 상세 nullable 필드
+
+사용자 합의에 따라 GET /stores/{store_id}의 category, phone, image_url은 String | null을 허용합니다. 세 필드는 생략하지 않으며 null을 빈 문자열로 덮어쓰지 않습니다. store_name, market_name, address, description의 문자열 검증과 가게 ID 일치 검증은 유지합니다. 현재 가게 상세 화면은 세 필드를 직접 표시하거나 문자열 메서드로 처리하지 않아 추가 표시 변경 없이 null 응답을 보관할 수 있습니다. 별도 가게 상품 목록의 500 및 응답 계약은 이번 변경 대상이 아닙니다.
+
+
+## 가게별 상품 ID·카테고리·이미지 최신 계약
+
+사용자 합의에 따라 GET /stores/{store_id}/products의 listing_id/product_id/store_id/category_id는 양의 Integer입니다. image_url은 String | null이며 필드 누락은 허용하지 않습니다. category는 선택 String으로 누락을 허용합니다. 카테고리 ID로 이름을 임의 추정하거나 category를 만들어 응답에 넣지 않습니다. category의 null 허용은 합의하지 않았습니다.
+
+화면의 상세 이동·관심 목록에는 listing_id를 문자열로 변환하고, image_url=null이면 빈 이미지 영역을 표시합니다. 중복 제거는 응답의 정수 listing_id를 사용합니다. 이 절이 앞선 가게별 상품의 문자열 ID 설명을 대체합니다. 별도 상품 상세 응답 계약은 유지합니다.
+
+
+## 가게 상세 대표 이미지 영역
+
+사용자 요청에 따라 가게 상세 상단 지도 영역을 가게 대표 이미지 영역으로 변경했습니다. GET /stores/{store_id}의 image_url을 표시하고 null/빈 URL/이미지 로드 실패는 기본 가게 아이콘과 안내를 표시합니다. 지도에서 좌표를 받던 거리 계산과 GPS 권한 요청은 제거했으며 가게 이름·주소·상품 목록은 유지합니다. 이미지 로드 실패는 URL/원본 응답 없이 공통 진단 로거로 기록합니다. 이 절이 앞선 가게 상세 지도·GPS 거리 표시 설명을 대체합니다.

@@ -16,7 +16,7 @@ const client={ApiError,
   postJson:async(url,body,token)=>{requests.push({url,body,token,method:'POST'});if(postFailure)throw postFailure;return payload;},
   deleteJson:async(url,token)=>{requests.push({url,token,method:'DELETE'});return payload;},
 };
-new Function('require','exports','fetch','FormData','process',compile('src/services/api/voice.ts'))(name=>name==='../devMock'?{isMockMode:()=>mock}:name==='./auth'?{getAuthSession:()=>session}:name==='./client'?client:name==='react-native'?{Platform:{OS:'ios'}}:categories,api,
+new Function('require','exports','fetch','FormData','process',compile('src/services/api/voice.ts'))(name=>name==='./multipart'?{postMultipart:async(url,body,options)=>{requests.push({url,method:'POST',body,...options});return{ok:status>=200&&status<300,status,json:async()=>payload};}}:name==='../devMock'?{isMockMode:()=>mock}:name==='./auth'?{getAuthSession:()=>session}:name==='./client'?client:name==='react-native'?{Platform:{OS:'ios'}}:categories,api,
   async(url,options)=>{requests.push({url,...options});return{ok:status>=200&&status<300,status,json:async()=>payload};},
   class FormData{constructor(){this.fields=[];}append(...field){this.fields.push(field);}},
   {env:{EXPO_PUBLIC_API_URL:'https://test.invalid'}});

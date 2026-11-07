@@ -1,3 +1,4 @@
+import { logAppError } from '../../utils/appDiagnostics';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,7 +41,7 @@ export function ReservationsScreen({ onTab }: { onTab: (label: string) => void }
     void getReservations(page, status).then(result => {
       if (!alive) return;
       setItems(previous => page === 1 ? result.reservations : [...new Map([...previous, ...result.reservations].map(r => [r.reservation_id, r])).values()]); setTotal(result.total_count);
-    }).catch(e => { if (alive) setError(e instanceof Error ? e.message : '예약 내역을 불러오지 못했어요.'); }).finally(() => { if (alive) setLoading(false); });
+    }).catch(e => { logAppError("components/reservations/ReservationsScreen.tsx", e);  if (alive) setError(e instanceof Error ? e.message : '예약 내역을 불러오지 못했어요.'); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [page, filter, retry]);
   async function cancel() {
@@ -50,7 +51,7 @@ export function ReservationsScreen({ onTab }: { onTab: (label: string) => void }
       await cancelReservation(active.reservation_id);
       setItems(previous => previous.map(item => item.reservation_id === active.reservation_id ? { ...item, status: 'CANCELLED' } : item));
       setConfirm(false);
-    } catch(e) { setCancelError(e instanceof Error ? e.message : '예약 취소에 실패했어요.'); }
+    } catch(e) { logAppError("components/reservations/ReservationsScreen.tsx", e);  setCancelError(e instanceof Error ? e.message : '예약 취소에 실패했어요.'); }
     finally { lock.current = false; setCancelling(false); }
   }
   const visible = items.filter(item => filter === '예정' ? upcoming(item.status) : filter === '완료' ? item.status === 'COMPLETED' : filter === '취소' ? item.status === 'CANCELLED' : true).sort((a,b) => pickupDate(b.pickup_at).getTime() - pickupDate(a.pickup_at).getTime());
