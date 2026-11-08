@@ -294,15 +294,24 @@ export default function MarketScreen() {
                     item.set(!item.value);
                     resetPage();
                   }}
-                  style={{ paddingVertical: 8 }}
+                  style={styles.filter}
                 >
+                  <AppIcon
+                    name={
+                      item.value
+                        ? 'check-box-rounded'
+                        : 'check-box-outline-blank'
+                    }
+                    size={24}
+                    color={item.value ? theme.colors.primary : '#555555'}
+                  />
                   <Text
                     style={[
                       styles.filterLabel,
                       item.value && styles.activeFilterLabel,
                     ]}
                   >
-                    {item.value ? '☑' : '☐'} {item.label}
+                    {item.label}
                   </Text>
                 </Pressable>
               ))}
@@ -349,9 +358,6 @@ export default function MarketScreen() {
                     {!!store.category?.trim() && (
                       <Text style={styles.meta}>{store.category}</Text>
                     )}
-                    <Text style={styles.meta}>
-                      {store.address || '주소 정보 없음'}
-                    </Text>
                   </View>
                 </Pressable>
               ))
@@ -389,11 +395,6 @@ export default function MarketScreen() {
                           {product.product_name}
                         </Text>
                         <Text style={styles.meta}>{product.store_name}</Text>
-                        {marketDistance !== null && (
-                          <Text style={styles.meta}>
-                            {formatMarketDistance(marketDistance)}
-                          </Text>
-                        )}
                         <View style={styles.priceRow}>
                           {discounted && (
                             <Text style={styles.originalPrice}>
@@ -628,6 +629,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
 
+  filter: {
+    paddingVertical: 8,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   meta: {
     color: '#7C7C7C',
     fontSize: 16,

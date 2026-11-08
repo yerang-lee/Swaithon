@@ -68,6 +68,7 @@ export function CommandVoiceScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const ripple = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!recording) {
@@ -207,6 +208,7 @@ export function CommandVoiceScreen() {
     )
       return;
     lock.current = true;
+    setPreparing(true);
     setBusy(true);
     setError('');
     try {
@@ -232,7 +234,10 @@ export function CommandVoiceScreen() {
         setError(e instanceof Error ? e.message : '녹음을 시작하지 못했어요.');
     } finally {
       lock.current = false;
-      if (alive.current) setBusy(false);
+      if (alive.current) {
+        setPreparing(false);
+        setBusy(false);
+      }
     }
   }
   useEffect(() => {
@@ -393,7 +398,9 @@ export function CommandVoiceScreen() {
                 {recording
                   ? '음성이 인식되고 있어요...'
                   : busy
-                    ? '상품 정보를 분석하고 있어요...'
+                    ? preparing
+                      ? '마이크를 준비하고 있어요...'
+                      : '상품 정보를\n분석하고 있어요...'
                     : '상품 정보를\n음성으로 말해주세요'}
               </Text>
               {recording ? (

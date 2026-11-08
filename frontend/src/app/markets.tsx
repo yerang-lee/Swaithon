@@ -320,7 +320,7 @@ export default function MarketsScreen() {
                       <Text style={styles.marketName}>
                         {market.market_name}
                       </Text>
-                      <Text style={styles.distance}>
+                      <Text style={styles.marketDistance}>
                         {market.market_id === null ? '미등록 시장 · ' : ''}
                         {(market.distance / 1000).toFixed(1)}km
                       </Text>
@@ -434,6 +434,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#181725',
     marginBottom: 6,
+  },
+  marketDistance: {
+    fontSize: 16,
+    lineHeight: 18,
+    color: '#858585',
   },
   distance: {
     fontSize: 14,
