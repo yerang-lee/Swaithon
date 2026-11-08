@@ -65,15 +65,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexWrap: 'wrap',
   },
   name: {
-    fontSize: 20,
+    flexShrink: 1,
+    lineHeight: 30,
+    includeFontPadding: false,
+    fontSize: 23,
     fontWeight: '700',
     color: '#333333',
   },
   radius: {
-    fontSize: 14,
+    lineHeight: 30,
+    includeFontPadding: false,
+    flexShrink: 0,
+    fontSize: 15,
     color: theme.colors.muted,
   },
 });

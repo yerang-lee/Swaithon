@@ -28,6 +28,7 @@ import {
   getProduct,
   type ProductDetail as ProductData,
 } from '../../services/api/products';
+import { getStore } from '../../services/api/stores';
 import { isMockMode } from '../../services/devMock';
 import { reserveProduct } from '../../services/api/reservations';
 
@@ -81,6 +82,27 @@ export default function ProductDetail() {
     !!demo || preview === 'true',
   );
   const distanceParams = marketDistanceParams(marketDistance);
+  const [storeMarket, setStoreMarket] = useState<{
+    listingId: string;
+    name: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const storeId = Number(data.store_id);
+    if (!Number.isSafeInteger(storeId) || storeId <= 0) return;
+    let active = true;
+    void getStore(storeId)
+      .then((store) => {
+        if (active && String(store.market_id) === String(data.market_id))
+          setStoreMarket({ listingId, name: store.market_name });
+      })
+      .catch((error) => {
+        logAppError('product/store-market', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [data, listingId]);
   if (loading || (!demo && !data))
     return (
       <SafeAreaView style={styles.safe}>
@@ -101,6 +123,14 @@ export default function ProductDetail() {
   const favorite = favorites.includes(id);
   const name = data?.product_name ?? demo!.name;
   const store = data?.store_name ?? demo!.store;
+  const market =
+    demo?.market ??
+    (storeMarket?.listingId === listingId ? storeMarket.name : '');
+  const distance = demo
+    ? demo.distance
+    : marketDistance !== null
+      ? formatMarketDistance(marketDistance)
+      : '';
   const price = data
     ? `${(data.is_on_sale && data.sale_price !== null ? data.sale_price : data.price).toLocaleString('ko-KR')}원`
     : demo!.price;
@@ -181,24 +211,22 @@ export default function ProductDetail() {
             accessibilityRole="button"
             style={styles.store}
             onPress={() => {
-              if (data)
-                router.push({
-                  pathname: '/stores/[storeId]',
-                  params: {
-                    storeId: String(data.store_id),
-                    storeName: store,
-                    preview,
-                    ...distanceParams,
-                  },
-                });
-              else Alert.alert(store, '점포 상세 화면은 준비 중이에요.');
+              router.push({
+                pathname: '/stores/[storeId]',
+                params: {
+                  storeId: String(data?.store_id ?? demo!.storeId),
+                  storeName: store,
+                  preview: demo ? 'true' : preview,
+                  ...distanceParams,
+                },
+              });
             }}
           >
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={styles.storeName}>{store}</Text>
-              {(demo || marketDistance !== null) && (
+              {(market || distance) && (
                 <Text style={styles.distance}>
-                  {demo ? demo.distance : formatMarketDistance(marketDistance!)}
+                  {[market, distance].filter(Boolean).join(' · ')}
                 </Text>
               )}
             </View>

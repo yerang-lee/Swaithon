@@ -128,7 +128,7 @@ const modules = {
             store_name: '실제 가게',
             market_name: markets[0].market_name,
             market_distance: markets[0].distance,
-            address: null,
+            address: '테스트시장내부',
             image_url: null,
           },
         ],
@@ -169,6 +169,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   const registered = {
     market_id: 5,
     market_name: '새 주변 시장',
+    address: '시장 주소',
     distance: 250,
     image_url: null,
   };
@@ -203,6 +204,8 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   );
   assert.equal(stores.items[0].name, '실제 가게');
   assert.equal(stores.items[0].description, '새 주변 시장');
+  assert.equal(markets.items[0].description, '');
+  assert.ok(!stores.items[0].description.includes('테스트시장내부'));
   assert.equal(markets.items[0].distanceLabel, '0.3km');
   assert.equal(stores.items[0].distanceLabel, '0.3km');
   markets.items[0].onPress();
@@ -223,6 +226,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
     params: {
       storeId: '9',
       storeName: '실제 가게',
+      address: '테스트시장내부',
       marketDistanceMeters: '250',
     },
   });

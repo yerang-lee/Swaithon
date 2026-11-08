@@ -257,7 +257,7 @@ export default function HomeScreen() {
                       style={[styles.meta, { minHeight: 42 }]}
                       numberOfLines={2}
                     >
-                      {item.store} · {item.distance}
+                      {item.store} · {item.market} · {item.distance}
                     </Text>
                   </Pressable>
                   <View style={styles.priceRow}>
@@ -317,10 +317,7 @@ export default function HomeScreen() {
                     name: market.market_name,
                     imageUrl: market.image_url,
                     distanceLabel: formatMarketDistance(market.distance),
-                    description:
-                      market.market_id === null
-                        ? '미등록 시장'
-                        : market.address,
+                    description: market.market_id === null ? '미등록 시장' : '',
                     onPress: () => {
                       if (market.market_id === null)
                         Alert.alert(
@@ -355,7 +352,7 @@ export default function HomeScreen() {
                     name: store.store_name,
                     imageUrl: store.image_url,
                     distanceLabel: formatMarketDistance(store.market_distance),
-                    description: `${store.market_name}${store.address ? ` · ${store.address}` : ''}`,
+                    description: store.market_name,
                     onPress: () =>
                       router.push({
                         pathname: '/stores/[storeId]',
@@ -507,9 +504,11 @@ function PlaceSection({
                 {item.name}
               </Text>
               <Text style={styles.meta}>{item.distanceLabel}</Text>
-              <Text style={styles.meta} numberOfLines={2}>
-                {item.description}
-              </Text>
+              {!!item.description && (
+                <Text style={styles.meta} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              )}
             </Pressable>
           ))}
         </ScrollView>
@@ -567,8 +566,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationCaption: {
-    fontSize: 14,
-    color: theme.colors.muted,
+    fontSize: 16,
+    color: ' #444444',
     marginBottom: 3,
   },
   locationLine: {
@@ -577,7 +576,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   neighborhood: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: '#333333',
   },
@@ -589,7 +588,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 18,
-    marginBottom: 30,
+    marginBottom: 18,
   },
   shortcut: {
     flex: 1,
@@ -603,12 +602,12 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   shortcutLabel: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#424743',
   },
   sectionTitle: {
-    fontSize: 23,
+    fontSize: 24,
     fontWeight: '800',
     color: theme.colors.text,
     marginBottom: 16,
@@ -677,13 +676,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 19,
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 3,
+    marginBottom: 4,
   },
   meta: {
-    fontSize: 14,
+    fontSize: 15,
     color: theme.colors.muted,
     lineHeight: 21,
   },

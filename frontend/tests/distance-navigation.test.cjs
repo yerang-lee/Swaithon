@@ -33,7 +33,7 @@ const store = {
   store_id: 1,
   market_id: 5,
   store_name: '테스트가게',
-  address: null,
+  address: '테스트시장내부',
   image_url: null,
   category: null,
 };
@@ -109,12 +109,24 @@ walk(view.tree)
       text(node).includes('테스트가게'),
   )
   .props.onPress();
+assert.equal(text(view.tree).includes('테스트시장내부'), false);
 assert.equal(view.routes[0].pathname, '/stores/[storeId]');
 assert.equal(view.routes[0].params.marketDistanceMeters, '350');
 view = render(
   'src/app/markets/[marketId].tsx',
   { 0: 'products', 6: [], 7: [product], 10: false },
   { marketId: '5', marketDistanceMeters: '350' },
+);
+assert.equal(text(view.tree).includes('0.3km'), false);
+assert.ok(text(view.tree).includes('테스트가게'));
+const filters = walk(view.tree).filter(
+  (node) => node.props?.accessibilityRole === 'checkbox',
+);
+assert.equal(filters.length, 2);
+assert.ok(
+  filters.every((node) =>
+    walk(node).some((child) => child.props?.name === 'check-box-outline-blank'),
+  ),
 );
 walk(view.tree)
   .find((node) => node.props?.accessibilityLabel === '사과 상세')
@@ -132,7 +144,7 @@ assert.equal(view.routes[0].params.marketDistanceMeters, '350');
 assert.ok(text(view.tree).includes('0.3km'));
 view = render(
   'src/app/products/[listingId].tsx',
-  { 0: product, 1: false },
+  { 0: product, 1: false, 7: { listingId: '101', name: '테스트시장' } },
   { listingId: '101', marketDistanceMeters: '350' },
 );
 walk(view.tree)
@@ -147,6 +159,7 @@ assert.equal(view.routes[0].pathname, '/stores/[storeId]');
 assert.equal(view.routes[0].params.marketDistanceMeters, '350');
 assert.ok(text(view.tree).includes('0.3km'));
 assert.equal(text(view.tree).includes('시장까지'), false);
+assert.ok(text(view.tree).includes('테스트시장 · 0.3km'));
 console.log(
   'PASS: market-to-store, market-to-product, store-to-product and product-to-store preserve distance; details display distance without prefix',
 );

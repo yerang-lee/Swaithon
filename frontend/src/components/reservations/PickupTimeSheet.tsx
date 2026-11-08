@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import {
+  SafeAreaProvider,
   initialWindowMetrics,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
@@ -40,137 +41,139 @@ export function PickupTimeSheet({
   const [settled, setSettled] = useState(true);
   const y = useRef(new Animated.Value(0)).current;
   const day = today;
-  const slots = useMemo(() => pickupTimes(day), [day]);
+  const slots = useMemo(() => pickupTimes(day, today), [day, today]);
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable
-          accessibilityLabel="시간 선택 닫기"
-          style={styles.backdrop}
-          onPress={onClose}
-        />
-        <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
-          <View style={styles.handle} />
-          <Text style={styles.title}>방문 수령 시간 선택</Text>
-          <View style={styles.day}>
-            <Text style={styles.dayText}>{dayLabel(today, 0)}</Text>
-          </View>
-          {slots.length ? (
-            <View
-              style={[styles.wheel, { height: wheelPadding * 2 + rowHeight }]}
-            >
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <View style={styles.overlay}>
+          <Pressable
+            accessibilityLabel="시간 선택 닫기"
+            style={styles.backdrop}
+            onPress={onClose}
+          />
+          <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
+            <View style={styles.handle} />
+            <Text style={styles.title}>방문 수령 시간 선택</Text>
+            <View style={styles.day}>
+              <Text style={styles.dayText}>{dayLabel(today, 0)}</Text>
+            </View>
+            {slots.length ? (
               <View
-                pointerEvents="none"
-                style={[styles.selection, { top: wheelPadding }]}
-              />
-              <Animated.FlatList
-                data={slots}
-                keyExtractor={(value) => String(value.getTime())}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={rowHeight}
-                decelerationRate="fast"
-                bounces={false}
-                contentContainerStyle={{ paddingVertical: wheelPadding }}
-                getItemLayout={(_, i) => ({
-                  length: rowHeight,
-                  offset: rowHeight * i,
-                  index: i,
-                })}
-                onScrollBeginDrag={() => setSettled(false)}
-                onMomentumScrollBegin={() => setSettled(false)}
-                scrollEventThrottle={16}
-                onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { y } } }],
-                  {
-                    useNativeDriver: true,
-                    listener: (event: any) => {
-                      setIndex(
-                        Math.max(
-                          0,
-                          Math.min(
-                            slots.length - 1,
-                            Math.round(
-                              event.nativeEvent.contentOffset.y / rowHeight,
+                style={[styles.wheel, { height: wheelPadding * 2 + rowHeight }]}
+              >
+                <View
+                  pointerEvents="none"
+                  style={[styles.selection, { top: wheelPadding }]}
+                />
+                <Animated.FlatList
+                  data={slots}
+                  keyExtractor={(value) => String(value.getTime())}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={rowHeight}
+                  decelerationRate="fast"
+                  bounces={false}
+                  contentContainerStyle={{ paddingVertical: wheelPadding }}
+                  getItemLayout={(_, i) => ({
+                    length: rowHeight,
+                    offset: rowHeight * i,
+                    index: i,
+                  })}
+                  onScrollBeginDrag={() => setSettled(false)}
+                  onMomentumScrollBegin={() => setSettled(false)}
+                  scrollEventThrottle={16}
+                  onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y } } }],
+                    {
+                      useNativeDriver: true,
+                      listener: (event: any) => {
+                        setIndex(
+                          Math.max(
+                            0,
+                            Math.min(
+                              slots.length - 1,
+                              Math.round(
+                                event.nativeEvent.contentOffset.y / rowHeight,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  },
-                )}
-                onMomentumScrollEnd={() => setSettled(true)}
-                onScrollEndDrag={(event) => {
-                  if (!event.nativeEvent.velocity?.y) setSettled(true);
-                }}
-                renderItem={({ item, index: i }) => (
-                  <Animated.View
-                    accessibilityLabel={timeLabel(item)}
-                    style={[
-                      styles.timeRow,
-                      {
-                        opacity: y.interpolate({
-                          inputRange: [
-                            (i - 2) * rowHeight,
-                            i * rowHeight,
-                            (i + 2) * rowHeight,
-                          ],
-                          outputRange: [0.25, 1, 0.25],
-                          extrapolate: 'clamp',
-                        }),
-                        transform: [
-                          {
-                            scale: y.interpolate({
-                              inputRange: [
-                                (i - 1) * rowHeight,
-                                i * rowHeight,
-                                (i + 1) * rowHeight,
-                              ],
-                              outputRange: [0.8, 1, 0.8],
-                              extrapolate: 'clamp',
-                            }),
-                          },
-                        ],
+                        );
                       },
-                    ]}
-                  >
-                    <Text style={styles.time}>{timeLabel(item)}</Text>
-                  </Animated.View>
-                )}
-              />
-            </View>
-          ) : (
-            <Text style={styles.empty}>
-              오늘 선택 가능한 시간이 없어요. 오늘 예약이 마감됐어요.
-            </Text>
-          )}
-          <View style={styles.footer}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={favorite ? '관심 해제' : '관심 등록'}
-              accessibilityState={{ selected: favorite }}
-              disabled={favoritePending}
-              onPress={onToggleFavorite}
-              style={styles.favorite}
-            >
-              <AppIcon
-                name={favorite ? 'heart-filled' : 'heart-outline'}
-                size={28}
-                color={favorite ? '#E84B4B' : '#777777'}
-              />
-              <Text style={styles.favoriteLabel}>관심</Text>
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <PrimaryButton
-                compact
-                title="예약하기"
-                loading={submitting}
-                disabled={!slots[index] || !settled || submitting}
-                onPress={() => onConfirm(slots[index], 1, '')}
-              />
+                    },
+                  )}
+                  onMomentumScrollEnd={() => setSettled(true)}
+                  onScrollEndDrag={(event) => {
+                    if (!event.nativeEvent.velocity?.y) setSettled(true);
+                  }}
+                  renderItem={({ item, index: i }) => (
+                    <Animated.View
+                      accessibilityLabel={timeLabel(item)}
+                      style={[
+                        styles.timeRow,
+                        {
+                          opacity: y.interpolate({
+                            inputRange: [
+                              (i - 2) * rowHeight,
+                              i * rowHeight,
+                              (i + 2) * rowHeight,
+                            ],
+                            outputRange: [0.25, 1, 0.25],
+                            extrapolate: 'clamp',
+                          }),
+                          transform: [
+                            {
+                              scale: y.interpolate({
+                                inputRange: [
+                                  (i - 1) * rowHeight,
+                                  i * rowHeight,
+                                  (i + 1) * rowHeight,
+                                ],
+                                outputRange: [0.8, 1, 0.8],
+                                extrapolate: 'clamp',
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <Text style={styles.time}>{timeLabel(item)}</Text>
+                    </Animated.View>
+                  )}
+                />
+              </View>
+            ) : (
+              <Text style={styles.empty}>
+                오늘 선택 가능한 시간이 없어요. 오늘 예약이 마감됐어요.
+              </Text>
+            )}
+            <View style={styles.footer}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={favorite ? '관심 해제' : '관심 등록'}
+                accessibilityState={{ selected: favorite }}
+                disabled={favoritePending}
+                onPress={onToggleFavorite}
+                style={styles.favorite}
+              >
+                <AppIcon
+                  name={favorite ? 'heart-filled' : 'heart-outline'}
+                  size={28}
+                  color={favorite ? '#E84B4B' : '#777777'}
+                />
+                <Text style={styles.favoriteLabel}>관심</Text>
+              </Pressable>
+              <View style={{ flex: 1 }}>
+                <PrimaryButton
+                  compact
+                  title="예약하기"
+                  loading={submitting}
+                  disabled={!slots[index] || !settled || submitting}
+                  onPress={() => onConfirm(slots[index], 1, '')}
+                />
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      </SafeAreaProvider>
     </Modal>
   );
 }
