@@ -80,6 +80,13 @@ const locationApi = {
   },
 };
 const modules = {
+  '../hooks/useRecommendationTracking': {
+    useRecommendationImpressions: () => ({
+      carouselRef: { current: null },
+      cardRef: () => () => {},
+      checkVisibility() {},
+    }),
+  },
   '../services/locationChanges': { useLocationRevision: () => 0 },
   '../utils/marketDistance': distanceHelpers,
   react,

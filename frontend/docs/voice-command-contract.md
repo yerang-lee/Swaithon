@@ -34,7 +34,7 @@ command_id는 후속 답변·선택·실행·취소마다 같아야 하며 불�
 
 실제 마이크 권한 요청, 녹음/종료/분석 상태, 30초·10MB 제한, 빈 파일 거절을 적용했습니다. native recorder 상태의 최종 fileSize와 durationMillis를 사용하고, 웹은 최종 Blob 크기/MIME도 검증합니다. FormData 파일 필드는 새 계약에서 file이며 기존 분석 모드의 audio_file과 구분합니다. 허용 wav/mp3/m4a/webm/mp4/ogg의 실제 확장자/MIME을 사용하고 multipart boundary는 직접 지정하지 않습니다. 권한 거부/503에서 텍스트 입력을 제공합니다. 백그라운드 전환은 녹음을 취소합니다. native/Web 파일 정보와 권한 동작은 실기기 검증이 필요합니다.
 
-변경 SUCCEEDED에서 catalogChanges 알림으로 마운트된 시장 상품/가게 상품/상품 상세 조회를 다시 실행합니다. 조회 PRODUCT_DETAIL/CANCELLED에는 변경 알림을 보내지 않습니다. 화면이 마운트되지 않은 경우 다음 진입 시 기존 조회 effect로 새로 조회합니다. 홈의 기존 예시 카드 자체를 실제 상품 데이터로 바꾸지는 않았습니다.
+변경 SUCCEEDED에서 catalogChanges 알림으로 마운트된 시장 상품/가게 상품/상품 상세 조회를 다시 실행합니다. 조회 PRODUCT_DETAIL/CANCELLED에는 변경 알림을 보내지 않습니다. 화면이 마운트되지 않은 경우 다음 진입 시 기존 조회 effect로 새로 조회합니다. 홈 추천은 별도 GET /recommendations로 연결하며 홈 재진입 시 새 추천을 조회합니다.
 
 판매 가격은 최신 서버 preview.after/result의 effective_price를 그대로 표시하고 할인 표시는 sale_active=true일 때만 표시합니다. sale_active=false여도 가격을 price로 대체하거나 프론트에서 재계산하지 않습니다. 완료 응답에 가격/상태가 없으면 이전 분석값을 현재 값으로 추정하지 않습니다.
 

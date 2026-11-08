@@ -1,3 +1,4 @@
+import { useRecommendationView } from '../../hooks/useRecommendationTracking';
 import { logAppError } from '../../utils/appDiagnostics';
 import { useCatalogRevision } from '../../services/catalogChanges';
 import { useEffect, useRef, useState } from 'react';
@@ -103,6 +104,16 @@ export default function ProductDetail() {
       active = false;
     };
   }, [data, listingId]);
+  useRecommendationView({
+    requestId,
+    listingId,
+    ready:
+      !loading &&
+      !!data &&
+      String(data.listing_id) === listingId &&
+      !demo &&
+      preview !== 'true',
+  });
   if (loading || (!demo && !data))
     return (
       <SafeAreaView style={styles.safe}>

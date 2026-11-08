@@ -1,12 +1,16 @@
 import { useLocationRevision } from '../services/locationChanges';
 import { logAppError } from '../utils/appDiagnostics';
-import { demoProducts as products } from '../data/demoProducts';
+import {
+  getRecommendations,
+  type Recommendations,
+} from '../services/api/recommendations';
+import { useRecommendationImpressions } from '../hooks/useRecommendationTracking';
 import { useFavorites } from '../hooks/useFavorites';
 import { FavoritesScreen } from '../components/favorites/FavoritesScreen';
 import { ReservationsScreen } from '../components/reservations/ReservationsScreen';
 import { MyPage } from '../components/auth/MyPage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, type ComponentRef } from 'react';
 import { LocationButton } from '../components/ui/LocationButton';
 import { PageHeader } from '../components/ui/PageHeader';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
@@ -45,8 +49,6 @@ import {
 } from '../services/api/nearbyStores';
 
 const green = theme.colors.primary;
-const notice = (title: string) =>
-  Alert.alert(title, '이 화면은 준비 중이에요.');
 
 export default function HomeScreen() {
   const sharedLocationRevision = useLocationRevision();
@@ -68,7 +70,7 @@ export default function HomeScreen() {
       );
     }, []),
   );
-  const { favorites, toggleFavorite } = useFavorites();
+  const { favorites, pendingFavorites, toggleFavorite } = useFavorites();
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [location, setLocation] = useState<ExplorationLocation | null>(null);
@@ -81,6 +83,66 @@ export default function HomeScreen() {
   const [marketsError, setMarketsError] = useState('');
   const [storesError, setStoresError] = useState('');
   const [nearbyRetry, setNearbyRetry] = useState(0);
+  const [recommendations, setRecommendations] =
+    useState<Recommendations | null>(null);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [recommendationsError, setRecommendationsError] = useState('');
+  const [recommendationsRetry, setRecommendationsRetry] = useState(0);
+  const recommendationToken = getAuthSession()?.access_token;
+  const recommendationsOwner = useRef<string | undefined>(undefined);
+  const viewportRef = useRef<ComponentRef<typeof ScrollView> | null>(null);
+  const impressionTracking = useRecommendationImpressions({
+    requestId: recommendations?.request_id,
+    items: recommendations?.items ?? [],
+    ownerToken: recommendationsOwner.current,
+    enabled: active === '홈' && !locationOpen,
+    viewportRef,
+  });
+  useFocusEffect(
+    useCallback(() => {
+      if (active !== '홈') return;
+      let alive = true;
+      const current = () =>
+        alive && getAuthSession()?.access_token === recommendationToken;
+      setRecommendations(null);
+      setRecommendationsLoading(true);
+      setRecommendationsError('');
+      if (!recommendationToken) {
+        setRecommendationsLoading(false);
+        setRecommendationsError('로그인 후 추천 상품을 확인해주세요.');
+        return () => {
+          alive = false;
+        };
+      }
+      void getRecommendations()
+        .then((result) => {
+          if (current()) {
+            recommendationsOwner.current = recommendationToken;
+            setRecommendations(result);
+          }
+        })
+        .catch((error) => {
+          logAppError('home/recommendations', error);
+          if (current())
+            setRecommendationsError(
+              error instanceof Error
+                ? error.message
+                : '추천 상품을 불러오지 못했어요.',
+            );
+        })
+        .finally(() => {
+          if (current()) setRecommendationsLoading(false);
+        });
+      return () => {
+        alive = false;
+      };
+    }, [
+      active,
+      recommendationToken,
+      recommendationsRetry,
+      sharedLocationRevision,
+    ]),
+  );
   useFocusEffect(
     useCallback(() => {
       let alive = true;
@@ -177,6 +239,10 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <PageHeader title="장보소" />
       <ScrollView
+        ref={viewportRef}
+        onLayout={impressionTracking.checkVisibility}
+        onScroll={impressionTracking.checkVisibility}
+        scrollEventThrottle={100}
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -235,21 +301,36 @@ export default function HomeScreen() {
           <>
             <Text style={styles.sectionTitle}>나를 위한 추천 상품</Text>
             <ScrollView
+              ref={impressionTracking.carouselRef}
+              onLayout={impressionTracking.checkVisibility}
+              onContentSizeChange={impressionTracking.checkVisibility}
+              onScroll={impressionTracking.checkVisibility}
+              scrollEventThrottle={100}
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.carousel}
               contentContainerStyle={styles.grid}
               keyboardShouldPersistTaps="handled"
             >
-              {products.map((item) => (
-                <View key={item.id} style={[styles.card, { width: cardWidth }]}>
+              {recommendations?.items.map((item) => (
+                <View
+                  key={item.listing_id}
+                  ref={impressionTracking.cardRef(item.listing_id)}
+                  collapsable={false}
+                  onLayout={impressionTracking.checkVisibility}
+                  style={[styles.card, { width: cardWidth }]}
+                >
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${item.name} 상세`}
                     onPress={() =>
                       router.push({
                         pathname: '/products/[listingId]',
-                        params: { listingId: item.id },
+                        params: {
+                          listingId: item.listing_id,
+                          requestId: recommendations.request_id,
+                          ...marketDistanceParams(item.distance_km * 1000),
+                        },
                       })
                     }
                   >
@@ -259,31 +340,47 @@ export default function HomeScreen() {
                       style={[styles.meta, { minHeight: 42 }]}
                       numberOfLines={2}
                     >
-                      {item.store} · {item.market} · {item.distance}
+                      {[
+                        item.store_name,
+                        nearbyMarkets.find(
+                          (market) =>
+                            String(market.market_id) === item.market_id,
+                        )?.market_name,
+                        formatMarketDistance(item.distance_km * 1000),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Text>
                   </Pressable>
                   <View style={styles.priceRow}>
-                    <Text style={styles.price}>{item.price}</Text>
+                    <Text style={styles.price}>
+                      {item.price.toLocaleString('ko-KR')}원
+                    </Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.id) ? '취소' : '추가'}`}
+                      accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.listing_id) ? '취소' : '추가'}`}
                       accessibilityState={{
-                        selected: favorites.includes(item.id),
+                        selected: favorites.includes(item.listing_id),
                       }}
+                      disabled={pendingFavorites.includes(item.listing_id)}
                       hitSlop={10}
                       onPress={() =>
-                        void toggleFavorite(item.id, { preview: true })
+                        void toggleFavorite(item.listing_id, {
+                          requestId: recommendations.request_id,
+                        })
                       }
                     >
                       <AppIcon
                         name={
-                          favorites.includes(item.id)
+                          favorites.includes(item.listing_id)
                             ? 'heart-filled'
                             : 'heart-outline'
                         }
                         size={27}
                         color={
-                          favorites.includes(item.id) ? '#E84B4B' : '#777777'
+                          favorites.includes(item.listing_id)
+                            ? '#E84B4B'
+                            : '#777777'
                         }
                       />
                     </Pressable>
@@ -291,13 +388,35 @@ export default function HomeScreen() {
                 </View>
               ))}
             </ScrollView>
-            {products.length === 0 && (
-              <Text style={styles.empty}>
-                {active === '홈'
-                  ? '표시할 상품이 없어요.'
-                  : '하트 버튼을 눌러 상품을 담아보세요.'}
-              </Text>
+            {recommendationsLoading && (
+              <ActivityIndicator
+                color={green}
+                accessibilityLabel="추천 상품 조회 중"
+              />
             )}
+            {!!recommendationsError && (
+              <View>
+                <Text accessibilityRole="alert" style={styles.empty}>
+                  {recommendationsError}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  style={{
+                    minHeight: 44,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => setRecommendationsRetry((value) => value + 1)}
+                >
+                  <Text style={{ color: green }}>다시 시도</Text>
+                </Pressable>
+              </View>
+            )}
+            {!recommendationsLoading &&
+              !recommendationsError &&
+              recommendations?.items.length === 0 && (
+                <Text style={styles.empty}>추천 상품이 없어요.</Text>
+              )}
             {active === '홈' && (
               <>
                 <PlaceSection
@@ -375,9 +494,6 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>예약 내역</Text>
             <Text style={styles.meta}>화면을 준비하고 있어요.</Text>
           </View>
-        )}
-        {active === '홈' && (
-          <Text style={styles.demo}>추천 상품은 화면 확인용 예시입니다.</Text>
         )}
       </ScrollView>
       <BottomNavigation active={active} onSelect={setActive} />

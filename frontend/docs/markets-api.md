@@ -40,7 +40,7 @@ Query: latitude, longitude (필수 Float), radius (Integer, 미터, 기본 5000)
 
 사용자 요청에 따라 홈 가게 카드에는 소속 시장의 distance를 로컬 market_distance로 연결해 “0.3km”처럼 거리 숫자와 단위만 표시합니다. 실제 가게 좌표로 계산한 거리는 아닙니다. 시장과 가게의 거리는 이름/주소와 별도 줄로 표시해 긴 주소에 가려지지 않게 합니다. 가게 카드에는 소속 시장과 주소도 표시합니다. 시장/가게 카드는 image_url을 사용하며 null/로드 실패는 기본 이미지 영역으로 표시합니다. 등록된 카드 선택은 실제 내부 ID로 이동하고 preview=true를 넣지 않으며 위치를 변경하지 않습니다.
 
-추천 상품 영역은 별도 추천 API 연결 전의 예시 데이터를 유지하고 안내도 추천 상품에 한정합니다. 위치 설정 모달과 SafeAreaProvider 및 화면 SafeAreaView는 유지합니다.
+추천 상품 영역은 GET /recommendations를 사용합니다. 상세 계약과 미확정 표시 필드는 recommendations-api.md를 참고합니다. 위치 설정 모달과 SafeAreaProvider 및 화면 SafeAreaView는 유지합니다.
 
 검증: node tests/nearby-stores-api.test.cjs, node tests/nearby-markets-api.test.cjs, node tests/market-stores-api.test.cjs, npm run typecheck.
 

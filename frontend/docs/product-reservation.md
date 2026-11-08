@@ -2,7 +2,7 @@
 
 사용자 제공 상세 명세를 적용했습니다.
 상품 상세: GET /products/{listing_id}, 문자열 판매 게시물 ID. 기본/세일 가격, 설명, 이미지, 품절 상태를 표시합니다. 400/404/500 오류를 처리합니다.
-홈은 아직 예시 상품 목록이라 문자열 ID를 유지합니다. 해당 상품 상세는 미리보기로 표시하고 서버 예약은 보내지 않습니다. 실제 가게 상품 목록의 listing_id로 이동합니다. 상세 요청에서 숫자로 변환하지 않고 URL 인코딩합니다. 관심 상태도 listing_id로 구분합니다.
+홈 추천은 GET /recommendations의 실제 문자열 listing_id를 사용하며 일반 상품 상세 및 서버 예약으로 연결합니다. 개발 테스트 로그인에서만 모의 응답을 사용합니다. 실제 가게 상품 목록의 listing_id로 이동합니다. 상세 요청에서 숫자로 변환하지 않고 URL 인코딩합니다. 관심 상태도 listing_id로 구분합니다.
 
 예약: POST /reservations, Bearer JWT, JSON { product_id, quantity, pickup_at, request_note? }.
 수량은 양의 정수, 수령 시간은 미래의 30분 단위입니다. POST 중 중복 제출을 막습니다. 400/401/404/409/422/500 오류를 처리하며 성공 응답을 받은 후에만 예약 완료를 표시합니다. 네트워크 오류/잘못된 성공 응답은 예약 처리 여부가 불명확하므로 재시도 전 내역 확인을 안내합니다. 자동 재시도하지 않습니다.
@@ -34,7 +34,7 @@ GET /products의 사용자 제공 최신 응답은 listing_id=Integer입니다. 
 
 POST /reservations는 문자열 listing_id/product_id, 양의 정수 quantity, 시간대가 있는 pickup_at 및 선택 request_note/request_id를 보냅니다. 숫자 ID를 받은 경우 String으로 변환하되 listing_/product_ 접두사를 임의로 붙이지 않습니다. pickup_at은 YYYY-MM-DDTHH:mm:ss+09:00으로 전송합니다. user_id/store_id는 보내지 않습니다.
 
-상품 상세의 추천 출처 requestId가 있을 때만 request_id를 전달하며 일반 예약은 생략합니다. 현재 추천 목록 API는 미연결이므로 추천 화면 연결 시 원본 request_id를 상품 상세 라우트의 requestId로 전달해야 합니다. 서버가 예약 성공 후 RESERVATION 행동 이벤트를 기록하므로 프론트는 추가 이벤트 요청을 보내지 않습니다.
+상품 상세의 추천 출처 requestId가 있을 때만 request_id를 전달하며 일반 예약은 생략합니다. 홈 추천 카드는 원본 request_id를 상품 상세 라우트의 requestId로 전달합니다. 서버가 예약 성공 후 RESERVATION 행동 이벤트를 기록하므로 프론트는 추가 이벤트 요청을 보내지 않습니다.
 
 201 응답의 문자열 reservation_id/user_id/listing_id/product_id/store_id와 상품명/가게명/가격/픽업 시간/상태/메시지를 검증합니다. 요청 대상과 수량, 픽업 시간이 일치해야 하며 상태는 PENDING입니다. 오류/잘못된 응답/네트워크 실패를 성공으로 처리하거나 자동 재전송하지 않고 내역 확인을 안내합니다. 기존 UI의 수량=1 및 오늘 30분 단위 픽업 선택은 유지합니다.
 
@@ -43,4 +43,4 @@ POST /reservations는 문자열 listing_id/product_id, 양의 정수 quantity, �
 
 ## 방문 수령 선택 시간
 시간 선택 화면을 연 시각 기준으로 오늘 오전 9시부터 오후 4시까지 30분 간격으로 표시합니다. 지난 시간은 제외하고 정각/30분과 정확히 일치하면 해당 시간을 포함합니다. 오후 4시가 지난 경우 오늘 예약 마감 안내를 표시합니다. 서버의 최종 예약 검증은 유지합니다.
-상품 상세의 시장명은 기존 가게 상세 GET /stores/{store_id} 응답에서 시장 ID를 확인한 후 표시합니다. 상품 상세 API에 없는 market_name 필드를 필수로 추가하지 않습니다. 홈 추천 상품은 여전히 예시 데이터이며 시장명 및 가게 이동도 예시 가게로 연결합니다.
+상품 상세의 시장명은 기존 가게 상세 GET /stores/{store_id} 응답에서 시장 ID를 확인한 후 표시합니다. 상품 상세 API에 없는 market_name 필드를 필수로 추가하지 않습니다. 홈 추천 상품은 추천 API 응답을 사용하며 실제 판매 게시물 상세로 연결합니다. 추천 응답에 없는 이미지·시장명 처리 방식은 recommendations-api.md를 참고합니다.

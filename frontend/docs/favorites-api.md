@@ -20,6 +20,6 @@ Bearer 인증과 page/size(기본 1/10)로 조회합니다. 문자열 favorite_i
 
 취소 성공 시 공유 하트를 비우지만 현재 방문의 행 데이터는 유지합니다. 빈 하트를 다시 누르면 새 favorite_id로 재등록 가능합니다. 다른 탭·상세 화면에 갔다 돌아오면 서버 목록을 다시 조회하므로 취소한 항목이 제외됩니다. 재진입 시 진행 중 추가·취소가 끝나기를 기다려 오래된 서버 목록으로 하트를 되돌리지 않으며, 계정/변경 버전이 다른 조회 결과도 동기화하지 않습니다.
 
-홈의 추천 예시 상품은 실제 서버로 찜하지 않습니다. 새 관심상품 화면에는 서버 GET 목록만 표시합니다. 테스트 모드도 GET 페이지 조회와 취소 제외를 모의 처리하며 실제 저장·추천 이벤트 기록은 서버 연결 환경에서 확인해야 합니다. 오류 로깅에는 입력값·토큰·파일·원본 응답을 넣지 않습니다.
+홈 추천 상품은 실제 추천 응답의 listing_id와 request_id로 서버 찜 API를 호출합니다. 새 관심상품 화면에는 서버 GET 목록만 표시합니다. 테스트 모드도 GET 페이지 조회와 취소 제외를 모의 처리하며 실제 저장·추천 이벤트 기록은 서버 연결 환경에서 확인해야 합니다. 오류 로깅에는 입력값·토큰·파일·원본 응답을 넣지 않습니다.
 
 검증: node tests/favorites-list-api.test.cjs, node tests/favorites-screen.test.cjs, node tests/favorites-api.test.cjs, node tests/favorites-state.test.cjs, node tests/favorites-cancel-client.test.cjs, npm run typecheck.

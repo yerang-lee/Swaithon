@@ -38,10 +38,14 @@ const store = {
   category: null,
 };
 let session = null;
+const trackedViews = [];
 function render(file, slots, params) {
   let cursor = 0;
   const routes = [];
   const modules = {
+    '../../hooks/useRecommendationTracking': {
+      useRecommendationView: (options) => trackedViews.push(options),
+    },
     react: {
       useState: (initial) => [
         cursor in slots ? slots[cursor++] : (cursor++, initial),
@@ -145,7 +149,7 @@ assert.ok(text(view.tree).includes('0.3km'));
 view = render(
   'src/app/products/[listingId].tsx',
   { 0: product, 1: false, 7: { listingId: '101', name: '테스트시장' } },
-  { listingId: '101', marketDistanceMeters: '350' },
+  { listingId: '101', marketDistanceMeters: '350', requestId: 'rec_test' },
 );
 walk(view.tree)
   .find(
@@ -160,6 +164,17 @@ assert.equal(view.routes[0].params.marketDistanceMeters, '350');
 assert.ok(text(view.tree).includes('0.3km'));
 assert.equal(text(view.tree).includes('시장까지'), false);
 assert.ok(text(view.tree).includes('테스트시장 · 0.3km'));
+assert.deepEqual(trackedViews.at(-1), {
+  requestId: 'rec_test',
+  listingId: '101',
+  ready: true,
+});
+render(
+  'src/app/products/[listingId].tsx',
+  { 0: null, 1: false },
+  { listingId: '101', requestId: 'rec_test' },
+);
+assert.equal(trackedViews.at(-1).ready, false);
 console.log(
   'PASS: market-to-store, market-to-product, store-to-product and product-to-store preserve distance; details display distance without prefix',
 );

@@ -60,6 +60,14 @@ const onboardingMarketIds = new Map<string, number>([
 ]);
 let nextOnboardingMarketId = 5;
 const mockFavorites = new Map<string, Map<string, Record<string, unknown>>>();
+const mockRecommendationRequests = new Map<
+  string,
+  { owner: number; listings: Set<string> }
+>();
+const mockRecommendationEvents = new Map<
+  string,
+  { owner: number; kind: string; signature: string; recordedAt: string }
+>();
 const mockCancellations = new Map<number, Set<number>>();
 // 테스트 입장 버튼은 이전 정보 수정/탈퇴에 영향을 받지 않는 새 예시 계정을 준비합니다.
 export function prepareMockAccount(role: Account['role']): string {
@@ -343,6 +351,135 @@ export async function mockRequest(
       store_id: (account.store_id = ++sequence),
       store_name: String(input.store_name).trim(),
       onboarding_completed: true,
+    };
+  }
+  if (
+    method === 'POST' &&
+    [
+      '/recommendations/events/impressions',
+      '/recommendations/events/views',
+    ].includes(url.pathname)
+  ) {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('추천 기록 요청을 처리하지 못했어요.'), {
+        status,
+      });
+    };
+    if (!account) return fail(401);
+    const request = mockRecommendationRequests.get(String(input.request_id));
+    if (!request || request.owner !== account.user_id) return fail(404);
+    const kind = url.pathname.endsWith('/views') ? 'view' : 'impression';
+    const events =
+      kind === 'view'
+        ? [input]
+        : Array.isArray(input.events)
+          ? (input.events as Record<string, unknown>[])
+          : [];
+    if (!events.length) return fail(400);
+    const staged: Array<{ id: string; signature: string; duplicate: boolean }> =
+      [];
+    const incoming = new Map<string, string>();
+    for (const event of events) {
+      if (
+        !event ||
+        typeof event.event_id !== 'string' ||
+        !event.event_id.trim() ||
+        typeof event.listing_id !== 'string' ||
+        !event.listing_id.trim() ||
+        typeof event.occurred_at !== 'string' ||
+        !Number.isFinite(Date.parse(event.occurred_at)) ||
+        (kind === 'impression' &&
+          (typeof event.position !== 'number' ||
+            !Number.isSafeInteger(event.position) ||
+            event.position <= 0))
+      )
+        return fail(400);
+      if (!request.listings.has(event.listing_id)) return fail(404);
+      const signature = JSON.stringify([
+        input.request_id,
+        event.listing_id,
+        event.occurred_at,
+        kind === 'impression' ? event.position : null,
+      ]);
+      const old = mockRecommendationEvents.get(event.event_id);
+      if (
+        (old &&
+          (old.owner !== account.user_id ||
+            old.kind !== kind ||
+            old.signature !== signature)) ||
+        (incoming.has(event.event_id) &&
+          incoming.get(event.event_id) !== signature)
+      )
+        return fail(409);
+      staged.push({
+        id: event.event_id,
+        signature,
+        duplicate: !!old || incoming.has(event.event_id),
+      });
+      incoming.set(event.event_id, signature);
+    }
+    const now = new Date().toISOString();
+    for (const event of staged)
+      if (!event.duplicate)
+        mockRecommendationEvents.set(event.id, {
+          owner: account.user_id,
+          kind,
+          signature: event.signature,
+          recordedAt: now,
+        });
+    if (kind === 'view')
+      return {
+        event_id: input.event_id,
+        listing_id: input.listing_id,
+        event_type: 'VIEW',
+        recorded_at: mockRecommendationEvents.get(String(input.event_id))!
+          .recordedAt,
+        message: '상품 상세 조회 기록이 저장되었습니다.',
+      };
+    const duplicates = staged.filter((event) => event.duplicate).length;
+    return {
+      request_id: input.request_id,
+      recorded_count: staged.length - duplicates,
+      duplicate_count: duplicates,
+      message: '상품 노출 기록이 저장되었습니다.',
+    };
+  }
+  if (url.pathname === '/recommendations' && method === 'GET') {
+    if (!account) throw new Error('로그인 후 추천 상품을 확인해주세요.');
+    const marketId = url.searchParams.get('market_id');
+    const topN = Number(url.searchParams.get('top_n') ?? 20);
+    const result = (await mockRequest(
+      `/products?page=1&size=${topN}${marketId ? `&market_id=${encodeURIComponent(marketId)}` : ''}`,
+      'GET',
+    )) as { products: Array<Record<string, unknown>> };
+    const now = new Date().toISOString();
+    const requestId = `mock-rec-${++sequence}`;
+    mockRecommendationRequests.set(requestId, {
+      owner: account.user_id,
+      listings: new Set(
+        result.products.map((product) => String(product.listing_id)),
+      ),
+    });
+    return {
+      request_id: requestId,
+      as_of: now,
+      generated_at: now,
+      rule_version: 'mock-v1',
+      user_state: {},
+      items: result.products.map((product, index) => ({
+        rank: index + 1,
+        score: 1 - index / 100,
+        listing_id: String(product.listing_id),
+        product_id: String(product.product_id),
+        store_id: String(product.store_id),
+        store_name: product.store_name,
+        market_id: String(product.market_id),
+        name: product.product_name,
+        category_id: String(product.category_id),
+        price: product.price,
+        distance_km: 0.3 + index / 10,
+        created_at: product.created_at,
+      })),
     };
   }
   // Numeric category IDs below are test fixtures, not production mappings.
