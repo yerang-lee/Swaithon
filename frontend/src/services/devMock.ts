@@ -35,6 +35,13 @@ export async function mockRequest(path: string, method: string, body?: unknown, 
   const input = (body ?? {}) as Record<string, unknown>;
   const account = token ? sessions.get(token) : undefined;
 
+  if (url.pathname === '/users/me/favorites' && method === 'GET') {
+    if (!account || !token) throw new Error('로그인 후 관심상품을 확인해주세요.');
+    const page=Number(url.searchParams.get('page')??1),size=Number(url.searchParams.get('size')??10);
+    if (![page,size].every(value=>Number.isSafeInteger(value)&&value>0)) throw new Error('관심상품 조회 조건을 확인해주세요.');
+    const items=[...(mockFavorites.get(token)?.values()??[])].map(item=>({favorite_id:item.favorite_id,listing_id:item.listing_id,product_id:item.product_id,product_name:item.product_name,store_id:item.store_id,store_name:item.store_name,market_id:'1',market_name:'용산용문시장',category_id:2,category:'FRUIT',category_name:'과일',price:5000,sale_price:null,is_sold_out:false,is_on_sale:false,image_url:null,created_at:item.created_at}));
+    return {favorites:items.slice((page-1)*size,page*size),total_count:items.length,page,size};
+  }
   const favoriteCancelMatch = url.pathname.match(/^\/favorites\/([^/]+)$/);
   if (favoriteCancelMatch && method === 'DELETE') {
     if (!account) throw new Error('로그인 후 관심상품을 취소해주세요.');

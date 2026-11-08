@@ -1,15 +1,25 @@
-# 상품 찜 추가·취소
+# 관심상품 API 및 목록 화면
 
-사용자 제공 상세 명세와 api-spec.csv의 POST /favorites를 사용합니다. 일반 목록은 JSON {listing_id:String}, 추천 요청 ID가 실제로 있는 상세/추천 경로에서만 request_id를 추가합니다. Bearer 토큰은 현재 로그인 세션에서 가져오고 201 응답의 문자열 favorite_id/user_id/listing_id/product_id/store_id와 상품명·가게명·등록 시각·메시지를 검증합니다. listing_id는 응답과 요청의 일치를 확인하며 숫자 ID는 화면에서 문자열로 변환해 전달합니다.
+## 추가·취소
 
-서버 성공 응답 후에만 공유 하트를 선택 상태로 바꿉니다. 같은 상품의 진행 중 요청을 잠그고 실패 시 이전 상태를 유지합니다. 로그아웃/계정 전환 중 도착한 응답은 반영하지 않습니다. 400/401/404/409/500 오류를 안내하며 입력값·토큰·서버 원본 응답을 새 로깅 코드에 넣지 않습니다. 추천 행동 이벤트는 서버 책임이며 클라이언트에서 별도 이벤트를 만들어 전송하지 않습니다.
+사용자 제공 상세 명세와 api-spec.csv의 POST /favorites를 사용합니다. 일반 목록은 JSON {listing_id:String}, 추천 요청 ID가 실제로 있는 경우에만 request_id를 추가합니다. Bearer 토큰은 현재 로그인 세션에서 가져오고 201 응답의 문자열 favorite_id/user_id/listing_id/product_id/store_id와 상품명·가게명·등록 시각·메시지를 검증합니다. 응답 listing_id는 요청과 일치해야 합니다.
 
-홈 예시 상품과 명시적인 미리보기 상품은 실제 서버에 보내지 않고 기존 미리보기 하트만 변경합니다. 실제 추가 응답은 관심상품 탭에 상품명·가게명으로 표시합니다. POST 응답에 없는 가격·사진은 추정하지 않습니다. 이번 범위에는 GET /users/me/favorites 연동이 없으므로 앱 재실행 후 기존 서버 찜 목록 복원은 상세 조회 계약 확인 후 구현해야 합니다.
+DELETE /favorites/{favorite_id}는 저장된 favorite_id를 URL 인코딩하고 Bearer 헤더만 보내며 요청 본문은 보내지 않습니다. 200 응답의 favorite_id/listing_id가 대상과 일치해야 하며 message는 문자열입니다. 성공 후 공유 하트 상태를 갱신하고 실패 시 유지합니다. 상품별 요청 잠금과 계정 전환·오래된 응답 차단을 적용합니다. 401/403/404/500 오류를 안내합니다. FAVORITE/FAVORITE_CANCEL 이벤트 및 request_id 연결은 서버 책임이며 클라이언트가 별도 이벤트를 보내지 않습니다.
 
-사용자 제공 DELETE /favorites/{favorite_id} 명세를 연결했습니다. POST 응답에 저장된 favorite_id를 URL 인코딩해 경로로 사용하고 Bearer 헤더만 보내며 요청 본문은 보내지 않습니다. 200 응답의 favorite_id/listing_id가 취소 대상과 일치하고 message가 문자열인지 확인한 뒤에만 하트와 관심상품 탭 항목을 제거합니다. 실패 또는 응답 불일치는 기존 선택 상태를 유지합니다. 중복 클릭 방지와 계정 전환 응답 무시는 추가·취소에 공통 적용합니다. 401/403/404/500은 구분해서 안내합니다.
+## GET /users/me/favorites
 
-상품 목록·상품 상세·픽업 시간 선택 화면·관심상품 탭에서 같은 상태와 취소 함수를 사용합니다. recommendation FAVORITE_CANCEL 이벤트와 기존 request_id 연결은 서버가 처리하며 클라이언트는 이벤트·request_id·user_id를 DELETE 요청에 추가하지 않습니다. GET /users/me/favorites의 상세 명세가 아직 없어 이전 세션에서 저장한 찜 목록 복원은 이번 범위에 포함하지 않습니다.
+Bearer 인증과 page/size(기본 1/10)로 조회합니다. 문자열 favorite_id/listing_id/product_id/store_id/market_id, 상품·가게·시장명, 양의 정수 category_id, category/category_name, 정수 price, 정수 또는 null sale_price, Boolean is_sold_out/is_on_sale, 문자열 또는 null image_url, DateTime created_at 및 total_count/page/size를 사용자 명세대로 검증합니다. 400/401/500 오류를 안내합니다. 목록에는 POST 응답의 user_id/message가 없으므로 별도 FavoriteListing 타입을 사용합니다.
 
-테스트 모드는 서버 없이 로그인 세션별 추가/중복을 모의 처리합니다. 정상 추가·오류·추천 요청 ID·중복 클릭·계정 전환은 테스트로 확인하며 실제 서버 저장과 추천 이벤트 기록은 연결 환경에서 확인해야 합니다.
+검색 파라미터가 없는 명세에 맞춰 모든 페이지를 조회한 뒤 상품명으로 검색합니다. page/size만 전송하며 임의 keyword를 보내지 않습니다. listing_id 중복 제거와 다음 페이지 무진행 검사를 적용하고 화면 이탈 시 추가 조회를 중단합니다.
 
-검증: node tests/favorites-api.test.cjs, node tests/favorites-state.test.cjs, node tests/auth-mode.test.cjs, npm run typecheck.
+## 화면과 재진입
+
+홈의 관심상품 탭은 FavoritesScreen을 사용합니다. 예약 화면과 같은 PageHeader(관심상품)/BottomNavigation/SafeAreaView, 시장 상품 검색과 같은 검색창 스타일을 사용합니다. 상품 이미지, 상품명, 가게명 · 시장명 · 거리, 가격, 하트를 표시합니다. 할인일 때 원가와 sale_price를 가로로 표시하며 null/이미지 실패는 기본 이미지 영역을 표시합니다.
+
+찜 목록 API에는 거리가 없어 저장 탐색 위치로 주변 시장을 한 번 조회해 내부 market_id를 정확히 비교합니다. 앞선 합의대로 가게·상품에 소속 시장 거리를 표시하며 접두사는 쓰지 않습니다. ID 접두사 제거·이름 비교로 매핑하지 않습니다. 일치하는 시장 거리가 없으면 해당 거리만 생략하고 가게명 · 시장명은 유지합니다. 상세 이동은 listing_id와 확인된 거리만 전달합니다.
+
+취소 성공 시 공유 하트를 비우지만 현재 방문의 행 데이터는 유지합니다. 빈 하트를 다시 누르면 새 favorite_id로 재등록 가능합니다. 다른 탭·상세 화면에 갔다 돌아오면 서버 목록을 다시 조회하므로 취소한 항목이 제외됩니다. 재진입 시 진행 중 추가·취소가 끝나기를 기다려 오래된 서버 목록으로 하트를 되돌리지 않으며, 계정/변경 버전이 다른 조회 결과도 동기화하지 않습니다.
+
+홈의 추천 예시 상품은 실제 서버로 찜하지 않습니다. 새 관심상품 화면에는 서버 GET 목록만 표시합니다. 테스트 모드도 GET 페이지 조회와 취소 제외를 모의 처리하며 실제 저장·추천 이벤트 기록은 서버 연결 환경에서 확인해야 합니다. 오류 로깅에는 입력값·토큰·파일·원본 응답을 넣지 않습니다.
+
+검증: node tests/favorites-list-api.test.cjs, node tests/favorites-screen.test.cjs, node tests/favorites-api.test.cjs, node tests/favorites-state.test.cjs, node tests/favorites-cancel-client.test.cjs, npm run typecheck.

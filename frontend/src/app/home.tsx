@@ -1,6 +1,7 @@
 import { logAppError } from '../utils/appDiagnostics';
 import { demoProducts as products } from '../data/demoProducts';
 import { useFavorites } from '../hooks/useFavorites';
+import { FavoritesScreen } from '../components/favorites/FavoritesScreen';
 import { ReservationsScreen } from '../components/reservations/ReservationsScreen';
 import { MyPage } from '../components/auth/MyPage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -34,7 +35,7 @@ export default function HomeScreen() {
     const session = getAuthSession();
     setIsMerchant(!!session && session.expiresAt > Date.now() && session.role === 'MERCHANT');
   }, []));
-  const { favorites, favoriteItems, pendingFavorites, toggleFavorite } = useFavorites();
+  const { favorites, toggleFavorite } = useFavorites();
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [location, setLocation] = useState<ExplorationLocation | null>(null);
@@ -90,6 +91,7 @@ export default function HomeScreen() {
   }, [location, nearbyRetry]);
 
   if (active === '예약') return <ReservationsScreen onTab={setActive} />;
+  if (active === '관심상품') return <FavoritesScreen onTab={setActive} />;
 
   if (active === '마이') return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <PageHeader title="마이" />
@@ -109,14 +111,13 @@ export default function HomeScreen() {
         <View style={styles.merchantPlusCircle}><View style={styles.merchantPlusHorizontal} /><View style={styles.merchantPlusVertical} /></View>
         <Text style={styles.merchantButtonLabel}>상품 등록/수정하기</Text>
       </Pressable>}
-      {active === '홈' || active === '관심상품' ? <>
-        <Text style={styles.sectionTitle}>{active === '홈' ? '나를 위한 추천 상품' : '관심상품'}</Text>
-        {active==='관심상품'&&favoriteItems.map(item=><View key={item.favorite_id} style={{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:18,borderBottomWidth:1,borderColor:theme.colors.border}}><Pressable accessibilityRole="button" accessibilityLabel={`${item.product_name} 상세`} onPress={()=>router.push({pathname:'/products/[listingId]',params:{listingId:item.listing_id}})} style={{flex:1}}><Text style={styles.cardTitle}>{item.product_name}</Text><Text style={styles.meta}>{item.store_name}</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${item.product_name} 관심 취소`} accessibilityState={{selected:true}} disabled={pendingFavorites.includes(item.listing_id)} onPress={()=>void toggleFavorite(item.listing_id)} style={{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><AppIcon name="heart-filled" size={27} color="#E84B4B"/></Pressable></View>)}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">{products.filter(item => active === '홈' || favorites.includes(item.id)).map(item => <View key={item.id} style={[styles.card, { width: cardWidth }]}>
+      {active === '홈' ? <>
+        <Text style={styles.sectionTitle}>나를 위한 추천 상품</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">{products.map(item => <View key={item.id} style={[styles.card, { width: cardWidth }]}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 상세`} onPress={() => router.push({ pathname: '/products/[listingId]', params: { listingId: item.id } })}><View style={styles.productImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={[styles.meta, { minHeight: 42 }]} numberOfLines={2}>{item.store} · {item.distance}</Text></Pressable>
           <View style={styles.priceRow}><Text style={styles.price}>{item.price}</Text><Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(item.id) }} hitSlop={10} onPress={() => void toggleFavorite(item.id,{preview:true})}><AppIcon name={favorites.includes(item.id) ? "heart-filled" : "heart-outline"} size={27} color={favorites.includes(item.id) ? '#E84B4B' : '#777777'} /></Pressable></View>
         </View>)}</ScrollView>
-        {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && (active!=='관심상품'||favoriteItems.length===0) && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
+        {products.length === 0 && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
         {active === '홈' && <>
           <PlaceSection title="내 주변 시장" cardWidth={cardWidth} loading={marketsLoading} error={marketsError} emptyMessage={!location ? locationError || '위치를 확인하고 있어요.' : `반경 ${location.radius}km 안에 시장이 없어요.`} onRetry={()=>setNearbyRetry(value=>value+1)} items={nearbyMarkets.map((market,index)=>({
             key:market.market_id===null?`unregistered:${index}`:`market:${market.market_id}`, name:market.market_name, imageUrl:market.image_url,
