@@ -1,19 +1,31 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
+import { router } from 'expo-router';
 import { AppIcon } from './AppIcon';
 import type { ReactNode } from 'react';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 export function PageHeader({
   title,
   onBack,
   backDisabled = false,
   rightAction,
   color = '#181725',
+  titleStyle,
 }: {
   title: string;
   onBack?: () => void;
   backDisabled?: boolean;
   rightAction?: ReactNode;
   color?: string;
+  titleStyle?: StyleProp<TextStyle>;
 }) {
+  const unreadCount = useUnreadNotifications(rightAction == null);
   return (
     <View style={styles.header}>
       {onBack && (
@@ -27,17 +39,37 @@ export function PageHeader({
           <AppIcon name="arrow-back" size={20} color={color} />
         </Pressable>
       )}
-      <Text style={[styles.title, !onBack && styles.rootTitle, { color }]}>
+      <Text
+        style={[
+          styles.title,
+          !onBack && styles.rootTitle,
+          { color },
+          titleStyle,
+        ]}
+      >
         {title}
       </Text>
       {rightAction ?? (
         <>
           <Pressable
-            accessibilityLabel="알림"
-            onPress={() => Alert.alert('알림', '준비 중이에요.')}
+            accessibilityRole="button"
+            accessibilityLabel={
+              unreadCount > 0 ? `알림, 읽지 않은 알림 ${unreadCount}개` : '알림'
+            }
+            onPress={() => router.push('/notifications')}
             style={styles.action}
           >
-            <AppIcon name="bell" size={26} color={color} />
+            <View style={styles.bell}>
+              <AppIcon name="bell" size={26} color={color} />
+              {unreadCount > 0 && (
+                <View
+                  testID="notification-unread-dot"
+                  accessible={false}
+                  pointerEvents="none"
+                  style={styles.unreadDot}
+                />
+              )}
+            </View>
           </Pressable>
         </>
       )}
@@ -74,5 +106,22 @@ const styles = StyleSheet.create({
     minWidth: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bell: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E53935',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
 });

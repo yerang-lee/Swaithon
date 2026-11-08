@@ -68,6 +68,46 @@ const mockRecommendationEvents = new Map<
   string,
   { owner: number; kind: string; signature: string; recordedAt: string }
 >();
+type MockNotification = {
+  notification_id: number;
+  type: string;
+  title: string;
+  content: string;
+  related_id: number;
+  is_read: boolean;
+  created_at: string;
+  read_at?: string;
+};
+const mockNotifications = new Map<number, MockNotification[]>();
+function notificationsFor(userId: number) {
+  let items = mockNotifications.get(userId);
+  if (!items) {
+    const types = ['RESERVATION', 'SALE', 'PRODUCT', 'SYSTEM'];
+    const titles = [
+      '픽업 예약 상품이 준비되었습니다.',
+      '찜한 상품이 할인 중입니다.',
+      '상품 정보가 변경되었습니다.',
+      '장보소 이용 안내',
+    ];
+    const contents = [
+      '과일가게에서 예약하신 사과가 준비되었습니다.',
+      '관심상품의 할인 가격을 확인해보세요.',
+      '상품의 판매 상태가 변경되었습니다.',
+      '장보소의 새로운 소식을 확인해보세요.',
+    ];
+    items = Array.from({ length: 12 }, (_, index) => ({
+      notification_id: userId * 1000 + index + 1,
+      type: types[index % 4],
+      title: titles[index % 4],
+      content: contents[index % 4],
+      related_id: index % 4 === 0 ? 501 : 1001,
+      is_read: index % 3 === 0,
+      created_at: new Date(Date.now() - index * 3600000).toISOString(),
+    }));
+    mockNotifications.set(userId, items);
+  }
+  return items;
+}
 const mockCancellations = new Map<number, Set<number>>();
 // 테스트 입장 버튼은 이전 정보 수정/탈퇴에 영향을 받지 않는 새 예시 계정을 준비합니다.
 export function prepareMockAccount(role: Account['role']): string {
@@ -81,6 +121,7 @@ export function prepareMockAccount(role: Account['role']): string {
     if (account.user_id === userId || account.phone === phone)
       sessions.delete(key);
   mockCancellations.delete(userId);
+  mockNotifications.delete(userId);
   mockOnboarded.delete(userId);
   accounts.set(phone, {
     user_id: userId,
@@ -102,6 +143,63 @@ export async function mockRequest(
   const input = (body ?? {}) as Record<string, unknown>;
   const account = token ? sessions.get(token) : undefined;
 
+  if (url.pathname === '/users/me/notifications' && method === 'GET') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('알림 요청을 처리하지 못했어요.'), {
+        status,
+      });
+    };
+    if (!account) return fail(401);
+    const page = Number(url.searchParams.get('page') ?? 1),
+      size = Number(url.searchParams.get('size') ?? 10);
+    const filter = url.searchParams.get('is_read');
+    if (
+      ![page, size].every(
+        (value) => Number.isSafeInteger(value) && value > 0,
+      ) ||
+      (filter !== null && filter !== 'true' && filter !== 'false')
+    )
+      return fail(400);
+    const all = notificationsFor(account.user_id);
+    const filtered = all.filter(
+      (item) => filter === null || item.is_read === (filter === 'true'),
+    );
+    return {
+      notifications: filtered
+        .slice((page - 1) * size, page * size)
+        .map(({ read_at, ...item }) => ({ ...item })),
+      unread_count: all.filter((item) => !item.is_read).length,
+      total_count: filtered.length,
+      page,
+      size,
+    };
+  }
+  const notificationRead = url.pathname.match(/^\/notifications\/(\d+)\/read$/);
+  if (notificationRead && method === 'PATCH') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('알림 읽음 요청을 처리하지 못했어요.'), {
+        status,
+      });
+    };
+    if (!account) return fail(401);
+    const id = Number(notificationRead[1]),
+      ownerId = Math.floor(id / 1000);
+    if (![...accounts.values()].some((user) => user.user_id === ownerId))
+      return fail(404);
+    const item = notificationsFor(ownerId).find(
+      (item) => item.notification_id === id,
+    );
+    if (!item) return fail(404);
+    if (ownerId !== account.user_id) return fail(403);
+    item.is_read = true;
+    item.read_at ??= new Date().toISOString();
+    return {
+      notification_id: id,
+      is_read: true,
+      read_at: item.read_at,
+      message: '알림을 읽음 처리했습니다.',
+    };
+  }
   if (url.pathname === '/users/me/favorites' && method === 'GET') {
     if (!account || !token)
       throw new Error('로그인 후 관심상품을 확인해주세요.');
