@@ -1,8 +1,111 @@
-const fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),assert=require('node:assert/strict');
-const source=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/services/api/reservations.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-const pickup=new Date('2099-11-03T15:00:00+09:00');
-let calls=[],failure,session={access_token:'token',expiresAt:Date.now()+60000};
-let response={reservation_id:'reservation_501',user_id:'user_5',listing_id:'listing_101',product_id:'product_1',product_name:'사과',store_id:'store_10',store_name:'과일가게',quantity:2,unit_price:8000,total_price:16000,pickup_at:'2099-11-03T15:00:00+09:00',request_note:null,status:'PENDING',created_at:'2026-11-03T10:00:00+09:00',message:'픽업 예약이 완료되었습니다.'};
-class ApiError extends Error{constructor(status){super('error');this.status=status;}}
-const api={};new Function('require','exports',source)(name=>name==='./auth'?{getAuthSession:()=>session}:{ApiError,postJson:async(...args)=>{calls.push(args);if(failure)throw failure;return response;}},api);
-(async()=>{assert.equal(api.pickupAtKst(pickup),'2099-11-03T15:00:00+09:00');assert.equal((await api.reserveProduct('listing_101','product_1',2,pickup,'')).reservation_id,'reservation_501');assert.equal(calls.length,1);assert.equal(calls[0][0],'/reservations');assert.equal(calls[0][2],'token');assert.equal(calls[0][3],201);assert.deepEqual(calls[0][1],{listing_id:'listing_101',product_id:'product_1',quantity:2,pickup_at:'2099-11-03T15:00:00+09:00'});response={...response,request_note:'잘 익은 사과'};await api.reserveProduct('listing_101','product_1',2,pickup,' 잘 익은 사과 ','request_101');assert.equal(calls.at(-1)[1].request_id,'request_101');assert.equal(calls.at(-1)[1].request_note,'잘 익은 사과');assert.equal(calls.at(-1)[1].user_id,undefined);assert.equal(calls.at(-1)[1].store_id,undefined);response={...response,listing_id:'other'};await assert.rejects(()=>api.reserveProduct('listing_101','product_1',2,pickup,''),/응답/);await assert.rejects(()=>api.reserveProduct('','product_1',2,pickup,''));await assert.rejects(()=>api.reserveProduct('listing_101','product_1',0,pickup,''));failure=new ApiError(409);await assert.rejects(()=>api.reserveProduct('listing_101','product_1',2,pickup,''),/품절/);session=null;await assert.rejects(()=>api.reserveProduct('listing_101','product_1',2,pickup,''),/로그인/);console.log('PASS: string IDs, 201 expectation, KST offset, ordinary/recommendation payloads, response mismatch, quantity/auth/conflict guards; no extra event request');})().catch(e=>{console.error(e);process.exitCode=1});
+const fs = require('node:fs'),
+  path = require('node:path'),
+  ts = require('typescript'),
+  assert = require('node:assert/strict');
+const source = ts.transpileModule(
+  fs.readFileSync(
+    path.join(__dirname, '../src/services/api/reservations.ts'),
+    'utf8',
+  ),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+).outputText;
+const pickup = new Date('2099-11-03T15:00:00+09:00');
+let calls = [],
+  failure,
+  session = { access_token: 'token', expiresAt: Date.now() + 60000 };
+let response = {
+  reservation_id: 'reservation_501',
+  user_id: 'user_5',
+  listing_id: 'listing_101',
+  product_id: 'product_1',
+  product_name: '사과',
+  store_id: 'store_10',
+  store_name: '과일가게',
+  quantity: 2,
+  unit_price: 8000,
+  total_price: 16000,
+  pickup_at: '2099-11-03T15:00:00+09:00',
+  request_note: null,
+  status: 'PENDING',
+  created_at: '2026-11-03T10:00:00+09:00',
+  message: '픽업 예약이 완료되었습니다.',
+};
+class ApiError extends Error {
+  constructor(status) {
+    super('error');
+    this.status = status;
+  }
+}
+const api = {};
+new Function('require', 'exports', source)(
+  (name) =>
+    name === './auth'
+      ? { getAuthSession: () => session }
+      : {
+          ApiError,
+          postJson: async (...args) => {
+            calls.push(args);
+            if (failure) throw failure;
+            return response;
+          },
+        },
+  api,
+);
+(async () => {
+  assert.equal(api.pickupAtKst(pickup), '2099-11-03T15:00:00+09:00');
+  assert.equal(
+    (await api.reserveProduct('listing_101', 'product_1', 2, pickup, ''))
+      .reservation_id,
+    'reservation_501',
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], '/reservations');
+  assert.equal(calls[0][2], 'token');
+  assert.equal(calls[0][3], 201);
+  assert.deepEqual(calls[0][1], {
+    listing_id: 'listing_101',
+    product_id: 'product_1',
+    quantity: 2,
+    pickup_at: '2099-11-03T15:00:00+09:00',
+  });
+  response = { ...response, request_note: '잘 익은 사과' };
+  await api.reserveProduct(
+    'listing_101',
+    'product_1',
+    2,
+    pickup,
+    ' 잘 익은 사과 ',
+    'request_101',
+  );
+  assert.equal(calls.at(-1)[1].request_id, 'request_101');
+  assert.equal(calls.at(-1)[1].request_note, '잘 익은 사과');
+  assert.equal(calls.at(-1)[1].user_id, undefined);
+  assert.equal(calls.at(-1)[1].store_id, undefined);
+  response = { ...response, listing_id: 'other' };
+  await assert.rejects(
+    () => api.reserveProduct('listing_101', 'product_1', 2, pickup, ''),
+    /응답/,
+  );
+  await assert.rejects(() =>
+    api.reserveProduct('', 'product_1', 2, pickup, ''),
+  );
+  await assert.rejects(() =>
+    api.reserveProduct('listing_101', 'product_1', 0, pickup, ''),
+  );
+  failure = new ApiError(409);
+  await assert.rejects(
+    () => api.reserveProduct('listing_101', 'product_1', 2, pickup, ''),
+    /품절/,
+  );
+  session = null;
+  await assert.rejects(
+    () => api.reserveProduct('listing_101', 'product_1', 2, pickup, ''),
+    /로그인/,
+  );
+  console.log(
+    'PASS: string IDs, 201 expectation, KST offset, ordinary/recommendation payloads, response mismatch, quantity/auth/conflict guards; no extra event request',
+  );
+})().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

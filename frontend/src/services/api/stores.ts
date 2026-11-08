@@ -1,11 +1,22 @@
 import { ApiError, getJson } from './client';
 
-export type MarketStore = { store_id: number; store_name: string; category: string|null; address: string | null; image_url: string|null };
-export type MarketStoresPage = { stores: MarketStore[]; total_count: number; page: number; size: number };
+export type MarketStore = {
+  store_id: number;
+  store_name: string;
+  category: string | null;
+  address: string | null;
+  image_url: string | null;
+};
+export type MarketStoresPage = {
+  stores: MarketStore[];
+  total_count: number;
+  page: number;
+  size: number;
+};
 export async function getMarketStores(
   marketId: number,
   page = 1,
-  keyword = ''
+  keyword = '',
 ): Promise<MarketStoresPage> {
   if (
     !Number.isSafeInteger(marketId) ||
@@ -52,14 +63,14 @@ export async function getMarketStores(
     result.page !== page ||
     result.size !== 10 ||
     !result.stores.every(
-      store =>
+      (store) =>
         store &&
         Number.isSafeInteger(store.store_id) &&
         store.store_id > 0 &&
         typeof store.store_name === 'string' &&
         (store.category === null || typeof store.category === 'string') &&
         (store.address === null || typeof store.address === 'string') &&
-        (store.image_url === null || typeof store.image_url === 'string')
+        (store.image_url === null || typeof store.image_url === 'string'),
     )
   ) {
     throw new Error('가게 목록 응답을 확인할 수 없어요.');
@@ -68,18 +79,100 @@ export async function getMarketStores(
   return result;
 }
 
-export type StoreDetail = { store_id: number; store_name: string; market_id: number; market_name: string; category: string | null; address: string; description: string; phone: string | null; image_url: string | null };
-export type StoreListing = { listing_id: number; product_id: number; store_id: number; product_name: string; price: number; sale_price: number | null; category_id: number; category?: string; is_sold_out: boolean; is_on_sale: boolean; image_url: string | null; created_at: string };
+export type StoreDetail = {
+  store_id: number;
+  store_name: string;
+  market_id: number;
+  market_name: string;
+  category: string | null;
+  address: string;
+  description: string;
+  phone: string | null;
+  image_url: string | null;
+};
+export type StoreListing = {
+  listing_id: number;
+  product_id: number;
+  store_id: number;
+  product_name: string;
+  price: number;
+  sale_price: number | null;
+  category_id: number;
+  category?: string;
+  is_sold_out: boolean;
+  is_on_sale: boolean;
+  image_url: string | null;
+  created_at: string;
+};
 export async function getStore(id: number): Promise<StoreDetail> {
-  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('가게 ID를 확인해주세요.');
-  const data = await getJson(`/stores/${id}`) as StoreDetail;
-  if (!data || data.store_id !== id || !Number.isSafeInteger(data.market_id) || !['store_name','market_name','address','description'].every(key => typeof (data as unknown as Record<string, unknown>)[key] === 'string')
-    || !['category','phone','image_url'].every(key => { const value = (data as unknown as Record<string, unknown>)[key]; return value === null || typeof value === 'string'; })) throw new Error('가게 정보 응답을 확인할 수 없어요.');
+  if (!Number.isSafeInteger(id) || id <= 0)
+    throw new Error('가게 ID를 확인해주세요.');
+  const data = (await getJson(`/stores/${id}`)) as StoreDetail;
+  if (
+    !data ||
+    data.store_id !== id ||
+    !Number.isSafeInteger(data.market_id) ||
+    !['store_name', 'market_name', 'address', 'description'].every(
+      (key) =>
+        typeof (data as unknown as Record<string, unknown>)[key] === 'string',
+    ) ||
+    !['category', 'phone', 'image_url'].every((key) => {
+      const value = (data as unknown as Record<string, unknown>)[key];
+      return value === null || typeof value === 'string';
+    })
+  )
+    throw new Error('가게 정보 응답을 확인할 수 없어요.');
   return data;
 }
-export async function getStoreProducts(id: number, page: number): Promise<{ products: StoreListing[]; total_count: number; page: number; size: number }> {
-  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(page) || page <= 0) throw new Error('조회 조건을 확인해주세요.');
-  const data = await getJson(`/stores/${id}/products?page=${page}&size=10`) as { products: StoreListing[]; total_count: number; page: number; size: number };
-  if (!data || data.page !== page || data.size !== 10 || !Number.isSafeInteger(data.total_count) || data.total_count < 0 || !Array.isArray(data.products) || !data.products.every(p => p && [p.listing_id,p.product_id,p.store_id,p.category_id].every(value => Number.isSafeInteger(value) && value > 0) && typeof p.product_name === 'string' && typeof p.created_at === 'string' && (p.category === undefined || typeof p.category === 'string') && (p.image_url === null || typeof p.image_url === 'string') && Number.isFinite(p.price) && p.price >= 0 && (p.sale_price === null || Number.isFinite(p.sale_price) && p.sale_price >= 0) && typeof p.is_sold_out === 'boolean' && typeof p.is_on_sale === 'boolean')) throw new Error('상품 목록 응답을 확인할 수 없어요.');
+export async function getStoreProducts(
+  id: number,
+  page: number,
+): Promise<{
+  products: StoreListing[];
+  total_count: number;
+  page: number;
+  size: number;
+}> {
+  if (
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    !Number.isSafeInteger(page) ||
+    page <= 0
+  )
+    throw new Error('조회 조건을 확인해주세요.');
+  const data = (await getJson(
+    `/stores/${id}/products?page=${page}&size=10`,
+  )) as {
+    products: StoreListing[];
+    total_count: number;
+    page: number;
+    size: number;
+  };
+  if (
+    !data ||
+    data.page !== page ||
+    data.size !== 10 ||
+    !Number.isSafeInteger(data.total_count) ||
+    data.total_count < 0 ||
+    !Array.isArray(data.products) ||
+    !data.products.every(
+      (p) =>
+        p &&
+        [p.listing_id, p.product_id, p.store_id, p.category_id].every(
+          (value) => Number.isSafeInteger(value) && value > 0,
+        ) &&
+        typeof p.product_name === 'string' &&
+        typeof p.created_at === 'string' &&
+        (p.category === undefined || typeof p.category === 'string') &&
+        (p.image_url === null || typeof p.image_url === 'string') &&
+        Number.isFinite(p.price) &&
+        p.price >= 0 &&
+        (p.sale_price === null ||
+          (Number.isFinite(p.sale_price) && p.sale_price >= 0)) &&
+        typeof p.is_sold_out === 'boolean' &&
+        typeof p.is_on_sale === 'boolean',
+    )
+  )
+    throw new Error('상품 목록 응답을 확인할 수 없어요.');
   return data;
 }

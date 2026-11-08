@@ -1,17 +1,280 @@
-const fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),assert=require('node:assert/strict');const compile=file=>ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-let session={access_token:'account-a'},slots=[],cursor=0,focus,cleanup,listRequests=[],mutationRequests=[],routes=[];
-const helpers={};new Function('exports',compile('src/utils/marketDistance.ts'))(helpers);
-const react={useState(initial){const i=cursor++;if(!(i in slots))slots[i]=initial;return[slots[i],value=>{slots[i]=typeof value==='function'?value(slots[i]):value;}];},useEffect(){},useCallback:fn=>fn,useSyncExternalStore:(_subscribe,snapshot)=>snapshot()};
-const shared={};new Function('require','exports',compile('src/hooks/useFavorites.ts'))(name=>name==='react'?react:name==='react-native'?{Alert:{alert(){}}}:name==='../services/api/auth'?{getAuthSession:()=>session}:name==='../services/api/favorites'?{cancelFavorite:(...args)=>new Promise(resolve=>mutationRequests.push({args,resolve})),addFavorite:()=>{throw new Error('unexpected add');}}:{logAppError(){}},shared);
-const element=(type,props,key)=>({type,props,key});const screen={};const modules={react,'react/jsx-runtime':{jsx:element,jsxs:element},'react-native':{View:'View',Text:'Text',Pressable:'Pressable',TextInput:'TextInput',StyleSheet:{create:s=>s}},'react-native-safe-area-context':{SafeAreaView:'SafeAreaView'},'expo-router':{router:{push:route=>routes.push(route)},useFocusEffect:fn=>{focus=fn;}},'../../services/api/auth':{getAuthSession:()=>session},'../../hooks/useFavorites':shared,'../../services/api/favorites':{getAllFavorites:active=>new Promise(resolve=>listRequests.push({active,resolve}))},'../../services/api/markets':{getNearbyMarkets:async()=>[{market_id:5,distance:350}]},'../../services/explorationLocation':{readLocation:async()=>({latitude:37.55,longitude:126.91,radius:1}),getCurrentLocation:()=>{throw new Error('saved location');}},'../../utils/marketDistance':helpers,'../../utils/appDiagnostics':{logAppError(){}},'../../constants/theme':{theme:{colors:{primary:'#53B175',brandText:'#176735'}}},'../ui/PageHeader':{PageHeader:'PageHeader'},'../ui/BottomNavigation':{BottomNavigation:'BottomNavigation'}};
-new Function('require','exports',compile('src/components/favorites/FavoritesScreen.tsx'))(name=>modules[name]??{},screen);
-const tick=()=>new Promise(resolve=>setImmediate(resolve));function render(){cursor=0;return screen.FavoritesScreen({onTab(){}});}function walk(node){if(!node||typeof node!=='object')return[];return[node,...[node.props?.children].flat(Infinity).flatMap(walk)];}function text(node){if(typeof node==='string')return node;if(!node||typeof node!=='object')return'';return[node.props?.children].flat(Infinity).map(text).join('');}
-const item={favorite_id:'favorite_1',listing_id:'listing_101',product_id:'product_1',product_name:'사과',store_id:'store_1',store_name:'가게',market_id:'5',market_name:'망원시장',category_id:2,category:'FRUIT',category_name:'과일',price:10000,sale_price:8000,is_sold_out:false,is_on_sale:true,image_url:null,created_at:'2026-11-03T10:00:00+09:00'};
-(async()=>{
- render();cleanup=focus();await tick();listRequests.shift().resolve([item,{...item,favorite_id:'favorite_2',listing_id:'listing_102',product_name:'배',market_id:'unmatched'}]);await tick();let tree=render();assert.equal(walk(tree).find(n=>n.type==='PageHeader').props.title,'관심상품');assert.ok(text(tree).includes('가게 · 망원시장 · 0.3km'));assert.equal(text(tree).includes('NaN'),false);assert.ok(text(tree).includes('8,000원'));
- walk(tree).find(n=>n.type==='TextInput').props.onChangeText('배');tree=render();assert.equal(walk(tree).some(n=>n.props?.accessibilityLabel==='사과 상세'),false);assert.equal(walk(tree).some(n=>n.props?.accessibilityLabel==='배 상세'),true);walk(tree).find(n=>n.type==='TextInput').props.onChangeText('');tree=render();
- walk(tree).find(n=>n.props?.accessibilityLabel==='사과 관심 취소').props.onPress();assert.deepEqual(mutationRequests[0].args,['favorite_1','listing_101']);tree=render();assert.equal(walk(tree).find(n=>n.props?.accessibilityLabel==='사과 관심 취소').props.disabled,true);mutationRequests.shift().resolve({favorite_id:'favorite_1',listing_id:'listing_101',message:'취소'});await tick();tree=render();assert.equal(walk(tree).some(n=>n.props?.accessibilityLabel==='사과 상세'),true);assert.equal(walk(tree).some(n=>n.props?.accessibilityLabel==='사과 관심 추가'),true);
- walk(tree).find(n=>n.props?.accessibilityLabel==='사과 상세').props.onPress();assert.deepEqual(routes[0].params,{listingId:'listing_101',marketDistanceMeters:'350'});cleanup();cleanup=focus();await tick();listRequests.shift().resolve([{...item,favorite_id:'favorite_2',listing_id:'listing_102',product_name:'배'}]);await tick();tree=render();assert.equal(walk(tree).some(n=>n.props?.accessibilityLabel==='사과 상세'),false);
- const context=shared.beginFavoritesLoad();const pending=shared.useFavorites().toggleFavorite('listing_102');cleanup();cleanup=focus();await tick();assert.equal(listRequests.length,0);const abort=new AbortController();let ready=false;const waiting=shared.waitForFavoriteRequests(abort.signal).then(()=>{ready=true;});await tick();assert.equal(ready,false);abort.abort();await waiting;assert.equal(ready,true);mutationRequests.shift().resolve({favorite_id:'favorite_2',listing_id:'listing_102',message:'취소'});await pending;await tick();assert.equal(listRequests.length,1);listRequests.shift().resolve([]);await tick();tree=render();assert.equal(walk(tree).some(n=>n.props?.accessibilityLabel==='배 상세'),false);assert.equal(shared.synchronizeFavorites([item],context),false);
- console.log('PASS: reservation-style header/search, metadata separators and distance, sale price, cancellation keeps row/clears heart, re-entry removes cancelled item, detail route and mutation sync guards');
-})().catch(e=>{console.error(e);process.exitCode=1;});
+const fs = require('node:fs'),
+  path = require('node:path'),
+  ts = require('typescript'),
+  assert = require('node:assert/strict');
+const compile = (file) =>
+  ts.transpileModule(
+    fs.readFileSync(path.join(__dirname, '..', file), 'utf8'),
+    {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        jsx: ts.JsxEmit.ReactJSX,
+      },
+    },
+  ).outputText;
+let session = { access_token: 'account-a' },
+  slots = [],
+  cursor = 0,
+  focus,
+  cleanup,
+  listRequests = [],
+  mutationRequests = [],
+  routes = [];
+const helpers = {};
+new Function('exports', compile('src/utils/marketDistance.ts'))(helpers);
+const react = {
+  useState(initial) {
+    const i = cursor++;
+    if (!(i in slots)) slots[i] = initial;
+    return [
+      slots[i],
+      (value) => {
+        slots[i] = typeof value === 'function' ? value(slots[i]) : value;
+      },
+    ];
+  },
+  useEffect() {},
+  useCallback: (fn) => fn,
+  useSyncExternalStore: (_subscribe, snapshot) => snapshot(),
+};
+const shared = {};
+new Function('require', 'exports', compile('src/hooks/useFavorites.ts'))(
+  (name) =>
+    name === 'react'
+      ? react
+      : name === 'react-native'
+        ? { Alert: { alert() {} } }
+        : name === '../services/api/auth'
+          ? { getAuthSession: () => session }
+          : name === '../services/api/favorites'
+            ? {
+                cancelFavorite: (...args) =>
+                  new Promise((resolve) =>
+                    mutationRequests.push({ args, resolve }),
+                  ),
+                addFavorite: () => {
+                  throw new Error('unexpected add');
+                },
+              }
+            : { logAppError() {} },
+  shared,
+);
+const element = (type, props, key) => ({ type, props, key });
+const screen = {};
+const modules = {
+  react,
+  'react/jsx-runtime': { jsx: element, jsxs: element },
+  'react-native': {
+    View: 'View',
+    Text: 'Text',
+    Pressable: 'Pressable',
+    TextInput: 'TextInput',
+    StyleSheet: { create: (s) => s },
+  },
+  'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+  'expo-router': {
+    router: { push: (route) => routes.push(route) },
+    useFocusEffect: (fn) => {
+      focus = fn;
+    },
+  },
+  '../../services/api/auth': { getAuthSession: () => session },
+  '../../hooks/useFavorites': shared,
+  '../../services/api/favorites': {
+    getAllFavorites: (active) =>
+      new Promise((resolve) => listRequests.push({ active, resolve })),
+  },
+  '../../services/api/markets': {
+    getNearbyMarkets: async () => [{ market_id: 5, distance: 350 }],
+  },
+  '../../services/explorationLocation': {
+    readLocation: async () => ({
+      latitude: 37.55,
+      longitude: 126.91,
+      radius: 1,
+    }),
+    getCurrentLocation: () => {
+      throw new Error('saved location');
+    },
+  },
+  '../../utils/marketDistance': helpers,
+  '../../utils/appDiagnostics': { logAppError() {} },
+  '../../constants/theme': {
+    theme: { colors: { primary: '#53B175', brandText: '#176735' } },
+  },
+  '../ui/PageHeader': { PageHeader: 'PageHeader' },
+  '../ui/BottomNavigation': { BottomNavigation: 'BottomNavigation' },
+};
+new Function(
+  'require',
+  'exports',
+  compile('src/components/favorites/FavoritesScreen.tsx'),
+)((name) => modules[name] ?? {}, screen);
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+function render() {
+  cursor = 0;
+  return screen.FavoritesScreen({ onTab() {} });
+}
+function walk(node) {
+  if (!node || typeof node !== 'object') return [];
+  return [node, ...[node.props?.children].flat(Infinity).flatMap(walk)];
+}
+function text(node) {
+  if (typeof node === 'string') return node;
+  if (!node || typeof node !== 'object') return '';
+  return [node.props?.children].flat(Infinity).map(text).join('');
+}
+const item = {
+  favorite_id: 'favorite_1',
+  listing_id: 'listing_101',
+  product_id: 'product_1',
+  product_name: '사과',
+  store_id: 'store_1',
+  store_name: '가게',
+  market_id: '5',
+  market_name: '망원시장',
+  category_id: 2,
+  category: 'FRUIT',
+  category_name: '과일',
+  price: 10000,
+  sale_price: 8000,
+  is_sold_out: false,
+  is_on_sale: true,
+  image_url: null,
+  created_at: '2026-11-03T10:00:00+09:00',
+};
+(async () => {
+  render();
+  cleanup = focus();
+  await tick();
+  listRequests
+    .shift()
+    .resolve([
+      item,
+      {
+        ...item,
+        favorite_id: 'favorite_2',
+        listing_id: 'listing_102',
+        product_name: '배',
+        market_id: 'unmatched',
+      },
+    ]);
+  await tick();
+  let tree = render();
+  assert.equal(
+    walk(tree).find((n) => n.type === 'PageHeader').props.title,
+    '관심상품',
+  );
+  assert.ok(text(tree).includes('가게 · 망원시장 · 0.3km'));
+  assert.equal(text(tree).includes('NaN'), false);
+  assert.ok(text(tree).includes('8,000원'));
+  walk(tree)
+    .find((n) => n.type === 'TextInput')
+    .props.onChangeText('배');
+  tree = render();
+  assert.equal(
+    walk(tree).some((n) => n.props?.accessibilityLabel === '사과 상세'),
+    false,
+  );
+  assert.equal(
+    walk(tree).some((n) => n.props?.accessibilityLabel === '배 상세'),
+    true,
+  );
+  walk(tree)
+    .find((n) => n.type === 'TextInput')
+    .props.onChangeText('');
+  tree = render();
+  walk(tree)
+    .find((n) => n.props?.accessibilityLabel === '사과 관심 취소')
+    .props.onPress();
+  assert.deepEqual(mutationRequests[0].args, ['favorite_1', 'listing_101']);
+  tree = render();
+  assert.equal(
+    walk(tree).find((n) => n.props?.accessibilityLabel === '사과 관심 취소')
+      .props.disabled,
+    true,
+  );
+  mutationRequests
+    .shift()
+    .resolve({
+      favorite_id: 'favorite_1',
+      listing_id: 'listing_101',
+      message: '취소',
+    });
+  await tick();
+  tree = render();
+  assert.equal(
+    walk(tree).some((n) => n.props?.accessibilityLabel === '사과 상세'),
+    true,
+  );
+  assert.equal(
+    walk(tree).some((n) => n.props?.accessibilityLabel === '사과 관심 추가'),
+    true,
+  );
+  walk(tree)
+    .find((n) => n.props?.accessibilityLabel === '사과 상세')
+    .props.onPress();
+  assert.deepEqual(routes[0].params, {
+    listingId: 'listing_101',
+    marketDistanceMeters: '350',
+  });
+  cleanup();
+  cleanup = focus();
+  await tick();
+  listRequests
+    .shift()
+    .resolve([
+      {
+        ...item,
+        favorite_id: 'favorite_2',
+        listing_id: 'listing_102',
+        product_name: '배',
+      },
+    ]);
+  await tick();
+  tree = render();
+  assert.equal(
+    walk(tree).some((n) => n.props?.accessibilityLabel === '사과 상세'),
+    false,
+  );
+  const context = shared.beginFavoritesLoad();
+  const pending = shared.useFavorites().toggleFavorite('listing_102');
+  cleanup();
+  cleanup = focus();
+  await tick();
+  assert.equal(listRequests.length, 0);
+  const abort = new AbortController();
+  let ready = false;
+  const waiting = shared.waitForFavoriteRequests(abort.signal).then(() => {
+    ready = true;
+  });
+  await tick();
+  assert.equal(ready, false);
+  abort.abort();
+  await waiting;
+  assert.equal(ready, true);
+  mutationRequests
+    .shift()
+    .resolve({
+      favorite_id: 'favorite_2',
+      listing_id: 'listing_102',
+      message: '취소',
+    });
+  await pending;
+  await tick();
+  assert.equal(listRequests.length, 1);
+  listRequests.shift().resolve([]);
+  await tick();
+  tree = render();
+  assert.equal(
+    walk(tree).some((n) => n.props?.accessibilityLabel === '배 상세'),
+    false,
+  );
+  assert.equal(shared.synchronizeFavorites([item], context), false);
+  console.log(
+    'PASS: reservation-style header/search, metadata separators and distance, sale price, cancellation keeps row/clears heart, re-entry removes cancelled item, detail route and mutation sync guards',
+  );
+})().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

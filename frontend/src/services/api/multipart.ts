@@ -4,8 +4,13 @@ type UploadOptions = { headers?: Record<string, string>; signal?: AbortSignal };
 type UploadResponse = Pick<Response, 'ok' | 'status' | 'json'>;
 
 // Native XHR sends RN FormData file URIs directly; Expo fetch's converter rejects them.
-export function postMultipart(url: string, body: FormData, options: UploadOptions = {}): Promise<UploadResponse> {
-  if (Platform.OS === 'web') return fetch(url, { method: 'POST', body, ...options });
+export function postMultipart(
+  url: string,
+  body: FormData,
+  options: UploadOptions = {},
+): Promise<UploadResponse> {
+  if (Platform.OS === 'web')
+    return fetch(url, { method: 'POST', body, ...options });
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
@@ -34,7 +39,11 @@ export function postMultipart(url: string, body: FormData, options: UploadOption
       const text = xhr.responseText;
       settled = true;
       cleanup();
-      resolve({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(text) });
+      resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => JSON.parse(text),
+      });
     };
     xhr.onerror = () => fail(new TypeError('파일을 서버로 전송하지 못했어요.'));
     xhr.onabort = () => fail(new Error('파일 전송이 취소됐어요.'));
@@ -44,7 +53,8 @@ export function postMultipart(url: string, body: FormData, options: UploadOption
       xhr.open('POST', url);
       for (const [key, value] of Object.entries(options.headers ?? {})) {
         // The native multipart encoder owns Content-Type and its boundary.
-        if (key.toLowerCase() !== 'content-type') xhr.setRequestHeader(key, value);
+        if (key.toLowerCase() !== 'content-type')
+          xhr.setRequestHeader(key, value);
       }
       xhr.send(body);
     } catch (error) {
