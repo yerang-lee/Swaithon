@@ -30,3 +30,25 @@ Query: latitude, longitude (필수 Float), radius (Integer, 미터, 기본 5000)
 검색 결과 선택 시 현재 위치/탐색 위치를 저장하거나 변경하지 않습니다. market_id가 있으면 해당 ID로 시장 가게 목록 화면에 바로 이동하고 GET /markets/{market_id}/stores를 호출합니다. market_id=null이면 미등록 시장임을 알리고 기존 상인 회원가입의 소속 시장 선택·가게 정보 등록 절차를 안내합니다. 시장 생성/재사용은 PATCH /users/me/onboarding에서 kakao_place_id를 기준으로 서버가 처리합니다. 이미 로그인한 사용자를 회원가입 화면으로 강제 이동시키거나 미등록 시장의 가게 API를 호출하지 않습니다.
 
 개발 테스트 모드도 동일 경로의 이름/주소 검색과 등록/미등록 응답을 지원합니다. 검증 명령: node tests/market-search-api.test.cjs.
+
+
+## 홈 주변 시장·가게 연결
+
+홈의 고정 시장/가게 예시를 제거하고 시장 찾기와 같은 저장 위치·반경 및 getNearbyMarkets를 사용합니다. 홈 재진입 시 저장된 위치를 읽고, 위치나 반경 변경 시 기존 목록을 비우고 다시 조회합니다. 이전 요청 결과는 반영하지 않으며 오래된 가게 페이지 요청도 더 진행하지 않습니다.
+
+등록된 각 주변 시장의 GET /markets/{market_id}/stores를 기존 getMarketStores로 모든 페이지 조회합니다. 최대 3개 시장을 동시에 조회하고, 시장 거리순을 유지하며 가게 ID로 중복을 제거합니다. 일부 시장 조회 실패 시 성공한 가게는 유지하고 재시도 안내를 표시합니다. market_id=null인 시장은 홈에 표시하되 가게 조회/ID 추정 없이 미등록 안내를 표시합니다.
+
+사용자 요청에 따라 홈 가게 카드에는 소속 시장의 distance를 로컬 market_distance로 연결해 “0.3km”처럼 거리 숫자와 단위만 표시합니다. 실제 가게 좌표로 계산한 거리는 아닙니다. 시장과 가게의 거리는 이름/주소와 별도 줄로 표시해 긴 주소에 가려지지 않게 합니다. 가게 카드에는 소속 시장과 주소도 표시합니다. 시장/가게 카드는 image_url을 사용하며 null/로드 실패는 기본 이미지 영역으로 표시합니다. 등록된 카드 선택은 실제 내부 ID로 이동하고 preview=true를 넣지 않으며 위치를 변경하지 않습니다.
+
+추천 상품 영역은 별도 추천 API 연결 전의 예시 데이터를 유지하고 안내도 추천 상품에 한정합니다. 위치 설정 모달과 SafeAreaProvider 및 화면 SafeAreaView는 유지합니다.
+
+검증: node tests/nearby-stores-api.test.cjs, node tests/nearby-markets-api.test.cjs, node tests/market-stores-api.test.cjs, npm run typecheck.
+
+
+## 거리 표시 및 화면 간 전달
+
+사용자 요청에 따라 “시장까지” 접두사를 제거했습니다. 홈 시장/가게, 시장 찾기의 주변 시장 선택, 시장별 가게/상품 목록, 가게 상세·가게 상품, 상품 상세 이동 시 marketDistanceMeters(미터)를 로컬 라우트 정보로 전달합니다. API 요청/응답에 새 거리 필드를 요구하지 않습니다. 가게와 해당 상품은 소속 시장의 거리를 그대로 표시합니다. 상품 상세의 가게 버튼도 실제 가게 ID와 같은 거리로 연결합니다.
+
+거리 파라미터가 없는 직접 진입은 기존 저장 탐색 위치(없으면 GPS)로 getNearbyMarkets를 조회하고 내부 market_id가 일치하는 항목에서 거리를 가져옵니다. 조회 범위 밖 시장·거리 확인 실패는 숫자를 만들지 않고 표시를 생략합니다. 미리보기 상품은 기존 예시 거리만 표시합니다. 거리 표시 때문에 저장 위치를 바꾸지 않습니다.
+
+검증: node tests/market-distance.test.cjs, node tests/home-nearby.test.cjs, node tests/market-selection.test.cjs, npm run typecheck.

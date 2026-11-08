@@ -5,7 +5,7 @@ import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { pickupTimes, dayLabel, timeLabel } from '../../utils/pickupTimes';
 const rowHeight = 36;
-export function PickupTimeSheet({ onClose, onConfirm, submitting = false, favorite, onToggleFavorite }: { onClose: () => void; onConfirm: (date: Date, quantity: number, note: string) => void; submitting?: boolean; favorite: boolean; onToggleFavorite: () => void }) {
+export function PickupTimeSheet({ onClose, onConfirm, submitting = false, favorite, favoritePending = false, onToggleFavorite }: { onClose: () => void; onConfirm: (date: Date, quantity: number, note: string) => void; submitting?: boolean; favorite: boolean; favoritePending?: boolean; onToggleFavorite: () => void }) {
   // 모달 내부의 첫 SafeArea 측정에 의존하지 않고 원래 화면의 하단 여백을 사용합니다.
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0) + 16;
@@ -26,7 +26,7 @@ export function PickupTimeSheet({ onClose, onConfirm, submitting = false, favori
         onMomentumScrollEnd={() => setSettled(true)} onScrollEndDrag={event => { if (!event.nativeEvent.velocity?.y) setSettled(true); }}
         renderItem={({ item, index: i }) => <Animated.View accessibilityLabel={timeLabel(item)} style={[styles.timeRow, { opacity: y.interpolate({ inputRange: [(i - 2) * rowHeight, i * rowHeight, (i + 2) * rowHeight], outputRange: [0.25, 1, 0.25], extrapolate: 'clamp' }), transform: [{ scale: y.interpolate({ inputRange: [(i - 1) * rowHeight, i * rowHeight, (i + 1) * rowHeight], outputRange: [0.8, 1, 0.8], extrapolate: 'clamp' }) }] }]}><Text style={styles.time}>{timeLabel(item)}</Text></Animated.View>} />
       </View> : <Text style={styles.empty}>오늘 선택 가능한 시간이 없어요. 오늘 예약이 마감됐어요.</Text>}
-      <View style={styles.footer}><Pressable accessibilityRole="button" accessibilityLabel={favorite ? '관심 해제' : '관심 등록'} accessibilityState={{ selected: favorite }} onPress={onToggleFavorite} style={styles.favorite}><AppIcon name={favorite ? 'heart-filled' : 'heart-outline'} size={28} color={favorite ? '#E84B4B' : '#777777'} /><Text style={styles.favoriteLabel}>관심</Text></Pressable><View style={{ flex: 1 }}><PrimaryButton compact title="예약하기" loading={submitting} disabled={!slots[index] || !settled || submitting} onPress={() => onConfirm(slots[index], 1, '')} /></View></View>
+      <View style={styles.footer}><Pressable accessibilityRole="button" accessibilityLabel={favorite ? '관심 해제' : '관심 등록'} accessibilityState={{ selected: favorite }} disabled={favoritePending} onPress={onToggleFavorite} style={styles.favorite}><AppIcon name={favorite ? 'heart-filled' : 'heart-outline'} size={28} color={favorite ? '#E84B4B' : '#777777'} /><Text style={styles.favoriteLabel}>관심</Text></Pressable><View style={{ flex: 1 }}><PrimaryButton compact title="예약하기" loading={submitting} disabled={!slots[index] || !settled || submitting} onPress={() => onConfirm(slots[index], 1, '')} /></View></View>
     </View>
   </View></Modal>;
 }

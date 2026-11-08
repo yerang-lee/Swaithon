@@ -9,6 +9,8 @@ import { BottomNavigation } from '../../components/ui/BottomNavigation';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { isMockMode } from '../../services/devMock';
 import { getStore, getStoreProducts, type StoreDetail, type StoreListing } from '../../services/api/stores';
+import { useMarketDistance } from '../../hooks/useMarketDistance';
+import { formatMarketDistance, marketDistanceParams } from '../../utils/marketDistance';
 import { useFavorites } from '../../hooks/useFavorites';
 
 // 상세 API 필드 미확정: 테스트 모드에서만 사용하는 화면 예시입니다.
@@ -33,16 +35,18 @@ function StorePhoto({ uri }: { uri?: string | null }) {
 }
 export default function StoreScreen() {
   const catalogRevision = useCatalogRevision();
-  const params = useLocalSearchParams<{ storeId: string; storeName?: string; address?: string; preview?: string }>();
+  const params = useLocalSearchParams<{ storeId: string; storeName?: string; address?: string; preview?: string; marketDistanceMeters?: string }>();
   const mock = isMockMode() || params.preview === 'true';
   const [store, setStore] = useState<StoreDetail | null>(null);
+  const marketDistance = useMarketDistance(store?.market_id, params.marketDistanceMeters, mock);
+  const distanceParams = marketDistanceParams(marketDistance);
   const [listings, setListings] = useState<StoreListing[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
-  const { favorites, toggleFavorite } = useFavorites();
+  const { favorites, pendingFavorites, toggleFavorite } = useFavorites();
   useEffect(() => {
     if (mock) return;
     let active = true; setLoading(true); setError('');
@@ -58,16 +62,16 @@ export default function StoreScreen() {
     <PageHeader title="" onBack={() => router.back()} />
     <ScrollView contentContainerStyle={styles.body}>
       <StorePhoto uri={store?.image_url} />
-      <View style={styles.info}><View style={styles.nameRow}><Text style={styles.storeName}>{store?.store_name || params.storeName || '가게'}</Text></View><Text style={styles.address}>{mock ? '서울특별시 용산구 효창원로42길 (테스트 주소)' : store?.address || params.address || '주소 정보 없음'}</Text></View>
+      <View style={styles.info}><View style={styles.nameRow}><Text style={styles.storeName}>{store?.store_name || params.storeName || '가게'}</Text>{marketDistance!==null&&<Text style={styles.meta}>{formatMarketDistance(marketDistance)}</Text>}</View><Text style={styles.address}>{mock ? '서울특별시 용산구 효창원로42길 (테스트 주소)' : store?.address || params.address || '주소 정보 없음'}</Text></View>
       {mock && <Text style={styles.notice}>가게 주소·상품은 테스트 예시입니다.</Text>}{products.map(product => {
         const unavailable = product.status !== 'available';
         const discounted = product.salePrice !== null && product.salePrice < product.price;
         return <View style={[styles.row, unavailable && styles.unavailable]} key={product.id}>
-          <Pressable accessibilityRole="button" disabled={unavailable} accessibilityLabel={`${product.name}${unavailable ? ' 판매 불가' : ' 상세'}`} onPress={() => router.push({ pathname: '/products/[listingId]', params: { listingId: product.id } })} style={styles.product}>
+          <Pressable accessibilityRole="button" disabled={unavailable} accessibilityLabel={`${product.name}${unavailable ? ' 판매 불가' : ' 상세'}`} onPress={() => router.push({ pathname: '/products/[listingId]', params: { listingId: product.id, preview:params.preview, ...distanceParams } })} style={styles.product}>
             <View style={styles.imageBox}>{product.image ? <Image source={{ uri: product.image }} style={styles.image} /> : <View style={styles.image} />}{unavailable && <View style={styles.imageOverlay}><Text style={styles.badge}>{product.status === 'soldOut' ? '품절' : '판매 종료'}</Text></View>}</View>
-            <View style={styles.productInfo}><Text style={[styles.productName, unavailable && styles.muted]}>{product.name}</Text>{discounted && <Text style={styles.oldPrice}>{product.price.toLocaleString('ko-KR')}원</Text>}<Text style={[styles.price, unavailable && styles.muted]}>{(discounted ? product.salePrice! : product.price).toLocaleString('ko-KR')}원</Text>{unavailable && <Text style={styles.meta}>{product.status === 'soldOut' ? '품절' : '판매 종료'}</Text>}</View>
+            <View style={styles.productInfo}><Text style={[styles.productName, unavailable && styles.muted]}>{product.name}</Text>{marketDistance!==null&&<Text style={styles.meta}>{formatMarketDistance(marketDistance)}</Text>}{discounted && <Text style={styles.oldPrice}>{product.price.toLocaleString('ko-KR')}원</Text>}<Text style={[styles.price, unavailable && styles.muted]}>{(discounted ? product.salePrice! : product.price).toLocaleString('ko-KR')}원</Text>{unavailable && <Text style={styles.meta}>{product.status === 'soldOut' ? '품절' : '판매 종료'}</Text>}</View>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${product.name} 관심 ${favorites.includes(product.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(product.id) }} onPress={() => toggleFavorite(product.id)} style={styles.heart}><AppIcon name={favorites.includes(product.id) ? 'heart-filled' : 'heart-outline'} size={26} color={favorites.includes(product.id) ? '#E84B4B' : '#858585'} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${product.name} 관심 ${favorites.includes(product.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(product.id) }} disabled={pendingFavorites.includes(product.id)} onPress={() => void toggleFavorite(product.id,{preview:mock})} style={styles.heart}><AppIcon name={favorites.includes(product.id) ? 'heart-filled' : 'heart-outline'} size={26} color={favorites.includes(product.id) ? '#E84B4B' : '#858585'} /></Pressable>
         </View>;
       })}
       {loading && <ActivityIndicator color="#53B175" />}

@@ -16,6 +16,7 @@ let sequence = 100;
 const mockOnboarded = new Set<number>();
 const onboardingMarketIds = new Map<string,number>([['mock-kakao-1',1],['mock-kakao-2',4],['mock-kakao-3',2]]);
 let nextOnboardingMarketId = 5;
+const mockFavorites = new Map<string, Map<string, Record<string, unknown>>>();
 const mockCancellations = new Map<number, Set<number>>();
 // 테스트 입장 버튼은 이전 정보 수정/탈퇴에 영향을 받지 않는 새 예시 계정을 준비합니다.
 export function prepareMockAccount(role: Account['role']): string {
@@ -34,6 +35,29 @@ export async function mockRequest(path: string, method: string, body?: unknown, 
   const input = (body ?? {}) as Record<string, unknown>;
   const account = token ? sessions.get(token) : undefined;
 
+  const favoriteCancelMatch = url.pathname.match(/^\/favorites\/([^/]+)$/);
+  if (favoriteCancelMatch && method === 'DELETE') {
+    if (!account) throw new Error('로그인 후 관심상품을 취소해주세요.');
+    const favoriteId = decodeURIComponent(favoriteCancelMatch[1]);
+    for (const saved of mockFavorites.values()) {
+      for (const [listingId, item] of saved) {
+        if (item.favorite_id !== favoriteId) continue;
+        if (item.user_id !== String(account.user_id)) throw new Error('다른 사용자의 관심상품은 취소할 수 없어요.');
+        saved.delete(listingId);
+        return {favorite_id:favoriteId,listing_id:listingId,message:'찜이 취소되었습니다.'};
+      }
+    }
+    throw new Error('취소할 관심상품을 찾을 수 없어요.');
+  }
+  if (url.pathname === '/favorites' && method === 'POST') {
+    if (!account || !token) throw new Error('로그인 후 관심상품에 추가해주세요.');
+    if (typeof input.listing_id !== 'string' || !input.listing_id.trim() || input.request_id !== undefined && typeof input.request_id !== 'string') throw new Error('판매 게시물 정보를 확인해주세요.');
+    const saved = mockFavorites.get(token) ?? new Map<string, Record<string, unknown>>();
+    if (saved.has(input.listing_id)) throw new Error('이미 관심상품에 추가된 상품이에요.');
+    const item = {favorite_id:`favorite_${++sequence}`,user_id:String(account.user_id),listing_id:input.listing_id,product_id:'product_sample',store_id:'store_sample',product_name:'테스트 상품',store_name:'테스트 가게',created_at:new Date().toISOString(),message:'상품이 찜 목록에 추가되었습니다.'};
+    saved.set(input.listing_id, item); mockFavorites.set(token, saved);
+    return item;
+  }
   if (url.pathname === '/users/me/reservations' && method === 'GET' && account) {
     const cancelled = mockCancellations.get(account.user_id) ?? new Set<number>();
     const states = ['READY','COMPLETED','PENDING','CANCELLED','CONFIRMED'] as const;

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { marketDistanceParams } from '../utils/marketDistance';
 import { PageHeader } from '../components/ui/PageHeader';
 import { LocationButton } from '../components/ui/LocationButton';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
@@ -41,12 +42,13 @@ export default function MarketsScreen() {
     }, 350);
     return () => { active = false; clearTimeout(timer); };
   }, [query, searchRetry]);
-  function chooseMarket(market: { market_id: number | null; market_name: string }) {
+  function chooseMarket(market: { market_id: number | null; market_name: string; distance?: number }) {
     if (market.market_id === null) {
       Alert.alert(market.market_name, '아직 서비스에 등록되지 않은 시장이에요. 시장 등록은 상인 회원가입 시 소속 시장을 선택하고 가게 정보를 등록하면 진행돼요.');
       return;
     }
-    router.push({ pathname: '/markets/[marketId]', params: { marketId: String(market.market_id), marketName: market.market_name } });
+    const distance = market.distance ?? markets.find(item => item.market_id === market.market_id)?.distance ?? null;
+    router.push({ pathname: '/markets/[marketId]', params: { marketId: String(market.market_id), marketName: market.market_name, ...marketDistanceParams(distance) } });
   }
   async function chooseLocation(next: ExplorationLocation) {
     if (selecting) return;

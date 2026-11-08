@@ -8,25 +8,24 @@ import { useCallback } from 'react';
 import { LocationButton } from '../components/ui/LocationButton';
 import { PageHeader } from '../components/ui/PageHeader';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
-import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppIcon, IconName } from '../components/ui/AppIcon';
+import { AppIcon } from '../components/ui/AppIcon';
 import { LocationSettings } from '../components/maps/LocationSettings';
 import { readLocation, saveLocation, getCurrentLocation, type ExplorationLocation } from '../services/explorationLocation';
 import { theme } from '../constants/theme';
+import { formatMarketDistance, marketDistanceParams } from '../utils/marketDistance';
 import { getAuthSession } from '../services/api/auth';
+import { getNearbyMarkets, type NearbyMarket } from '../services/api/markets';
+import { getStoresForNearbyMarkets, type NearbyStore } from '../services/api/nearbyStores';
 
 const green = theme.colors.primary;
-const markets = [{ id: 1, name: '용산용문시장', distance: '0.3km' }, { id: 2, name: '공덕시장', distance: '1.2km' }, { id: 3, name: '만리시장', distance: '1.5km' }, { id: 4, name: '후암시장', distance: '1.8km' }];
-const stores = [{ id: 101, name: '행복청과', distance: '0.2km' }, { id: 102, name: '송이네과일가게', distance: '0.4km' }, { id: 103, name: '싱싱야채', distance: '0.5km' }, { id: 104, name: '우리과일', distance: '0.7km' }];
-const tabs: { label: string; icon: IconName }[] = [{ label: '홈', icon: 'home' }, { label: '관심상품', icon: 'heart-outline' }, { label: '예약', icon: 'receipt' }, { label: '마이', icon: 'account-outline' }];
 const notice = (title: string) => Alert.alert(title, '이 화면은 준비 중이에요.');
 
 export default function HomeScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   useEffect(() => { if (tab && ['홈', '관심상품', '예약', '마이'].includes(tab)) setActive(tab); }, [tab]);
-  useFocusEffect(useCallback(() => { let alive = true; void readLocation().then(saved => { if (alive && saved) setLocation(saved); }).catch((__caughtError) => { logAppError("app/home.tsx", __caughtError); }); return () => { alive = false; }; }, []));
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(140, (Math.min(width, 600) - 60) / 2.1);
   const [active, setActive] = useState('홈');
@@ -35,14 +34,60 @@ export default function HomeScreen() {
     const session = getAuthSession();
     setIsMerchant(!!session && session.expiresAt > Date.now() && session.role === 'MERCHANT');
   }, []));
-  const { favorites, toggleFavorite } = useFavorites();
+  const { favorites, favoriteItems, pendingFavorites, toggleFavorite } = useFavorites();
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [location, setLocation] = useState<ExplorationLocation | null>(null);
   const [locationError, setLocationError] = useState('');
-  const radius = location?.radius ?? 1;
-  useEffect(() => { let active = true; void (async () => { try { const saved = await readLocation(); const next = saved ?? await getCurrentLocation(); if (active) setLocation(next); } catch (error) { logAppError("app/home.tsx", error);  if (active) setLocationError(error instanceof Error ? error.message : '위치를 가져오지 못했어요.'); } })(); return () => { active = false; }; }, []);
-
+  const locationRevision = useRef(0);
+  const [nearbyMarkets, setNearbyMarkets] = useState<NearbyMarket[]>([]);
+  const [nearbyStores, setNearbyStores] = useState<NearbyStore[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState(false);
+  const [storesLoading, setStoresLoading] = useState(false);
+  const [marketsError, setMarketsError] = useState('');
+  const [storesError, setStoresError] = useState('');
+  const [nearbyRetry, setNearbyRetry] = useState(0);
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    const revision = locationRevision.current;
+    void (async () => {
+      try {
+        const next = (await readLocation()) ?? await getCurrentLocation();
+        if (alive && revision === locationRevision.current) { setLocation(next); setLocationError(''); }
+      } catch (error) {
+        logAppError('home/location', error);
+        if (alive && revision === locationRevision.current) setLocationError(error instanceof Error ? error.message : '위치를 가져오지 못했어요.');
+      }
+    })();
+    return () => { alive = false; };
+  }, []));
+  useEffect(() => {
+    let alive = true;
+    setNearbyMarkets([]); setNearbyStores([]); setMarketsError(''); setStoresError('');
+    if (!location) { setMarketsLoading(false); setStoresLoading(false); return; }
+    setMarketsLoading(true); setStoresLoading(true);
+    let marketsReady = false;
+    void (async () => {
+      try {
+        const markets = await getNearbyMarkets(location);
+        if (!alive) return;
+        marketsReady = true; setNearbyMarkets(markets); setMarketsLoading(false);
+        const result = await getStoresForNearbyMarkets(markets, () => alive);
+        if (!alive) return;
+        setNearbyStores(result.stores);
+        if (result.failedMarketCount) setStoresError(`${result.failedMarketCount}개 시장의 가게 정보를 불러오지 못했어요.`);
+      } catch (error) {
+        logAppError('home/nearby', error);
+        if (!alive) return;
+        const message = error instanceof Error ? error.message : '주변 정보를 불러오지 못했어요.';
+        if (!marketsReady) setMarketsError(message);
+        setStoresError(message);
+      } finally {
+        if (alive) { setMarketsLoading(false); setStoresLoading(false); }
+      }
+    })();
+    return () => { alive = false; };
+  }, [location, nearbyRetry]);
 
   if (active === '예약') return <ReservationsScreen onTab={setActive} />;
 
@@ -66,24 +111,49 @@ export default function HomeScreen() {
       </Pressable>}
       {active === '홈' || active === '관심상품' ? <>
         <Text style={styles.sectionTitle}>{active === '홈' ? '나를 위한 추천 상품' : '관심상품'}</Text>
+        {active==='관심상품'&&favoriteItems.map(item=><View key={item.favorite_id} style={{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:18,borderBottomWidth:1,borderColor:theme.colors.border}}><Pressable accessibilityRole="button" accessibilityLabel={`${item.product_name} 상세`} onPress={()=>router.push({pathname:'/products/[listingId]',params:{listingId:item.listing_id}})} style={{flex:1}}><Text style={styles.cardTitle}>{item.product_name}</Text><Text style={styles.meta}>{item.store_name}</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${item.product_name} 관심 취소`} accessibilityState={{selected:true}} disabled={pendingFavorites.includes(item.listing_id)} onPress={()=>void toggleFavorite(item.listing_id)} style={{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><AppIcon name="heart-filled" size={27} color="#E84B4B"/></Pressable></View>)}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">{products.filter(item => active === '홈' || favorites.includes(item.id)).map(item => <View key={item.id} style={[styles.card, { width: cardWidth }]}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 상세`} onPress={() => router.push({ pathname: '/products/[listingId]', params: { listingId: item.id } })}><View style={styles.productImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={[styles.meta, { minHeight: 42 }]} numberOfLines={2}>{item.store} · {item.distance}</Text></Pressable>
-          <View style={styles.priceRow}><Text style={styles.price}>{item.price}</Text><Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(item.id) }} hitSlop={10} onPress={() => toggleFavorite(item.id)}><AppIcon name={favorites.includes(item.id) ? "heart-filled" : "heart-outline"} size={27} color={favorites.includes(item.id) ? '#E84B4B' : '#777777'} /></Pressable></View>
+          <View style={styles.priceRow}><Text style={styles.price}>{item.price}</Text><Pressable accessibilityRole="button" accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.id) ? '취소' : '추가'}`} accessibilityState={{ selected: favorites.includes(item.id) }} hitSlop={10} onPress={() => void toggleFavorite(item.id,{preview:true})}><AppIcon name={favorites.includes(item.id) ? "heart-filled" : "heart-outline"} size={27} color={favorites.includes(item.id) ? '#E84B4B' : '#777777'} /></Pressable></View>
         </View>)}</ScrollView>
-        {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
-        {active === '홈' && <><PlaceSection title="내 주변 시장" items={markets} cardWidth={cardWidth} kind="market" /><PlaceSection title="내 주변 가게" items={stores} cardWidth={cardWidth} kind="store" /></>}
+        {products.filter(item => active === '홈' || favorites.includes(item.id)).length === 0 && (active!=='관심상품'||favoriteItems.length===0) && <Text style={styles.empty}>{active === '홈' ? '표시할 상품이 없어요.' : '하트 버튼을 눌러 상품을 담아보세요.'}</Text>}
+        {active === '홈' && <>
+          <PlaceSection title="내 주변 시장" cardWidth={cardWidth} loading={marketsLoading} error={marketsError} emptyMessage={!location ? locationError || '위치를 확인하고 있어요.' : `반경 ${location.radius}km 안에 시장이 없어요.`} onRetry={()=>setNearbyRetry(value=>value+1)} items={nearbyMarkets.map((market,index)=>({
+            key:market.market_id===null?`unregistered:${index}`:`market:${market.market_id}`, name:market.market_name, imageUrl:market.image_url,
+            distanceLabel:formatMarketDistance(market.distance), description:market.market_id===null?'미등록 시장':market.address,
+            onPress:()=>{if(market.market_id===null)Alert.alert(market.market_name,'아직 서비스에 등록되지 않은 시장이에요. 시장 등록은 상인 회원가입 시 소속 시장을 선택하고 가게 정보를 등록하면 진행돼요.');else router.push({pathname:'/markets/[marketId]',params:{marketId:String(market.market_id),marketName:market.market_name,...marketDistanceParams(market.distance)}});}
+          }))}/>
+          <PlaceSection title="내 주변 가게" cardWidth={cardWidth} loading={storesLoading} error={storesError} emptyMessage={!location ? locationError || '위치를 확인하고 있어요.' : '주변 시장에 등록된 가게가 없어요.'} onRetry={()=>setNearbyRetry(value=>value+1)} items={nearbyStores.map(store=>({
+            key:`store:${store.store_id}`, name:store.store_name, imageUrl:store.image_url,
+            distanceLabel:formatMarketDistance(store.market_distance), description:`${store.market_name}${store.address?` · ${store.address}`:''}`,
+            onPress:()=>router.push({pathname:'/stores/[storeId]',params:{storeId:String(store.store_id),storeName:store.store_name,...marketDistanceParams(store.market_distance),...(store.address?{address:store.address}:{})}})
+          }))}/>
+        </>}
       </> : <View style={styles.placeholder}><Text style={styles.sectionTitle}>예약 내역</Text><Text style={styles.meta}>화면을 준비하고 있어요.</Text></View>}
-      <Text style={styles.demo}>현재 상품·시장·가게는 화면 확인용 예시입니다.</Text>
+      {active==='홈'&&<Text style={styles.demo}>추천 상품은 화면 확인용 예시입니다.</Text>}
     </ScrollView>
     <BottomNavigation active={active} onSelect={setActive} />
     <Modal visible={locationOpen} presentationStyle="fullScreen" animationType="slide" onShow={() => setLocationReady(true)} onRequestClose={() => setLocationOpen(false)}>
-      {locationReady && <LocationSettings initial={location} onClose={() => setLocationOpen(false)} onApply={async next => { try { await saveLocation(next); setLocation(next); setLocationError(''); setLocationOpen(false); } catch (__caughtError) { logAppError("app/home.tsx", __caughtError);  Alert.alert('저장 실패', '위치를 저장하지 못했어요. 다시 시도해주세요.'); } }} />}
+      {locationReady && <LocationSettings initial={location} onClose={() => setLocationOpen(false)} onApply={async next => { try { await saveLocation(next); locationRevision.current++; setLocation(next); setLocationError(''); setLocationOpen(false); } catch (__caughtError) { logAppError("app/home.tsx", __caughtError);  Alert.alert('저장 실패', '위치를 저장하지 못했어요. 다시 시도해주세요.'); } }} />}
     </Modal>
   </SafeAreaView>;
 }
 
-function PlaceSection({ title, items, cardWidth, kind }: { title: string; items: typeof markets; cardWidth: number; kind: 'market' | 'store' }) {
-  return <View style={styles.placeSection}><Text style={styles.sectionTitle}>{title}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid}>{items.map(item => <Pressable key={item.name} accessibilityRole="button" onPress={() => kind === 'market' ? router.push({ pathname: '/markets/[marketId]', params: { marketId: String(item.id), marketName: item.name, preview: 'true' } }) : router.push({ pathname: '/stores/[storeId]', params: { storeId: String(item.id), storeName: item.name, preview: 'true' } })} style={[styles.card, styles.placeCard, { width: cardWidth }]}><View style={styles.placeImage} /><Text style={styles.cardTitle}>{item.name}</Text><Text style={styles.meta}>{item.distance}</Text></Pressable>)}</ScrollView></View>;
+type PlaceCard = { key: string; name: string; description: string; distanceLabel: string; imageUrl: string | null; onPress: () => void };
+function PlaceImage({ uri }: { uri: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const url = uri?.trim().replace(/^<|>$/g, '');
+  useEffect(() => setFailed(false), [url]);
+  return url && /^https?:\/\//.test(url) && !failed ? <Image source={{uri:url}} resizeMode="cover" style={styles.placeImage} onError={()=>{logAppError('home/place-image',new Error('주변 장소 이미지를 불러오지 못했어요.'));setFailed(true);}}/> : <View style={styles.placeImage}/>;
+}
+function PlaceSection({ title, items, cardWidth, loading, error, emptyMessage, onRetry }: { title: string; items: PlaceCard[]; cardWidth: number; loading: boolean; error: string; emptyMessage: string; onRetry: () => void }) {
+  return <View style={styles.placeSection}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {loading&&<ActivityIndicator color={green} accessibilityLabel={`${title} 조회 중`}/>}
+    {!!error&&<View><Text accessibilityRole="alert" style={styles.empty}>{error}</Text><Pressable accessibilityRole="button" onPress={onRetry} style={{paddingVertical:10}}><Text style={{color:theme.colors.brandText}}>다시 시도</Text></Pressable></View>}
+    {!loading&&!error&&!items.length&&<Text style={styles.empty}>{emptyMessage}</Text>}
+    {!!items.length&&<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel} contentContainerStyle={styles.grid}>{items.map(item=><Pressable key={item.key} accessibilityRole="button" accessibilityLabel={`${item.name} ${item.distanceLabel} ${item.description}`} onPress={item.onPress} style={[styles.card,styles.placeCard,{width:cardWidth}]}><PlaceImage uri={item.imageUrl}/><Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text><Text style={styles.meta}>{item.distanceLabel}</Text><Text style={styles.meta} numberOfLines={2}>{item.description}</Text></Pressable>)}</ScrollView>}
+  </View>;
 }
 
 const styles = StyleSheet.create({

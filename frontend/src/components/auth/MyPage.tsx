@@ -19,7 +19,7 @@ export function MyPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
-  const [panel, setPanel] = useState<'edit' | 'delete' | null>(null);
+  const [panel, setPanel] = useState<'edit' | 'delete' | 'logout' | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [panelError, setPanelError] = useState('');
@@ -56,7 +56,7 @@ export function MyPage() {
       }
     } catch (e) { logAppError("components/auth/MyPage.tsx", e);
       if (e instanceof ApiError && e.status === 401) goToLogin();
-      else (action === 'logout' ? setError : setPanelError)(e instanceof Error ? e.message : '처리하지 못했어요. 다시 시도해주세요.');
+      else setPanelError(e instanceof Error ? e.message : '처리하지 못했어요. 다시 시도해주세요.');
     } finally { lock.current = false; setLoading(false); }
   }
   const menu = (label: string, onPress: () => void, disabled = false) => <Pressable accessibilityRole="button" disabled={disabled || loading} onPress={onPress} style={[styles.menu, disabled && { opacity: 0.5 }]}><Text style={styles.menuLabel}>{label}</Text><AppIcon name="arrow-right" size={16} color="#ADADAD" /></Pressable>;
@@ -66,14 +66,14 @@ export function MyPage() {
     <View style={styles.divider} />
     {menu('내 정보 수정', () => { if (profile) { setName(profile.name); setPhone(profile.phone); setPanelError(''); setPanel('edit'); } }, !profile || fetching)}
     <View style={styles.divider} />
-    {menu('로그아웃', () => void perform('logout'))}
+    {menu('로그아웃', () => { setPanelError(''); setPanel('logout'); })}
     <View style={styles.line} />
     {menu('회원탈퇴', () => { setPanelError(''); setPanel('delete'); })}
     {loading && !panel && <ActivityIndicator color="#53B175" />}
     <Modal visible={panel === 'edit'} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => { if (!loading) setPanel(null); }}>
       <SafeAreaProvider initialMetrics={initialWindowMetrics} style={{ flex: 1 }}><SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}><PageHeader title="내 정보 수정" rightAction={<></>} backDisabled={loading} onBack={() => setPanel(null)} /><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled"><AuthField label="닉네임" value={name} onChangeText={setName} editable={!loading} maxLength={50} /><AuthField label="전화번호" value={phone} onChangeText={setPhone} editable={!loading} keyboardType="phone-pad" autoComplete="tel" />{!!panelError && <Text accessibilityRole="alert" style={styles.error}>{panelError}</Text>}<PrimaryButton title="저장" loading={loading} onPress={() => void perform('save')} /></ScrollView></KeyboardAvoidingView></SafeAreaView></SafeAreaProvider>
     </Modal>
-    <Modal visible={panel === 'delete'} transparent animationType="fade" onRequestClose={() => { if (!loading) setPanel(null); }}><View style={styles.overlay}><View style={styles.confirm}><Text style={styles.confirmTitle}>정말 탈퇴하시겠어요?</Text><Text style={styles.description}>탈퇴하면 계정을 더 이상 사용할 수 없어요. 처리 중인 예약이 있으면 탈퇴할 수 없습니다.</Text>{!!panelError && <Text accessibilityRole="alert" style={styles.error}>{panelError}</Text>}<PrimaryButton title="회원 탈퇴" loading={loading} onPress={() => void perform('delete')} /><Pressable accessibilityRole="button" disabled={loading} onPress={() => setPanel(null)} style={styles.cancel}><Text style={styles.menuLabel}>취소</Text></Pressable></View></View></Modal>
+    <Modal visible={panel === 'delete' || panel === 'logout'} transparent animationType="fade" onRequestClose={() => { if (!loading) setPanel(null); }}><View style={styles.overlay}><View style={styles.confirm}><Text style={styles.confirmTitle}>{panel === 'logout' ? '정말 로그아웃하시겠어요?' : '정말 탈퇴하시겠어요?'}</Text><Text style={styles.description}>{panel === 'logout' ? '현재 계정에서 로그아웃됩니다.' : '탈퇴하면 계정을 더 이상 사용할 수 없어요. 처리 중인 예약이 있으면 탈퇴할 수 없습니다.'}</Text>{!!panelError && <Text accessibilityRole="alert" style={styles.error}>{panelError}</Text>}<PrimaryButton title={panel === 'logout' ? '로그아웃' : '회원 탈퇴'} loading={loading} onPress={() => { if (panel === 'logout' || panel === 'delete') void perform(panel); }} /><Pressable accessibilityRole="button" disabled={loading} onPress={() => setPanel(null)} style={styles.cancel}><Text style={styles.menuLabel}>취소</Text></Pressable></View></View></Modal>
   </View>;
 }
 const styles = StyleSheet.create({

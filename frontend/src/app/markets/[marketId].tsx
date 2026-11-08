@@ -11,6 +11,8 @@ import { getMarketStores, type MarketStore, type MarketStoresPage } from '../../
 import { getProducts, type ProductListing } from '../../services/api/products';
 import { productCategories } from '../../constants/productCategories';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useMarketDistance } from '../../hooks/useMarketDistance';
+import { formatMarketDistance, marketDistanceParams } from '../../utils/marketDistance';
 import { theme } from '../../constants/theme';
 
 import { mockRequest } from '../../services/devMock';
@@ -22,7 +24,9 @@ function Thumbnail({ uri }: { uri?: string | null }) {
 }
 export default function MarketScreen() {
   const catalogRevision = useCatalogRevision();
-  const { marketId, marketName, preview } = useLocalSearchParams<{ marketId: string; marketName?: string; preview?: string }>();
+  const { marketId, marketName, preview, marketDistanceMeters } = useLocalSearchParams<{ marketId: string; marketName?: string; preview?: string; marketDistanceMeters?: string }>();
+  const marketDistance = useMarketDistance(marketId, marketDistanceMeters, preview === 'true');
+  const distanceParams = marketDistanceParams(marketDistance);
   const [tab,setTab]=useState<'stores'|'products'>('stores');
   const [search,setSearch]=useState('');
   const [keyword,setKeyword]=useState('');
@@ -36,7 +40,7 @@ export default function MarketScreen() {
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [retry,setRetry]=useState(0);
-  const {favorites,toggleFavorite}=useFavorites();
+  const {favorites,pendingFavorites,toggleFavorite}=useFavorites();
   useEffect(()=>{const timer=setTimeout(()=>{setKeyword(search.trim());setPage(1);},350);return()=>clearTimeout(timer);},[search]);
   useEffect(()=>{
     let alive=true;setLoading(true);setError('');
@@ -65,9 +69,9 @@ export default function MarketScreen() {
       </>}
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
         {preview==='true'&&<Text style={styles.previewNotice}>홈 화면 예시 시장의 미리보기입니다.</Text>}
-        {tab==='stores'?stores.map(store=><Pressable key={store.store_id} accessibilityRole="button" onPress={()=>router.push({pathname:'/stores/[storeId]',params:{storeId:String(store.store_id),storeName:store.store_name,...(store.address ? {address:store.address} : {}),preview}})} style={styles.row}><Thumbnail uri={store.image_url}/><View style={styles.details}><Text style={styles.name}>{store.store_name}</Text>{!!store.category?.trim()&&<Text style={styles.meta}>{store.category}</Text>}<Text style={styles.meta}>{store.address || '주소 정보 없음'}</Text></View></Pressable>):products.map(product=>{
+        {tab==='stores'?stores.map(store=><Pressable key={store.store_id} accessibilityRole="button" onPress={()=>router.push({pathname:'/stores/[storeId]',params:{storeId:String(store.store_id),storeName:store.store_name,...distanceParams,...(store.address ? {address:store.address} : {}),preview}})} style={styles.row}><Thumbnail uri={store.image_url}/><View style={styles.details}><Text style={styles.name}>{store.store_name}</Text>{marketDistance!==null&&<Text style={styles.meta}>{formatMarketDistance(marketDistance)}</Text>}{!!store.category?.trim()&&<Text style={styles.meta}>{store.category}</Text>}<Text style={styles.meta}>{store.address || '주소 정보 없음'}</Text></View></Pressable>):products.map(product=>{
           const id=String(product.listing_id);const discounted=product.is_on_sale===true&&product.sale_price!==null&&product.sale_price<product.price;
-          return <View key={id} style={styles.row}><Pressable accessibilityRole="button" disabled={product.is_sold_out} accessibilityLabel={`${product.product_name}${product.is_sold_out?' 품절':' 상세'}`} onPress={()=>router.push({pathname:'/products/[listingId]',params:{listingId:id,preview}})} style={styles.product}><Thumbnail uri={product.image_url?.replace(/^<|>$/g,'')}/><View style={styles.details}><Text style={[styles.name,{fontWeight:'500'},product.is_sold_out&&{color:'#999999'}]}>{product.product_name}</Text><Text style={styles.meta}>{product.store_name}</Text><View style={styles.priceRow}>{discounted&&<Text style={styles.originalPrice}>{product.price.toLocaleString('ko-KR')}원</Text>}<Text style={[styles.price,product.is_sold_out&&{color:'#999999'}]}>{(discounted?product.sale_price!:product.price).toLocaleString('ko-KR')}원</Text></View>{product.is_sold_out&&<Text style={styles.meta}>품절</Text>}</View></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${product.product_name} 관심 ${favorites.includes(id)?'취소':'추가'}`} accessibilityState={{selected:favorites.includes(id)}} onPress={()=>toggleFavorite(id)} style={styles.heart}><AppIcon name={favorites.includes(id)?'heart-filled':'heart-outline'} color={favorites.includes(id)?'#E84B4B':'#858585'} size={26}/></Pressable></View>;
+          return <View key={id} style={styles.row}><Pressable accessibilityRole="button" disabled={product.is_sold_out} accessibilityLabel={`${product.product_name}${product.is_sold_out?' 품절':' 상세'}`} onPress={()=>router.push({pathname:'/products/[listingId]',params:{listingId:id,preview,...distanceParams}})} style={styles.product}><Thumbnail uri={product.image_url?.replace(/^<|>$/g,'')}/><View style={styles.details}><Text style={[styles.name,{fontWeight:'500'},product.is_sold_out&&{color:'#999999'}]}>{product.product_name}</Text><Text style={styles.meta}>{product.store_name}</Text>{marketDistance!==null&&<Text style={styles.meta}>{formatMarketDistance(marketDistance)}</Text>}<View style={styles.priceRow}>{discounted&&<Text style={styles.originalPrice}>{product.price.toLocaleString('ko-KR')}원</Text>}<Text style={[styles.price,product.is_sold_out&&{color:'#999999'}]}>{(discounted?product.sale_price!:product.price).toLocaleString('ko-KR')}원</Text></View>{product.is_sold_out&&<Text style={styles.meta}>품절</Text>}</View></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${product.product_name} 관심 ${favorites.includes(id)?'취소':'추가'}`} accessibilityState={{selected:favorites.includes(id)}} disabled={pendingFavorites.includes(id)} onPress={()=>void toggleFavorite(id,{preview:preview==='true'})} style={styles.heart}><AppIcon name={favorites.includes(id)?'heart-filled':'heart-outline'} color={favorites.includes(id)?'#E84B4B':'#858585'} size={26}/></Pressable></View>;
         })}
         {loading&&<ActivityIndicator accessibilityLabel={tab==='stores'?'가게 목록 조회 중':'상품 목록 조회 중'} color={theme.colors.primary} style={styles.status}/>}
         {!!error&&<View style={styles.status}><Text accessibilityRole="alert" style={styles.message}>{error}</Text><Pressable accessibilityRole="button" onPress={()=>setRetry(v=>v+1)} style={styles.more}><Text style={styles.moreLabel}>다시 시도</Text></Pressable></View>}
