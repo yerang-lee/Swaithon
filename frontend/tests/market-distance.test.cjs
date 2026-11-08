@@ -29,6 +29,7 @@ assert.deepEqual(helpers.marketDistanceParams(null), {});
 assert.deepEqual(helpers.marketDistanceParams(350), {
   marketDistanceMeters: '350',
 });
+let revision = 0;
 let state,
   scheduled = [],
   cleanup,
@@ -38,33 +39,35 @@ let state,
 const hook = {};
 new Function('require', 'exports', compile('src/hooks/useMarketDistance.ts'))(
   (name) =>
-    name === 'react'
-      ? {
-          useEffect: (fn) => scheduled.push(fn),
-          useState: () => [
-            state,
-            (value) => {
-              state = value;
-            },
-          ],
-        }
-      : name === '../utils/marketDistance'
-        ? helpers
-        : name === '../services/api/markets'
-          ? {
-              getNearbyMarkets: (location) => {
-                nearbyCalls.push(location);
-                return new Promise((resolve) => requests.push(resolve));
+    name === '../services/locationChanges'
+      ? { useLocationRevision: () => revision }
+      : name === 'react'
+        ? {
+            useEffect: (fn) => scheduled.push(fn),
+            useState: () => [
+              state,
+              (value) => {
+                state = value;
               },
-            }
-          : name === '../services/explorationLocation'
+            ],
+          }
+        : name === '../utils/marketDistance'
+          ? helpers
+          : name === '../services/api/markets'
             ? {
-                readLocation: async () => saved,
-                getCurrentLocation: async () => {
-                  throw new Error('saved location exists');
+                getNearbyMarkets: (location) => {
+                  nearbyCalls.push(location);
+                  return new Promise((resolve) => requests.push(resolve));
                 },
               }
-            : { logAppError() {} },
+            : name === '../services/explorationLocation'
+              ? {
+                  readLocation: async () => saved,
+                  getCurrentLocation: async () => {
+                    throw new Error('saved location exists');
+                  },
+                }
+              : { logAppError() {} },
   hook,
 );
 const render = (id, passed, preview = false) => {
@@ -97,7 +100,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   await tick();
   stale([{ market_id: 5, distance: 10 }]);
   await tick();
-  assert.equal(state.key, '6::false');
+  assert.equal(state.key, '6::false:0');
   assert.equal(state.distance, 900);
   assert.equal(render(7), null);
   await tick();
@@ -105,6 +108,13 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   await tick();
   assert.equal(state.distance, null);
   assert.equal(helpers.formatMarketDistance(900).includes('시장'), false);
+  revision = 1;
+  assert.equal(render(6, '350'), null);
+  await tick();
+  requests.at(-1)([{ market_id: 6, distance: 1600 }]);
+  await tick();
+  assert.equal(state.distance, 1600);
+  assert.equal(state.key, '6:350:false:1');
   console.log(
     'PASS: distance-only formatting, route validation/zero, inherited distance avoids requests, direct entry uses exact market ID, stale response suppression and unavailable distance stays null',
   );

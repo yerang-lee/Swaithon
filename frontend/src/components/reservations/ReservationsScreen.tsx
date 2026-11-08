@@ -649,10 +649,14 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   empty: {
+    width: '100%',
+    alignSelf: 'center',
     textAlign: 'center',
     color: '#858585',
-    padding: 32,
-    fontSize: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    fontSize: 15,
+    lineHeight: 23,
   },
   overlay: {
     flex: 1,

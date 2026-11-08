@@ -33,6 +33,7 @@ const routes = [],
   alerts = [];
 const element = (type, props, key) => ({ type, props, key });
 const modules = {
+  '../services/locationChanges': { useLocationRevision: () => 0 },
   '../utils/marketDistance': distanceHelpers,
   react: {
     useState(initial) {

@@ -1,3 +1,4 @@
+import { useLocationRevision } from '../services/locationChanges';
 import { logAppError } from '../utils/appDiagnostics';
 import { demoProducts as products } from '../data/demoProducts';
 import { useFavorites } from '../hooks/useFavorites';
@@ -48,6 +49,7 @@ const notice = (title: string) =>
   Alert.alert(title, '이 화면은 준비 중이에요.');
 
 export default function HomeScreen() {
+  const sharedLocationRevision = useLocationRevision();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   useEffect(() => {
     if (tab && ['홈', '관심상품', '예약', '마이'].includes(tab)) setActive(tab);
@@ -103,7 +105,7 @@ export default function HomeScreen() {
       return () => {
         alive = false;
       };
-    }, []),
+    }, [sharedLocationRevision]),
   );
   useEffect(() => {
     let alive = true;
@@ -205,7 +207,7 @@ export default function HomeScreen() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => notice('마감 세일')}
+            onPress={() => router.push('/closing-sale')}
             style={styles.shortcut}
           >
             <AppIcon name="clock" size={34} color={green} />

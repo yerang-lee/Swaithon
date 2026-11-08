@@ -1,3 +1,4 @@
+import { useLocationRevision } from '../services/locationChanges';
 import { logAppError } from '../utils/appDiagnostics';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -34,6 +35,7 @@ import {
 } from '../services/explorationLocation';
 
 export default function MarketsScreen() {
+  const sharedLocationRevision = useLocationRevision();
   const { selectedLocation } = useLocalSearchParams<{
     selectedLocation?: string;
   }>();
@@ -141,9 +143,9 @@ export default function MarketsScreen() {
           logAppError('app/markets.tsx', __caughtError);
           passed = null;
         }
-        const next = isLocation(passed)
-          ? passed
-          : ((await readLocation()) ?? (await getCurrentLocation()));
+        const saved = await readLocation();
+        const next =
+          saved ?? (isLocation(passed) ? passed : await getCurrentLocation());
         if (active && revision === initialRevision.current) setLocation(next);
       } catch (e) {
         logAppError('app/markets.tsx', e);
@@ -156,7 +158,7 @@ export default function MarketsScreen() {
     return () => {
       active = false;
     };
-  }, [selectedLocation]);
+  }, [selectedLocation, sharedLocationRevision]);
   useEffect(() => {
     if (!location) return;
     let active = true;

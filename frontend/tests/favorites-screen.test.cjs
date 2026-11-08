@@ -62,6 +62,7 @@ new Function('require', 'exports', compile('src/hooks/useFavorites.ts'))(
 const element = (type, props, key) => ({ type, props, key });
 const screen = {};
 const modules = {
+  '../../services/locationChanges': { useLocationRevision: () => 0 },
   react,
   'react/jsx-runtime': { jsx: element, jsxs: element },
   'react-native': {
@@ -147,18 +148,16 @@ const item = {
   render();
   cleanup = focus();
   await tick();
-  listRequests
-    .shift()
-    .resolve([
-      item,
-      {
-        ...item,
-        favorite_id: 'favorite_2',
-        listing_id: 'listing_102',
-        product_name: '배',
-        market_id: 'unmatched',
-      },
-    ]);
+  listRequests.shift().resolve([
+    item,
+    {
+      ...item,
+      favorite_id: 'favorite_2',
+      listing_id: 'listing_102',
+      product_name: '배',
+      market_id: 'unmatched',
+    },
+  ]);
   await tick();
   let tree = render();
   assert.equal(
@@ -194,13 +193,11 @@ const item = {
       .props.disabled,
     true,
   );
-  mutationRequests
-    .shift()
-    .resolve({
-      favorite_id: 'favorite_1',
-      listing_id: 'listing_101',
-      message: '취소',
-    });
+  mutationRequests.shift().resolve({
+    favorite_id: 'favorite_1',
+    listing_id: 'listing_101',
+    message: '취소',
+  });
   await tick();
   tree = render();
   assert.equal(
@@ -221,16 +218,14 @@ const item = {
   cleanup();
   cleanup = focus();
   await tick();
-  listRequests
-    .shift()
-    .resolve([
-      {
-        ...item,
-        favorite_id: 'favorite_2',
-        listing_id: 'listing_102',
-        product_name: '배',
-      },
-    ]);
+  listRequests.shift().resolve([
+    {
+      ...item,
+      favorite_id: 'favorite_2',
+      listing_id: 'listing_102',
+      product_name: '배',
+    },
+  ]);
   await tick();
   tree = render();
   assert.equal(
@@ -253,13 +248,11 @@ const item = {
   abort.abort();
   await waiting;
   assert.equal(ready, true);
-  mutationRequests
-    .shift()
-    .resolve({
-      favorite_id: 'favorite_2',
-      listing_id: 'listing_102',
-      message: '취소',
-    });
+  mutationRequests.shift().resolve({
+    favorite_id: 'favorite_2',
+    listing_id: 'listing_102',
+    message: '취소',
+  });
   await pending;
   await tick();
   assert.equal(listRequests.length, 1);

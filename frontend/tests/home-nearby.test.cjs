@@ -80,6 +80,7 @@ const locationApi = {
   },
 };
 const modules = {
+  '../services/locationChanges': { useLocationRevision: () => 0 },
   '../utils/marketDistance': distanceHelpers,
   react,
   'react/jsx-runtime': { jsx, jsxs: jsx },

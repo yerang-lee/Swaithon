@@ -1,3 +1,4 @@
+import { useLocationRevision } from '../services/locationChanges';
 import { useEffect, useState } from 'react';
 import { getNearbyMarkets } from '../services/api/markets';
 import {
@@ -12,8 +13,10 @@ export function useMarketDistance(
   passedDistance?: string,
   preview = false,
 ): number | null {
-  const passed = parseMarketDistance(passedDistance);
-  const key = `${String(marketId)}:${passedDistance ?? ''}:${preview}`;
+  const revision = useLocationRevision();
+  // A route can outlive its location; discard its old distance after a shared location change.
+  const passed = revision === 0 ? parseMarketDistance(passedDistance) : null;
+  const key = `${String(marketId)}:${passedDistance ?? ''}:${preview}:${revision}`;
   const [resolved, setResolved] = useState<{
     key: string;
     distance: number | null;
@@ -48,6 +51,6 @@ export function useMarketDistance(
     return () => {
       alive = false;
     };
-  }, [marketId, passedDistance, preview]);
+  }, [marketId, passedDistance, preview, revision]);
   return passed ?? (resolved?.key === key ? resolved.distance : null);
 }

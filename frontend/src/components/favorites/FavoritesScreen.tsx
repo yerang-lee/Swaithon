@@ -1,3 +1,4 @@
+import { useLocationRevision } from '../../services/locationChanges';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -60,6 +61,7 @@ function FavoriteImage({ item }: { item: FavoriteListing }) {
   );
 }
 export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
+  const sharedLocationRevision = useLocationRevision();
   const [items, setItems] = useState<FavoriteListing[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,7 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
         alive = false;
         controller.abort();
       };
-    }, [token, retry]),
+    }, [token, retry, sharedLocationRevision]),
   );
   const keyword = query.trim().toLocaleLowerCase();
   const visible = items.filter((item) =>
