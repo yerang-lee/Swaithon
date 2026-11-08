@@ -43,3 +43,4 @@ QR 스캔 및 픽업 완료 처리,/reservations/pickup/verify,POST,픽업 예�
 음성 명령 추가 녹음(제안),/voice/commands/{command_id}/answer-audio,POST,상품,시작 전,시작 전,진행 중
 음성 명령 취소(제안),/voice/commands/{command_id}/cancel,POST,상품,시작 전,시작 전,진행 중
 음성 할인 등록 명령 실행(제안),/voice/sale-registration,POST,상품,시작 전,시작 전,진행 중
+예약 상세 조회 및 QR 발급,/reservations/{reservation_id},GET,픽업 예약,시작 전,시작 전,완료

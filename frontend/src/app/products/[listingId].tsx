@@ -30,8 +30,10 @@ import {
   type ProductDetail as ProductData,
 } from '../../services/api/products';
 import { getStore } from '../../services/api/stores';
-import { isMockMode } from '../../services/devMock';
-import { reserveProduct } from '../../services/api/reservations';
+import {
+  reserveProduct,
+  reservationDetailId,
+} from '../../services/api/reservations';
 
 export default function ProductDetail() {
   const catalogRevision = useCatalogRevision();
@@ -149,7 +151,7 @@ export default function ProductDetail() {
   const soldOut = data?.is_sold_out ?? false;
   async function confirm(date: Date, quantity: number, note: string) {
     if (lock.current) return;
-    if (!data || preview === 'true' || isMockMode()) {
+    if (!data || preview === 'true') {
       Alert.alert(
         '미리보기 상품',
         '실제 상품 ID와 서버가 연결되면 예약할 수 있어요.',
@@ -168,10 +170,17 @@ export default function ProductDetail() {
         requestId,
       );
       setSheet(false);
-      Alert.alert(
-        '예약 완료',
-        `${reservation.message}\n예약 번호: ${reservation.reservation_id}\n총 금액: ${reservation.total_price.toLocaleString('ko-KR')}원`,
-      );
+      const id = reservationDetailId(reservation.reservation_id);
+      if (id !== null)
+        router.push({
+          pathname: '/reservations/[reservationId]',
+          params: { reservationId: String(id) },
+        });
+      else
+        Alert.alert(
+          '예약 완료',
+          `${reservation.message}\nQR 조회에 필요한 정수 예약 ID를 서버에서 확인해야 해요. 예약 내역을 확인해주세요.`,
+        );
     } catch (e) {
       logAppError('app/products/[listingId].tsx', e);
       Alert.alert(

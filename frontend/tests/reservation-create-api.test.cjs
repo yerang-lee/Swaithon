@@ -81,6 +81,13 @@ new Function('require', 'exports', source)(
   assert.equal(calls.at(-1)[1].request_note, '잘 익은 사과');
   assert.equal(calls.at(-1)[1].user_id, undefined);
   assert.equal(calls.at(-1)[1].store_id, undefined);
+  assert.equal(calls.at(-1)[1].status, undefined);
+  response = { ...response, status: 'READY' };
+  await assert.rejects(
+    () => api.reserveProduct('listing_101', 'product_1', 2, pickup, ''),
+    /응답/,
+  );
+  response = { ...response, status: 'PENDING' };
   response = { ...response, listing_id: 'other' };
   await assert.rejects(
     () => api.reserveProduct('listing_101', 'product_1', 2, pickup, ''),

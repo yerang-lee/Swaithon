@@ -1,7 +1,8 @@
 import { logAppError } from '../../utils/appDiagnostics';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Alert,
   Modal,
   Pressable,
@@ -11,7 +12,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { getAuthSession } from '../../services/api/auth';
+import { ReservationPickupQr } from './ReservationPickupQr';
 import { AppIcon } from '../ui/AppIcon';
 import { PageHeader } from '../ui/PageHeader';
 import { BottomNavigation } from '../ui/BottomNavigation';
@@ -19,6 +22,8 @@ import { PrimaryButton } from '../ui/PrimaryButton';
 import {
   cancelReservation,
   getReservations,
+  getReservationDetail,
+  type ReservationDetail,
   type ReservationItem,
   type ReservationStatus,
 } from '../../services/api/reservations';
@@ -32,7 +37,9 @@ const statusLabel = (status: ReservationStatus) =>
     ? '픽업 완료'
     : status === 'CANCELLED'
       ? '예약 취소'
-      : '픽업 예정';
+      : status === 'READY'
+        ? '픽업 준비 완료'
+        : '픽업 예정';
 function pickupDate(value: string) {
   return new Date(/(Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}+09:00`);
 }
@@ -72,7 +79,112 @@ export function ReservationsScreen({
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const lock = useRef(false);
-  const active = items.find((item) => item.reservation_id === selected);
+  const [detailState, setDetailState] = useState<{
+    token?: string;
+    data: ReservationDetail;
+  } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [detailRetry, setDetailRetry] = useState(0);
+  const detailGeneration = useRef(0);
+  const token = getAuthSession()?.access_token;
+  const selectedOwner = useRef<string | undefined>(undefined);
+  const listOwner = useRef(token);
+  const detail =
+    detailState &&
+    detailState.token === token &&
+    detailState.data.reservation_id === selected
+      ? detailState.data
+      : null;
+  const listItem =
+    selectedOwner.current === token
+      ? items.find((item) => item.reservation_id === selected)
+      : undefined;
+  const active = listItem
+    ? {
+        ...listItem,
+        ...(detail
+          ? {
+              product_id: detail.product_id,
+              product_name: detail.product_name,
+              store_id: detail.store_id,
+              store_name: detail.store_name,
+              quantity: detail.quantity,
+              total_price: detail.total_price,
+              status: detail.status,
+              created_at: detail.created_at,
+            }
+          : {}),
+      }
+    : undefined;
+  const refreshDetail = () => {
+    detailGeneration.current++;
+    setDetailState(null);
+    setDetailLoading(true);
+    setDetailError('');
+    setDetailRetry((value) => value + 1);
+  };
+  useFocusEffect(
+    useCallback(() => {
+      if (selected === null || selectedOwner.current !== token) {
+        setSelected(null);
+        setDetailState(null);
+        setDetailError('');
+        setDetailLoading(false);
+        return;
+      }
+      let focused = true;
+      function load() {
+        const generation = ++detailGeneration.current;
+        const current = () =>
+          focused &&
+          detailGeneration.current === generation &&
+          getAuthSession()?.access_token === token;
+        setDetailState(null);
+        setDetailLoading(true);
+        setDetailError('');
+        void getReservationDetail(selected!)
+          .then((data) => {
+            if (current()) {
+              setDetailState({ token, data });
+              setItems((previous) =>
+                previous.map((item) =>
+                  item.reservation_id === data.reservation_id
+                    ? { ...item, status: data.status }
+                    : item,
+                ),
+              );
+            }
+          })
+          .catch((error) => {
+            logAppError('reservations/detail', error);
+            if (current())
+              setDetailError(
+                error instanceof Error
+                  ? error.message
+                  : '예약 상세를 불러오지 못했어요.',
+              );
+          })
+          .finally(() => {
+            if (current()) setDetailLoading(false);
+          });
+      }
+      load();
+      const listener = AppState.addEventListener('change', (state) => {
+        if (state === 'active' && !lock.current) load();
+        else if (state !== 'active') {
+          detailGeneration.current++;
+          setDetailState(null);
+          setDetailLoading(true);
+        }
+      });
+      return () => {
+        focused = false;
+        detailGeneration.current++;
+        listener.remove();
+      };
+    }, [selected, detailRetry, token]),
+  );
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -85,7 +197,8 @@ export function ReservationsScreen({
           : undefined;
     void getReservations(page, status)
       .then((result) => {
-        if (!alive) return;
+        if (!alive || getAuthSession()?.access_token !== token) return;
+        listOwner.current = token;
         setItems((previous) =>
           page === 1
             ? result.reservations
@@ -113,14 +226,32 @@ export function ReservationsScreen({
     return () => {
       alive = false;
     };
-  }, [page, filter, retry]);
+  }, [page, filter, retry, token]);
   async function cancel() {
     if (!active || lock.current) return;
     lock.current = true;
     setCancelling(true);
     setCancelError('');
     try {
+      const ownerToken = token;
       await cancelReservation(active.reservation_id);
+      if (getAuthSession()?.access_token !== ownerToken)
+        throw new Error('로그인 계정이 변경됐어요. 예약을 다시 확인해주세요.');
+      detailGeneration.current++;
+      setDetailLoading(false);
+      setDetailState((previous) =>
+        previous && previous.data.reservation_id === active.reservation_id
+          ? {
+              ...previous,
+              data: {
+                ...previous.data,
+                status: 'CANCELLED',
+                qr_code_data: null,
+                qr_code_expires_at: null,
+              },
+            }
+          : previous,
+      );
       setItems((previous) =>
         previous.map((item) =>
           item.reservation_id === active.reservation_id
@@ -139,7 +270,7 @@ export function ReservationsScreen({
       setCancelling(false);
     }
   }
-  const visible = items
+  const visible = (listOwner.current === token ? items : [])
     .filter((item) =>
       filter === '예정'
         ? upcoming(item.status)
@@ -173,6 +304,8 @@ export function ReservationsScreen({
           onBack={() => {
             setSelected(null);
             setCancelError('');
+            setPage(1);
+            setRetry((value) => value + 1);
           }}
         />
       ) : (
@@ -221,6 +354,15 @@ export function ReservationsScreen({
                 </View>
               </View>
             </View>
+            <ReservationPickupQr
+              status={active.status}
+              detail={detail}
+              loading={detailLoading}
+              error={detailError}
+              onRefresh={refreshDetail}
+              disabled={cancelling}
+              testMode={isMockMode()}
+            />
           </ScrollView>
           <View style={styles.actions}>
             <PrimaryButton
@@ -237,19 +379,22 @@ export function ReservationsScreen({
                 })
               }
             />
-            {upcoming(active.status) && (
-              <Pressable
-                accessibilityRole="button"
-                disabled={cancelling}
-                onPress={() => {
-                  setCancelError('');
-                  setConfirm(true);
-                }}
-                style={styles.cancelButton}
-              >
-                <Text style={styles.cancelLabel}>예약 취소하기</Text>
-              </Pressable>
-            )}
+            {detail &&
+              !detailLoading &&
+              !detailError &&
+              upcoming(active.status) && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={cancelling}
+                  onPress={() => {
+                    setCancelError('');
+                    setConfirm(true);
+                  }}
+                  style={styles.cancelButton}
+                >
+                  <Text style={styles.cancelLabel}>예약 취소하기</Text>
+                </Pressable>
+              )}
           </View>
         </>
       ) : (
@@ -294,7 +439,13 @@ export function ReservationsScreen({
                     key={item.reservation_id}
                     accessibilityRole="button"
                     accessibilityLabel={`${item.store_name} ${item.product_name} 예약 상세`}
-                    onPress={() => setSelected(item.reservation_id)}
+                    onPress={() => {
+                      selectedOwner.current = token;
+                      setDetailState(null);
+                      setDetailLoading(true);
+                      setDetailError('');
+                      setSelected(item.reservation_id);
+                    }}
                     style={styles.card}
                   >
                     <View style={styles.cardHeader}>

@@ -134,6 +134,32 @@ export type ReservationItem = {
   status: ReservationStatus;
   created_at: string;
 };
+export function isPickupQrEligible(status?: ReservationStatus) {
+  return status === 'READY';
+}
+export function reservationDetailId(value: string | number): number | null {
+  const id =
+    typeof value === 'number'
+      ? value
+      : /^[1-9]\d*$/.test(value)
+        ? Number(value)
+        : NaN;
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+export type ReservationDetail = {
+  reservation_id: number;
+  listing_id: number;
+  product_id: number;
+  product_name: string;
+  store_id: number;
+  store_name: string;
+  quantity: number;
+  total_price: number;
+  status: ReservationStatus;
+  created_at: string;
+  qr_code_data: string | null;
+  qr_code_expires_at: string | null;
+};
 const statuses: ReservationStatus[] = [
   'PENDING',
   'CONFIRMED',
@@ -152,7 +178,7 @@ function reservationError(error: unknown): never {
     const messages: Record<number, string> = {
       400: '조회 조건을 확인해주세요.',
       401: '로그인이 만료됐어요. 다시 로그인해주세요.',
-      403: '본인의 예약만 취소할 수 있어요.',
+      403: '본인의 예약만 이용할 수 있어요.',
       404: '예약을 찾을 수 없어요.',
       409: '현재 상태에서는 취소할 수 없어요. 예약 내역을 새로 확인해주세요.',
       500: '서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
@@ -160,6 +186,56 @@ function reservationError(error: unknown): never {
     throw new ApiError(error.status, messages[error.status] ?? error.message);
   }
   throw error;
+}
+export async function getReservationDetail(
+  id: number,
+): Promise<ReservationDetail> {
+  try {
+    if (!Number.isSafeInteger(id) || id <= 0)
+      throw new Error('예약 ID를 확인해주세요.');
+    const session = getAuthSession();
+    if (!session || session.expiresAt <= Date.now())
+      throw new ApiError(401, '다시 로그인해주세요.');
+    const data = (await getJson(
+      `/reservations/${id}`,
+      session.access_token,
+    )) as ReservationDetail | null;
+    if (getAuthSession()?.access_token !== session.access_token)
+      throw new Error('로그인 계정이 변경됐어요. 예약을 다시 확인해주세요.');
+    const positive = (value: unknown) =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+    const text = (value: unknown) =>
+      typeof value === 'string' && !!value.trim();
+    const timestamp = (value: unknown) =>
+      typeof value === 'string' && Number.isFinite(Date.parse(value));
+    if (
+      !data ||
+      data.reservation_id !== id ||
+      ![
+        data.reservation_id,
+        data.listing_id,
+        data.product_id,
+        data.store_id,
+        data.quantity,
+      ].every(positive) ||
+      ![data.product_name, data.store_name].every(text) ||
+      !Number.isSafeInteger(data.total_price) ||
+      data.total_price < 0 ||
+      !statuses.includes(data.status) ||
+      !timestamp(data.created_at) ||
+      (data.status === 'READY'
+        ? !text(data.qr_code_data) || !timestamp(data.qr_code_expires_at)
+        : data.qr_code_data !== null || data.qr_code_expires_at !== null)
+    )
+      throw new Error('예약 상세 응답을 확인할 수 없어요.');
+    return data;
+  } catch (error) {
+    globalThis.__jangbosoLogError?.(
+      'services/api/reservations.ts/detail',
+      error,
+    );
+    return reservationError(error);
+  }
 }
 export async function getReservations(
   page = 1,

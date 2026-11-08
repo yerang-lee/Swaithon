@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { ReservationItem } from './api/reservations';
 
 let enabled = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const listeners = new Set<() => void>();
@@ -109,6 +110,57 @@ function notificationsFor(userId: number) {
   return items;
 }
 const mockCancellations = new Map<number, Set<number>>();
+const mockPickupQr = new Map<
+  number,
+  Map<number, { data: string; expiresAt: number }>
+>();
+function reservationBase(userId: number) {
+  return userId === 2 ? 501 : userId * 1000 + 501;
+}
+type MockReservation = ReservationItem & { listing_id: number };
+const mockCreatedReservations = new Map<number, MockReservation[]>();
+function mockReservationItems(userId: number): MockReservation[] {
+  const cancelled = mockCancellations.get(userId) ?? new Set<number>();
+  const states = [
+    'READY',
+    'COMPLETED',
+    'PENDING',
+    'CANCELLED',
+    'CONFIRMED',
+  ] as const;
+  const base = reservationBase(userId);
+  const fixed = Array.from({ length: 14 }, (_, index) => ({
+    reservation_id: base + index,
+    listing_id: 1001 + index,
+    product_id: 101 + index,
+    product_name: ['햇사과', '당근', '배'][index % 3],
+    store_id: 10,
+    store_name: '행복청과',
+    market_id: 1,
+    market_name: '용산용문시장',
+    quantity: (index % 2) + 1,
+    unit_price: 5000,
+    total_price: 5000 * ((index % 2) + 1),
+    pickup_at: `2026-11-${String(13 - Math.floor(index / 3)).padStart(2, '0')}T14:00:00`,
+    status: cancelled.has(base + index)
+      ? ('CANCELLED' as const)
+      : states[index % 5],
+    created_at: '2026-11-06T10:00:00',
+  }));
+  return [...(mockCreatedReservations.get(userId) ?? []), ...fixed].map(
+    (item) =>
+      cancelled.has(item.reservation_id)
+        ? { ...item, status: 'CANCELLED' }
+        : item,
+  );
+}
+function mockReservationOwner(id: number) {
+  return [...accounts.values()].find((user) =>
+    mockReservationItems(user.user_id).some(
+      (item) => item.reservation_id === id,
+    ),
+  );
+}
 // 테스트 입장 버튼은 이전 정보 수정/탈퇴에 영향을 받지 않는 새 예시 계정을 준비합니다.
 export function prepareMockAccount(role: Account['role']): string {
   if (!isMockMode())
@@ -121,6 +173,8 @@ export function prepareMockAccount(role: Account['role']): string {
     if (account.user_id === userId || account.phone === phone)
       sessions.delete(key);
   mockCancellations.delete(userId);
+  mockPickupQr.delete(userId);
+  mockCreatedReservations.delete(userId);
   mockNotifications.delete(userId);
   mockOnboarded.delete(userId);
   accounts.set(phone, {
@@ -284,59 +338,163 @@ export async function mockRequest(
     mockFavorites.set(token, saved);
     return item;
   }
+  if (url.pathname === '/reservations' && method === 'POST') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('예약 요청을 처리하지 못했어요.'), {
+        status,
+      });
+    };
+    if (!account) return fail(401);
+    if (
+      typeof input.listing_id !== 'string' ||
+      typeof input.product_id !== 'string' ||
+      typeof input.quantity !== 'number' ||
+      !Number.isSafeInteger(input.quantity) ||
+      input.quantity <= 0 ||
+      typeof input.pickup_at !== 'string' ||
+      !Number.isFinite(Date.parse(input.pickup_at)) ||
+      Date.parse(input.pickup_at) <= Date.now()
+    )
+      return fail(400);
+    const product = (await mockRequest(
+      `/products/${encodeURIComponent(input.listing_id)}`,
+      'GET',
+    )) as {
+      listing_id: number;
+      product_id: number;
+      store_id: number;
+      store_name: string;
+      market_id: number;
+      product_name: string;
+      price: number;
+      sale_price: number | null;
+      is_on_sale: boolean;
+      is_sold_out: boolean;
+    };
+    if (String(product.product_id) !== input.product_id) return fail(400);
+    if (product.is_sold_out) return fail(409);
+    const price =
+      product.is_on_sale && product.sale_price !== null
+        ? product.sale_price
+        : product.price;
+    const reservation: MockReservation = {
+      reservation_id: 10000 + ++sequence,
+      listing_id: product.listing_id,
+      product_id: product.product_id,
+      product_name: product.product_name,
+      store_id: product.store_id,
+      store_name: product.store_name,
+      market_id: product.market_id,
+      market_name: product.market_id === 1 ? '용산용문시장' : '테스트 시장',
+      quantity: input.quantity,
+      unit_price: price,
+      total_price: price * input.quantity,
+      pickup_at: input.pickup_at,
+      status: 'PENDING',
+      created_at: new Date().toISOString(),
+    };
+    mockCreatedReservations.set(account.user_id, [
+      reservation,
+      ...(mockCreatedReservations.get(account.user_id) ?? []),
+    ]);
+    return {
+      ...reservation,
+      reservation_id: String(reservation.reservation_id),
+      user_id: String(account.user_id),
+      listing_id: String(reservation.listing_id),
+      product_id: String(reservation.product_id),
+      store_id: String(reservation.store_id),
+      request_note:
+        typeof input.request_note === 'string' ? input.request_note : null,
+      message: '예약이 완료되었습니다.',
+    };
+  }
   if (
     url.pathname === '/users/me/reservations' &&
     method === 'GET' &&
     account
   ) {
-    const cancelled =
-      mockCancellations.get(account.user_id) ?? new Set<number>();
-    const states = [
-      'READY',
-      'COMPLETED',
-      'PENDING',
-      'CANCELLED',
-      'CONFIRMED',
-    ] as const;
-    const all = Array.from({ length: 14 }, (_, i) => ({
-      reservation_id: 501 + i,
-      product_id: 101 + i,
-      product_name: ['햇사과', '당근', '배'][i % 3],
-      store_id: 10,
-      store_name: '행복청과',
-      market_id: 1,
-      market_name: '용산용문시장',
-      quantity: (i % 2) + 1,
-      unit_price: 5000,
-      total_price: 5000 * ((i % 2) + 1),
-      pickup_at: `2026-11-${String(13 - Math.floor(i / 3)).padStart(2, '0')}T14:00:00`,
-      status: cancelled.has(501 + i) ? 'CANCELLED' : states[i % 5],
-      created_at: '2026-11-06T10:00:00',
-    })).filter(
-      (r) =>
+    const all = mockReservationItems(account.user_id).filter(
+      (item) =>
         !url.searchParams.get('status') ||
-        r.status === url.searchParams.get('status'),
+        item.status === url.searchParams.get('status'),
     );
     const page = Number(url.searchParams.get('page') ?? 1),
       size = Number(url.searchParams.get('size') ?? 10);
     return {
-      reservations: all.slice((page - 1) * size, page * size),
+      reservations: all
+        .slice((page - 1) * size, page * size)
+        .map(({ listing_id, ...item }) => item),
       total_count: all.length,
       page,
       size,
     };
   }
+  const detailMatch = url.pathname.match(/^\/reservations\/(\d+)$/);
+  if (detailMatch && method === 'GET') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('예약 상세를 확인할 수 없어요.'), {
+        status,
+      });
+    };
+    if (!account) return fail(401);
+    const id = Number(detailMatch[1]),
+      owner = mockReservationOwner(id);
+    if (!owner) return fail(404);
+    if (owner.user_id !== account.user_id) return fail(403);
+    const item = mockReservationItems(account.user_id).find(
+      (item) => item.reservation_id === id,
+    )!;
+    let qr: { data: string; expiresAt: number } | undefined;
+    const saved =
+      mockPickupQr.get(account.user_id) ??
+      new Map<number, { data: string; expiresAt: number }>();
+    if (item.status === 'READY') {
+      qr = saved.get(id);
+      if (!qr || qr.expiresAt <= Date.now()) {
+        qr = {
+          data: `TEST_ONLY_PICKUP_${account.user_id}_${id}_${++sequence}_${Date.now()}`,
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        };
+        saved.set(id, qr);
+        mockPickupQr.set(account.user_id, saved);
+      }
+    } else saved.delete(id);
+    return {
+      reservation_id: id,
+      listing_id: item.listing_id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      store_id: item.store_id,
+      store_name: item.store_name,
+      quantity: item.quantity,
+      total_price: item.total_price,
+      status: item.status,
+      created_at: item.created_at,
+      qr_code_data: qr?.data ?? null,
+      qr_code_expires_at: qr ? new Date(qr.expiresAt).toISOString() : null,
+    };
+  }
   const cancelMatch = url.pathname.match(/^\/reservations\/(\d+)\/cancel$/);
   if (cancelMatch && method === 'PATCH' && account) {
     const id = Number(cancelMatch[1]),
-      index = id - 501;
-    if (index < 0 || index >= 14) throw new Error('예약을 찾을 수 없어요.');
+      owner = mockReservationOwner(id);
+    if (!owner)
+      throw Object.assign(new Error('예약을 찾을 수 없어요.'), { status: 404 });
+    if (owner.user_id !== account.user_id)
+      throw Object.assign(new Error('본인의 예약만 취소할 수 있어요.'), {
+        status: 403,
+      });
+    const item = mockReservationItems(account.user_id).find(
+      (item) => item.reservation_id === id,
+    )!;
+    if (item.status === 'COMPLETED' || item.status === 'CANCELLED')
+      throw new Error('현재 상태에서는 취소할 수 없어요.');
     const cancelled =
       mockCancellations.get(account.user_id) ?? new Set<number>();
-    if (index % 5 === 1 || index % 5 === 3 || cancelled.has(id))
-      throw new Error('현재 상태에서는 취소할 수 없어요.');
     cancelled.add(id);
     mockCancellations.set(account.user_id, cancelled);
+    mockPickupQr.get(account.user_id)?.delete(id);
     return {
       reservation_id: id,
       status: 'CANCELLED',
