@@ -1,7 +1,7 @@
 # 공통 디자인 기준
 
 - 홈 카드/바로가기 radius: `16`, 위치/검색 입력창: `12`, 이미지: `8`, 바텀 시트: `24`. `theme.radii`를 재사용합니다.
-- 아이콘 파일은 `assets/icons`에 소문자 kebab-case로 보관합니다. `home`, `heart-outline`, `receipt`, `account-outline`, `clock`, `storefront`, `settings`, `bell`, `location-pin`을 `AppIcon`으로 사용합니다.
+- 아이콘 파일은 `assets/icons`에 소문자 kebab-case로 보관합니다. `home`, `heart-outline`, `receipt`, `account-outline`, `clock`, `storefront`, `bell`, `location-pin`을 `AppIcon`으로 사용합니다.
 - 제공된 SVG의 도형은 유지하고 fill을 currentColor로 통일했습니다. `iconAssets.ts`는 같은 SVG를 담은 React Native용 데이터입니다.
 
 - 메인 색상: `#53B175`

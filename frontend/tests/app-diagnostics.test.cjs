@@ -1,0 +1,146 @@
+const fs = require('node:fs'),
+  path = require('node:path'),
+  ts = require('typescript'),
+  assert = require('node:assert/strict'),
+  vm = require('node:vm'),
+  { EventEmitter } = require('node:events');
+const root = path.resolve(__dirname, '..');
+const source = ts.transpileModule(
+  fs.readFileSync(path.join(root, 'src/utils/appDiagnostics.ts'), 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+).outputText;
+const calls = [],
+  printed = [],
+  listeners = {};
+let previousCalls = 0;
+const fakeGlobal = {
+  ErrorUtils: {
+    getGlobalHandler: () => () => previousCalls++,
+    setGlobalHandler: (handler) => (fakeGlobal.handler = handler),
+  },
+};
+const fakeConsole = {
+  warn: (...v) => printed.push(v),
+  error: (...v) => printed.push(v),
+};
+const api = {};
+new Function(
+  'require',
+  'exports',
+  '__DEV__',
+  'globalThis',
+  'window',
+  'console',
+  'fetch',
+  'URL',
+  source,
+)(
+  () => ({ default: { expoConfig: { hostUri: '192.0.2.1:8081' } } }),
+  api,
+  true,
+  fakeGlobal,
+  {
+    location: { origin: 'http://localhost:8081' },
+    addEventListener: (name, callback) => (listeners[name] = callback),
+  },
+  fakeConsole,
+  async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body) });
+    return {};
+  },
+  URL,
+);
+api.installDiagnostics(() => ['opaque-session-secret']);
+assert.equal(api.redactDiagnostic('opaque-session-secret'), '[숨김]');
+const wrapper = fakeConsole.error;
+api.installDiagnostics();
+assert.equal(wrapper, fakeConsole.error);
+const error = new Error('Bearer secret-token 01012345678 password=hidden');
+api.logAppError('caught', error);
+api.logAppError('caught', error);
+assert.equal(calls.length, 1);
+assert.ok(calls[0].url.endsWith('/__jangboso_app_log'));
+assert.ok(!JSON.stringify(calls).includes('secret-token'));
+assert.ok(!JSON.stringify(calls).includes('01012345678'));
+assert.ok(!JSON.stringify(calls).includes('password=hidden'));
+fakeConsole.error('render failed', { password: 'raw-password' });
+assert.equal(calls.length, 2);
+assert.ok(!JSON.stringify(calls).includes('raw-password'));
+fakeGlobal.handler(new Error('fatal'), true);
+assert.equal(previousCalls, 1);
+assert.equal(calls.at(-1).body.scope, 'JS 치명적 오류');
+listeners.unhandledrejection({ reason: new Error('async failed') });
+assert.equal(calls.at(-1).body.scope, '웹 Promise 미처리 오류');
+const before = calls.length;
+api.reportDiagnostic({ scope: 'duplicate', message: 'same' });
+api.reportDiagnostic({ scope: 'duplicate', message: 'same' });
+assert.equal(calls.length, before + 1);
+const production = {};
+const prodConsole = { ...fakeConsole };
+new Function(
+  'require',
+  'exports',
+  '__DEV__',
+  'globalThis',
+  'window',
+  'console',
+  'fetch',
+  'URL',
+  source,
+)(
+  () => ({ default: { expoConfig: {} } }),
+  production,
+  false,
+  {},
+  undefined,
+  prodConsole,
+  () => {
+    throw new Error('must not send');
+  },
+  URL,
+);
+const prodError = prodConsole.error;
+production.installDiagnostics();
+assert.equal(prodConsole.error, prodError);
+production.logAppError('production', new Error('none'));
+// Exercise Metro's middleware in memory; no server or network required.
+const warnings = [];
+const moduleObject = { exports: {} };
+vm.runInNewContext(
+  fs.readFileSync(path.join(root, 'metro.config.js'), 'utf8'),
+  {
+    require: () => ({ getDefaultConfig: () => ({ server: {} }) }),
+    module: moduleObject,
+    __dirname: root,
+    console: { warn: (text) => warnings.push(text) },
+  },
+);
+const handler = moduleObject.exports.server.enhanceMiddleware(() => {});
+let code;
+const req = new EventEmitter();
+Object.assign(req, {
+  url: '/__jangboso_app_log',
+  method: 'POST',
+  destroy: () => {},
+});
+handler(
+  req,
+  { writeHead: (status) => (code = status), end: () => {} },
+  () => {},
+);
+req.emit(
+  'data',
+  JSON.stringify({
+    scope: 'API GET /products',
+    message: '조회 실패',
+    status: 500,
+    stack: 'at test.ts:12',
+  }),
+);
+req.emit('end');
+assert.equal(code, 204);
+assert.ok(warnings[0].includes('HTTP 500'));
+assert.ok(warnings[0].includes('test.ts:12'));
+console.log(
+  'PASS: JS/console/rejection forwarding, preserved global handler, masking, deduplication, install guard, production disabled, Metro terminal output',
+);

@@ -1,0 +1,163 @@
+const fs = require('node:fs'),
+  path = require('node:path'),
+  ts = require('typescript'),
+  assert = require('node:assert/strict');
+const code = ts.transpileModule(
+  fs.readFileSync(
+    path.join(__dirname, '../src/services/api/stores.ts'),
+    'utf8',
+  ),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+).outputText;
+let payload, url;
+const api = {};
+class ApiError extends Error {}
+new Function('require', 'exports', code)(
+  () => ({
+    ApiError,
+    getJson: async (path) => {
+      url = path;
+      return payload;
+    },
+  }),
+  api,
+);
+const store = {
+  store_id: 1,
+  store_name: '가게',
+  category: null,
+  address: null,
+  image_url: null,
+};
+(async () => {
+  payload = {
+    total_count: 2,
+    page: 1,
+    size: 10,
+    stores: [
+      store,
+      {
+        ...store,
+        store_id: 2,
+        category: '과일',
+        address: '서울시 가게 주소',
+        image_url: 'https://example.com/image.jpg',
+      },
+    ],
+  };
+  const result = await api.getMarketStores(5, 1, ' 과일 ');
+  assert.equal(result.stores.length, 2);
+  assert.equal(result.stores[0].address, null);
+  assert.equal(result.stores[1].address, '서울시 가게 주소');
+  const query = new URL(url, 'https://test.invalid');
+  assert.equal(query.pathname, '/markets/5/stores');
+  assert.equal(query.searchParams.get('keyword'), '과일');
+  for (const address of [undefined, 123, {}]) {
+    payload = {
+      total_count: 1,
+      page: 1,
+      size: 10,
+      stores: [{ ...store, address }],
+    };
+    await assert.rejects(() => api.getMarketStores(5), /가게 목록 응답/);
+  }
+  payload = { total_count: 0, page: 1, size: 10, stores: [] };
+  assert.deepEqual((await api.getMarketStores(5)).stores, []);
+  payload = { ...payload, page: 2 };
+  await assert.rejects(() => api.getMarketStores(5), /가게 목록 응답/);
+  const detail = {
+    store_id: 1,
+    store_name: '가게',
+    market_id: 5,
+    market_name: '시장',
+    category: null,
+    address: '가게 주소',
+    description: '소개',
+    phone: null,
+    image_url: null,
+  };
+  payload = detail;
+  const received = await api.getStore(1);
+  assert.equal(url, '/stores/1');
+  assert.equal(received.category, null);
+  assert.equal(received.phone, null);
+  assert.equal(received.image_url, null);
+  for (const field of ['category', 'phone', 'image_url']) {
+    payload = { ...detail, [field]: '문자열' };
+    assert.equal((await api.getStore(1))[field], '문자열');
+    for (const value of [undefined, 123, {}]) {
+      payload = { ...detail, [field]: value };
+      await assert.rejects(() => api.getStore(1), /가게 정보 응답/);
+    }
+  }
+  for (const field of ['market_name', 'address', 'description']) {
+    payload = { ...detail, [field]: null };
+    await assert.rejects(() => api.getStore(1), /가게 정보 응답/);
+  }
+  payload = { ...detail, store_id: 2 };
+  await assert.rejects(() => api.getStore(1), /가게 정보 응답/);
+  const listing = {
+    listing_id: 101,
+    product_id: 1,
+    store_id: 1,
+    category_id: 2,
+    product_name: '사과',
+    price: 5000,
+    sale_price: null,
+    is_sold_out: false,
+    is_on_sale: false,
+    image_url: null,
+    created_at: '2026-11-06T10:00:00Z',
+  };
+  payload = { products: [listing], total_count: 1, page: 1, size: 10 };
+  const products = await api.getStoreProducts(1, 1);
+  assert.equal(url, '/stores/1/products?page=1&size=10');
+  assert.equal(products.products[0].listing_id, 101);
+  assert.equal(products.products[0].category, undefined);
+  assert.equal(products.products[0].image_url, null);
+  for (const field of ['listing_id', 'product_id', 'store_id', 'category_id'])
+    for (const value of ['1', null, 0, -1, 1.5, undefined]) {
+      payload = {
+        products: [{ ...listing, [field]: value }],
+        total_count: 1,
+        page: 1,
+        size: 10,
+      };
+      await assert.rejects(() => api.getStoreProducts(1, 1), /상품 목록 응답/);
+    }
+  payload = {
+    products: [
+      {
+        ...listing,
+        category: '과일',
+        image_url: 'https://example.com/apple.jpg',
+      },
+    ],
+    total_count: 1,
+    page: 1,
+    size: 10,
+  };
+  assert.equal((await api.getStoreProducts(1, 1)).products[0].category, '과일');
+  for (const change of [
+    { category: null },
+    { category: 123 },
+    { image_url: undefined },
+    { image_url: 1 },
+  ]) {
+    payload = {
+      products: [{ ...listing, ...change }],
+      total_count: 1,
+      page: 1,
+      size: 10,
+    };
+    await assert.rejects(() => api.getStoreProducts(1, 1), /상품 목록 응답/);
+  }
+  payload = { products: [], total_count: 0, page: 1, size: 10 };
+  assert.deepEqual((await api.getStoreProducts(1, 1)).products, []);
+  console.log(
+    'PASS: null and string address/category/image, missing or invalid address rejected, pagination checks, keyword encoding, empty stores, nullable detail category/phone/image, strict required fields and ID, integer store-product IDs, optional category and nullable image',
+  );
+})().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});
