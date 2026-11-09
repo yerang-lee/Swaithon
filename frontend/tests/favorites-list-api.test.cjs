@@ -34,16 +34,16 @@ new Function('require', 'exports', compile('src/services/api/favorites.ts'))(
   api,
 );
 const item = {
-  favorite_id: 'favorite_1',
-  listing_id: 'listing_101',
-  product_id: 'product_1',
+  favorite_id: 8,
+  listing_id: 7,
+  product_id: 2,
   product_name: '사과',
-  store_id: 'store_1',
+  store_id: 1,
   store_name: '가게',
-  market_id: '5',
+  market_id: 5,
   market_name: '시장',
   category_id: 2,
-  category: 'FRUIT',
+  category: 2,
   category_name: '과일',
   price: 10000,
   sale_price: 8000,
@@ -60,10 +60,10 @@ const item = {
   assert.equal(url.pathname, '/users/me/favorites');
   assert.deepEqual([...url.searchParams.keys()], ['page', 'size']);
   for (const change of [
-    { favorite_id: 1 },
+    { favorite_id: '8' },
     { market_id: null },
     { category_id: '2' },
-    { category: undefined },
+    { category: 'FRUIT' },
     { image_url: undefined },
     { is_on_sale: null },
     { created_at: 'invalid' },
@@ -76,6 +76,18 @@ const item = {
       size: 10,
     };
     await assert.rejects(() => api.getFavorites(), /목록 응답/);
+  }
+  for (const change of [
+    { category_id: null, category_name: null },
+    { category: undefined, category_name: undefined },
+  ]) {
+    response = {
+      favorites: [{ ...item, ...change }],
+      total_count: 1,
+      page: 1,
+      size: 10,
+    };
+    assert.equal((await api.getFavorites()).favorites.length, 1);
   }
   for (const status of [400, 401, 500]) {
     failure = new ApiError(status);
@@ -94,8 +106,8 @@ const item = {
     return {
       favorites: Array.from({ length: page === 1 ? 10 : 2 }, (_, i) => ({
         ...item,
-        favorite_id: 'f' + ((page - 1) * 10 + i),
-        listing_id: 'l' + ((page - 1) * 10 + i),
+        favorite_id: 1 + (page - 1) * 10 + i,
+        listing_id: 1 + (page - 1) * 10 + i,
       })),
       total_count: 12,
       page,

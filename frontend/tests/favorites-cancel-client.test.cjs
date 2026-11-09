@@ -60,7 +60,7 @@ new Function(
   const saved = await mock.mockRequest(
     '/favorites',
     'POST',
-    { listing_id: 'listing_101', request_id: 'rec_1' },
+    { listing_id: 101, request_id: 'rec_1' },
     owner,
   );
   const path = '/favorites/' + encodeURIComponent(saved.favorite_id);
@@ -90,7 +90,7 @@ new Function(
   );
   const removed = await mock.mockRequest(path, 'DELETE', undefined, owner);
   assert.equal(removed.favorite_id, saved.favorite_id);
-  assert.equal(removed.listing_id, 'listing_101');
+  assert.equal(removed.listing_id, 101);
   assert.equal(
     (
       await mock.mockRequest(
@@ -109,7 +109,7 @@ new Function(
   const readded = await mock.mockRequest(
     '/favorites',
     'POST',
-    { listing_id: 'listing_101' },
+    { listing_id: 101 },
     owner,
   );
   assert.notEqual(readded.favorite_id, saved.favorite_id);
