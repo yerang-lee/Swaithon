@@ -271,18 +271,19 @@ export async function mockRequest(
       ![page, size].every((value) => Number.isSafeInteger(value) && value > 0)
     )
       throw new Error('관심상품 조회 조건을 확인해주세요.');
-    const items = [...(mockFavorites.get(token)?.values() ?? [])].map(
-      (item) => ({
+    const items = [...(mockFavorites.get(token)?.values() ?? [])]
+      .filter((item) => item.is_active !== false)
+      .map((item) => ({
         favorite_id: item.favorite_id,
         listing_id: item.listing_id,
         product_id: item.product_id,
         product_name: item.product_name,
         store_id: item.store_id,
         store_name: item.store_name,
-        market_id: '1',
+        market_id: 1,
         market_name: '용산용문시장',
         category_id: 2,
-        category: 'FRUIT',
+        category: 2,
         category_name: '과일',
         price: 5000,
         sale_price: null,
@@ -290,8 +291,7 @@ export async function mockRequest(
         is_on_sale: false,
         image_url: null,
         created_at: item.created_at,
-      }),
-    );
+      }));
     return {
       favorites: items.slice((page - 1) * size, page * size),
       total_count: items.length,
@@ -305,13 +305,15 @@ export async function mockRequest(
     const favoriteId = decodeURIComponent(favoriteCancelMatch[1]);
     for (const saved of mockFavorites.values()) {
       for (const [listingId, item] of saved) {
-        if (item.favorite_id !== favoriteId) continue;
-        if (item.user_id !== String(account.user_id))
+        if (String(item.favorite_id) !== favoriteId || item.is_active === false)
+          continue;
+        if (item.user_id !== account.user_id)
           throw new Error('다른 사용자의 관심상품은 취소할 수 없어요.');
-        saved.delete(listingId);
+        item.is_active = false;
+        item.updated_at = new Date().toISOString();
         return {
-          favorite_id: favoriteId,
-          listing_id: listingId,
+          favorite_id: item.favorite_id,
+          listing_id: item.listing_id,
           message: '찜이 취소되었습니다.',
         };
       }
@@ -322,27 +324,34 @@ export async function mockRequest(
     if (!account || !token)
       throw new Error('로그인 후 관심상품에 추가해주세요.');
     if (
-      typeof input.listing_id !== 'string' ||
-      !input.listing_id.trim() ||
+      typeof input.listing_id !== 'number' ||
+      !Number.isSafeInteger(input.listing_id) ||
+      input.listing_id <= 0 ||
       (input.request_id !== undefined && typeof input.request_id !== 'string')
     )
       throw new Error('판매 게시물 정보를 확인해주세요.');
     const saved =
       mockFavorites.get(token) ?? new Map<string, Record<string, unknown>>();
-    if (saved.has(input.listing_id))
+    if (
+      [...saved.values()].some(
+        (item) =>
+          item.listing_id === input.listing_id && item.is_active !== false,
+      )
+    )
       throw new Error('이미 관심상품에 추가된 상품이에요.');
     const item = {
-      favorite_id: `favorite_${++sequence}`,
-      user_id: String(account.user_id),
+      favorite_id: ++sequence,
+      user_id: account.user_id,
       listing_id: input.listing_id,
-      product_id: 'product_sample',
-      store_id: 'store_sample',
+      product_id: 101,
+      store_id: 101,
       product_name: '테스트 상품',
       store_name: '테스트 가게',
       created_at: new Date().toISOString(),
+      is_active: true,
       message: '상품이 찜 목록에 추가되었습니다.',
     };
-    saved.set(input.listing_id, item);
+    saved.set(String(item.favorite_id), item);
     mockFavorites.set(token, saved);
     return item;
   }

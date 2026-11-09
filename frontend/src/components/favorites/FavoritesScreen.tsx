@@ -171,8 +171,10 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
           {!loading &&
             !error &&
             visible.map((item) => {
-              const selected = favorites.includes(item.listing_id);
-              const pending = pendingFavorites.includes(item.listing_id);
+              const selected = favorites.includes(String(item.listing_id));
+              const pending = pendingFavorites.includes(
+                String(item.listing_id),
+              );
               const distance = distances[item.market_id];
               const info = [
                 item.store_name,
@@ -196,7 +198,7 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
                       router.push({
                         pathname: '/products/[listingId]',
                         params: {
-                          listingId: item.listing_id,
+                          listingId: String(item.listing_id),
                           ...marketDistanceParams(distance ?? null),
                         },
                       })
@@ -240,7 +242,7 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
                     accessibilityLabel={`${item.product_name} 관심 ${selected ? '취소' : '추가'}`}
                     accessibilityState={{ selected, disabled: pending }}
                     disabled={pending}
-                    onPress={() => void toggleFavorite(item.listing_id)}
+                    onPress={() => void toggleFavorite(String(item.listing_id))}
                     style={styles.heart}
                   >
                     <AppIcon

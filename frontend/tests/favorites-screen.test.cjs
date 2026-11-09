@@ -126,16 +126,16 @@ function text(node) {
   return [node.props?.children].flat(Infinity).map(text).join('');
 }
 const item = {
-  favorite_id: 'favorite_1',
-  listing_id: 'listing_101',
-  product_id: 'product_1',
+  favorite_id: 8,
+  listing_id: 101,
+  product_id: 1,
   product_name: '사과',
-  store_id: 'store_1',
+  store_id: 1,
   store_name: '가게',
-  market_id: '5',
+  market_id: 5,
   market_name: '망원시장',
   category_id: 2,
-  category: 'FRUIT',
+  category: 2,
   category_name: '과일',
   price: 10000,
   sale_price: 8000,
@@ -152,10 +152,10 @@ const item = {
     item,
     {
       ...item,
-      favorite_id: 'favorite_2',
-      listing_id: 'listing_102',
+      favorite_id: 9,
+      listing_id: 102,
       product_name: '배',
-      market_id: 'unmatched',
+      market_id: 999,
     },
   ]);
   await tick();
@@ -186,7 +186,7 @@ const item = {
   walk(tree)
     .find((n) => n.props?.accessibilityLabel === '사과 관심 취소')
     .props.onPress();
-  assert.deepEqual(mutationRequests[0].args, ['favorite_1', 'listing_101']);
+  assert.deepEqual(mutationRequests[0].args, ['8', '101']);
   tree = render();
   assert.equal(
     walk(tree).find((n) => n.props?.accessibilityLabel === '사과 관심 취소')
@@ -194,8 +194,8 @@ const item = {
     true,
   );
   mutationRequests.shift().resolve({
-    favorite_id: 'favorite_1',
-    listing_id: 'listing_101',
+    favorite_id: 8,
+    listing_id: 101,
     message: '취소',
   });
   await tick();
@@ -212,7 +212,7 @@ const item = {
     .find((n) => n.props?.accessibilityLabel === '사과 상세')
     .props.onPress();
   assert.deepEqual(routes[0].params, {
-    listingId: 'listing_101',
+    listingId: '101',
     marketDistanceMeters: '350',
   });
   cleanup();
@@ -221,8 +221,8 @@ const item = {
   listRequests.shift().resolve([
     {
       ...item,
-      favorite_id: 'favorite_2',
-      listing_id: 'listing_102',
+      favorite_id: 9,
+      listing_id: 102,
       product_name: '배',
     },
   ]);
@@ -233,7 +233,7 @@ const item = {
     false,
   );
   const context = shared.beginFavoritesLoad();
-  const pending = shared.useFavorites().toggleFavorite('listing_102');
+  const pending = shared.useFavorites().toggleFavorite('102');
   cleanup();
   cleanup = focus();
   await tick();
@@ -249,8 +249,8 @@ const item = {
   await waiting;
   assert.equal(ready, true);
   mutationRequests.shift().resolve({
-    favorite_id: 'favorite_2',
-    listing_id: 'listing_102',
+    favorite_id: 9,
+    listing_id: 102,
     message: '취소',
   });
   await pending;

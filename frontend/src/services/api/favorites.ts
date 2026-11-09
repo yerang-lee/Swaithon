@@ -2,11 +2,11 @@ import { ApiError, deleteJson, getJson, postJson } from './client';
 import { getAuthSession } from './auth';
 
 export type FavoriteItem = {
-  favorite_id: string;
-  user_id: string;
-  listing_id: string;
-  product_id: string;
-  store_id: string;
+  favorite_id: number;
+  user_id: number;
+  listing_id: number;
+  product_id: number;
+  store_id: number;
   product_name: string;
   store_name: string;
   created_at: string;
@@ -16,7 +16,11 @@ export async function addFavorite(
   listingId: string,
   requestId?: string,
 ): Promise<FavoriteItem> {
-  if (typeof listingId !== 'string' || !listingId.trim())
+  if (
+    typeof listingId !== 'string' ||
+    !/^[1-9]\d*$/.test(listingId.trim()) ||
+    !Number.isSafeInteger(Number(listingId))
+  )
     throw new Error('판매 게시물 ID를 확인해주세요.');
   if (requestId !== undefined && typeof requestId !== 'string')
     throw new Error('추천 요청 정보를 확인해주세요.');
@@ -24,7 +28,7 @@ export async function addFavorite(
   if (!session || session.expiresAt <= Date.now())
     throw new ApiError(401, '로그인 후 관심상품에 추가해주세요.');
   const body = {
-    listing_id: listingId.trim(),
+    listing_id: Number(listingId.trim()),
     ...(requestId?.trim() ? { request_id: requestId.trim() } : {}),
   };
   let data: unknown;
@@ -55,8 +59,9 @@ export async function addFavorite(
     !item ||
     !['favorite_id', 'user_id', 'listing_id', 'product_id', 'store_id'].every(
       (key) =>
-        typeof (item as unknown as Record<string, unknown>)[key] === 'string' &&
-        !!(item as unknown as Record<string, string>)[key].trim(),
+        Number.isSafeInteger(
+          (item as unknown as Record<string, unknown>)[key],
+        ) && Number((item as unknown as Record<string, unknown>)[key]) > 0,
     ) ||
     item.listing_id !== body.listing_id ||
     !['product_name', 'store_name', 'message', 'created_at'].every(
@@ -71,8 +76,8 @@ export async function addFavorite(
 }
 
 export type FavoriteCancellation = {
-  favorite_id: string;
-  listing_id: string;
+  favorite_id: number;
+  listing_id: number;
   message: string;
 };
 export async function cancelFavorite(
@@ -81,9 +86,11 @@ export async function cancelFavorite(
 ): Promise<FavoriteCancellation> {
   if (
     typeof favoriteId !== 'string' ||
-    !favoriteId.trim() ||
+    !/^[1-9]\d*$/.test(favoriteId.trim()) ||
+    !Number.isSafeInteger(Number(favoriteId)) ||
     typeof listingId !== 'string' ||
-    !listingId.trim()
+    !/^[1-9]\d*$/.test(listingId.trim()) ||
+    !Number.isSafeInteger(Number(listingId))
   )
     throw new Error('관심상품 정보를 확인해주세요.');
   const session = getAuthSession();
@@ -102,7 +109,7 @@ export async function cancelFavorite(
       const messages: Record<number, string> = {
         401: '로그인이 만료됐어요. 다시 로그인해주세요.',
         403: '다른 사용자의 관심상품은 취소할 수 없어요.',
-        404: '취소할 관심상품을 찾을 수 없어요.',
+        404: '존재하지 않거나 이미 취소된 관심상품이에요.',
         500: '관심상품을 취소하지 못했어요. 잠시 후 다시 시도해주세요.',
       };
       throw new ApiError(
@@ -118,30 +125,29 @@ export async function cancelFavorite(
   const result = data as FavoriteCancellation | null;
   if (
     !result ||
-    result.favorite_id !== favoriteId.trim() ||
-    result.listing_id !== listingId.trim() ||
+    result.favorite_id !== Number(favoriteId) ||
+    result.listing_id !== Number(listingId) ||
     typeof result.message !== 'string'
   )
     throw new Error('관심상품 취소 응답을 확인할 수 없어요.');
   return result;
 }
 
-export type FavoriteSummary = Pick<
-  FavoriteItem,
-  | 'favorite_id'
-  | 'listing_id'
-  | 'product_id'
-  | 'product_name'
-  | 'store_id'
-  | 'store_name'
-  | 'created_at'
->;
+export type FavoriteSummary = {
+  favorite_id: number;
+  listing_id: number;
+  product_id: number;
+  product_name: string;
+  store_id: number;
+  store_name: string;
+  created_at: string;
+};
 export type FavoriteListing = FavoriteSummary & {
-  market_id: string;
+  market_id: number;
   market_name: string;
-  category_id: number;
-  category: string;
-  category_name: string;
+  category_id: number | null;
+  category?: number;
+  category_name?: string | null;
   price: number;
   sale_price: number | null;
   is_sold_out: boolean;
@@ -202,24 +208,21 @@ export async function getFavorites(page = 1, size = 10): Promise<FavoritePage> {
           'market_id',
         ].every(
           (key) =>
-            typeof (item as unknown as Record<string, unknown>)[key] ===
-              'string' &&
-            !!(item as unknown as Record<string, string>)[key].trim(),
+            Number.isSafeInteger(
+              (item as unknown as Record<string, unknown>)[key],
+            ) && Number((item as unknown as Record<string, unknown>)[key]) > 0,
         ) &&
-        [
-          'product_name',
-          'store_name',
-          'market_name',
-          'category',
-          'category_name',
-          'created_at',
-        ].every(
+        ['product_name', 'store_name', 'market_name', 'created_at'].every(
           (key) =>
             typeof (item as unknown as Record<string, unknown>)[key] ===
             'string',
         ) &&
-        Number.isSafeInteger(item.category_id) &&
-        item.category_id > 0 &&
+        (item.category_id === null ||
+          (Number.isSafeInteger(item.category_id) && item.category_id! > 0)) &&
+        (item.category === undefined || Number.isSafeInteger(item.category)) &&
+        (item.category_name === undefined ||
+          item.category_name === null ||
+          typeof item.category_name === 'string') &&
         Number.isSafeInteger(item.price) &&
         item.price >= 0 &&
         (item.sale_price === null ||
@@ -236,7 +239,7 @@ export async function getFavorites(page = 1, size = 10): Promise<FavoritePage> {
 export async function getAllFavorites(
   isActive: () => boolean = () => true,
 ): Promise<FavoriteListing[]> {
-  const items = new Map<string, FavoriteListing>();
+  const items = new Map<number, FavoriteListing>();
   for (let page = 1; isActive(); page++) {
     const result = await getFavorites(page);
     if (!isActive()) return [];

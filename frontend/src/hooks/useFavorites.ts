@@ -8,9 +8,27 @@ import {
 } from '../services/api/favorites';
 import { logAppError } from '../utils/appDiagnostics';
 
+type FavoriteView = Omit<
+  FavoriteSummary,
+  'favorite_id' | 'listing_id' | 'product_id' | 'store_id'
+> & {
+  favorite_id: string;
+  listing_id: string;
+  product_id: string;
+  store_id: string;
+};
+function favoriteView(item: FavoriteSummary): FavoriteView {
+  return {
+    ...item,
+    favorite_id: String(item.favorite_id),
+    listing_id: String(item.listing_id),
+    product_id: String(item.product_id),
+    store_id: String(item.store_id),
+  };
+}
 type FavoriteState = {
   ids: string[];
-  items: FavoriteSummary[];
+  items: FavoriteView[];
   pending: string[];
 };
 type FavoriteOptions = { requestId?: string; preview?: boolean };
@@ -75,7 +93,8 @@ async function toggleFavorite(
         ),
       });
     } else {
-      const item = await addFavorite(id, options.requestId);
+      const added = await addFavorite(id, options.requestId);
+      const item = favoriteView(added);
       if (version !== generation || getAuthSession()?.access_token !== token)
         return;
       mutationRevision++;
@@ -137,11 +156,14 @@ export function synchronizeFavorites(
     state.pending.length
   )
     return false;
+  const normalized = items.map(favoriteView);
   const previousServerIds = new Set(state.items.map((item) => item.listing_id));
   const previewIds = state.ids.filter((id) => !previousServerIds.has(id));
   publish({
-    ids: [...new Set([...previewIds, ...items.map((item) => item.listing_id)])],
-    items: [...items],
+    ids: [
+      ...new Set([...previewIds, ...normalized.map((item) => item.listing_id)]),
+    ],
+    items: normalized,
     pending: state.pending,
   });
   return true;
