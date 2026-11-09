@@ -1,3 +1,4 @@
+import { PriceHistoryChart } from '../../components/products/PriceHistoryChart';
 import { useRecommendationView } from '../../hooks/useRecommendationTracking';
 import { logAppError } from '../../utils/appDiagnostics';
 import { useCatalogRevision } from '../../services/catalogChanges';
@@ -161,9 +162,13 @@ export default function ProductDetail() {
     lock.current = true;
     setSubmitting(true);
     try {
+      const listingId = reservationDetailId(data.listing_id);
+      const productId = reservationDetailId(data.product_id);
+      if (listingId === null || productId === null)
+        throw new Error('예약에 필요한 정수 상품 ID를 확인해주세요.');
       const reservation = await reserveProduct(
-        String(data.listing_id),
-        String(data.product_id),
+        listingId,
+        productId,
         quantity,
         date,
         note,
@@ -257,13 +262,12 @@ export default function ProductDetail() {
               {data.description}
             </Text>
           )}
-          <Text style={styles.heading}>가격 변동 비교</Text>
-          <View style={styles.chart}>
-            <Text style={styles.chartText}>
-              시장 평균과 점포 가격의{'\n'}변동 그래프가 표시될 영역이에요.
-            </Text>
-            <Text style={styles.note}>가격 이력 API 연결 예정</Text>
-          </View>
+          <Text style={styles.heading}>가격 변동</Text>
+          <PriceHistoryChart
+            key={`${id}-${catalogRevision}`}
+            listingId={id}
+            preview={!!demo || preview === 'true'}
+          />
           {!!demo && (
             <Text style={styles.note}>
               현재 상품 정보는 화면 확인용 예시입니다.
@@ -402,20 +406,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 22,
     marginBottom: 16,
-  },
-  chart: {
-    minHeight: 230,
-    borderRadius: 12,
-    backgroundColor: '#E2E2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  chartText: {
-    color: '#777',
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 24,
   },
   note: {
     color: '#999',

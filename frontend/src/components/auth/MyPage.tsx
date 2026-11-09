@@ -204,6 +204,8 @@ export function MyPage() {
       {getAuthSession()?.role === 'MERCHANT' && (
         <>
           {menu('내 가게 보기', () => void showMyStore())}
+          <View style={styles.line} />
+          {menu('픽업 QR 스캔', () => router.push('/pickup-scan'))}
           <View style={styles.divider} />
         </>
       )}

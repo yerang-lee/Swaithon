@@ -35,3 +35,11 @@ POST /voice/sold-out도 사용자 제공 새 명세를 적용했습니다. inten
 서버 없는 테스트 모드에서도 분석 ID와 소유 세션을 보관하고 READY/APPLIED/CANCELLED 상태를 구분합니다. 중복 적용/취소, 적용한 분석 취소, 취소한 분석 적용, 다른 세션 접근을 차단합니다. 상품 DB 변경 자체는 모의 처리이며 실제 서버 테스트와 실기기 레이아웃 확인은 별도 필요합니다.
 
 검증: npm run typecheck 및 node tests/voice-api.test.cjs.
+
+## 할인 종료 분석 최신 명세
+
+POST /voice/sale-delete는 multipart/form-data의 sale_id(정수)·audio_file을 전송하고 200 분석 응답을 받습니다. sale_id와 product_id는 서로 다른 식별자로 검증하며 요청 sale_id와 응답 sale_id가 일치해야 합니다. analysis_id, intent=SALE_DELETE, status=READY, transcript, product_name, is_on_sale=false, needs_confirmation=true, expires_at, message를 확인합니다. 가격·카테고리·missing_fields는 이 응답의 필수 필드가 아닙니다. is_on_sale=false는 적용 예정 상태이며 분석만으로 상품 상태를 갱신하지 않습니다. 400/401/403/404/409/422/500 안내를 할인 종료 분석에 맞게 구분합니다. 테스트 분석 응답도 가격을 임의로 채우지 않습니다.
+
+가격 이력은 프론트가 추가하지 않습니다. 최종 반영 시 실제 판매 가격이 바뀐 경우에만 서버가 정상 가격(price)을 기록하고, 동일 가격이면 이력을 생략해야 합니다. 이력 조회는 기존 GET /products/{listing_id}/price-history를 사용합니다.
+
+메인 /voice 화면은 기존 통합 명령(command_id·confirmed JSON) 방식을 유지합니다. 사용자 답변에 따라 서버가 동일 /voice/sale-delete에서 두 요청 방식을 함께 지원하는 전제로 구현합니다. 첨부 명세는 sale_id·audio_file multipart 분석 요청에 적용하며, 통합 명령은 서버가 반환한 execution_endpoint에 JSON 최종 실행 요청을 보냅니다. 둘을 서로 대체하거나 분석 결과를 완료 응답으로 해석하지 않습니다. 실제 서버의 두 Content-Type 지원은 연동 시 확인해야 합니다.

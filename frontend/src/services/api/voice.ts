@@ -153,7 +153,9 @@ export function parseVoiceAnalysis(
     action === 'saleDelete' &&
     (!positiveId(d.sale_id) ||
       (targetId !== undefined && d.sale_id !== targetId) ||
-      d.is_on_sale !== false)
+      d.is_on_sale !== false ||
+      !text(d.product_name) ||
+      !text(d.transcript))
   )
     throw new Error('분석 대상 할인 정보를 확인할 수 없어요.');
   if (action === 'soldOut' && d.is_sold_out !== true)
@@ -226,7 +228,17 @@ export function mockVoiceAnalysis(
         : action === 'delete' || action === 'soldOut'
           ? { product_id: targetId }
           : {}),
-      ...(action === 'saleDelete' ? { is_on_sale: false } : {}),
+      ...(action === 'saleDelete'
+        ? {
+            is_on_sale: false,
+            product_name: '사과 4개',
+            transcript: '사과 4개 할인 종료.',
+            price: undefined,
+            unit: undefined,
+            category: undefined,
+            category_name: undefined,
+          }
+        : {}),
       ...(action === 'soldOut'
         ? {
             is_sold_out: true,
@@ -237,10 +249,13 @@ export function mockVoiceAnalysis(
             transcript: '사과 품절.',
           }
         : {}),
-      missing_fields: [],
+      missing_fields: action === 'saleDelete' ? undefined : [],
       needs_confirmation: true,
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      message: '분석 결과를 확인해주세요.',
+      message:
+        action === 'saleDelete'
+          ? '할인 종료 정보를 분석했습니다. 확인 후 반영해 주세요.'
+          : '분석 결과를 확인해주세요.',
     },
     action,
     action === 'registration' ? undefined : targetId,
@@ -249,7 +264,22 @@ export function mockVoiceAnalysis(
   return analysis;
 }
 export const mockRegistrationAnalysis = () => mockVoiceAnalysis('registration');
-function analysisError(e: unknown): never {
+function analysisError(e: unknown, action?: AnalysisAction): never {
+  if (action === 'saleDelete' && e instanceof ApiError) {
+    const messages: Record<number, string> = {
+      400: '할인 ID와 음성 파일을 확인해주세요.',
+      401: '인증이 만료됐어요. 다시 로그인해주세요.',
+      403: '내 가게의 할인 정보만 종료할 수 있어요.',
+      404: '종료할 할인 정보를 찾을 수 없어요.',
+      409: '이미 종료되었거나 활성 상태가 아닌 할인이에요.',
+      422: '할인 종료 음성을 분석하지 못했어요. 다시 녹음해주세요.',
+      500: '서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
+    };
+    throw new ApiError(
+      e.status,
+      messages[e.status] ?? '할인 종료 분석에 실패했어요.',
+    );
+  }
   if (e instanceof ApiError) {
     const messages: Record<number, string> = {
       400: '입력 정보와 카테고리를 확인해주세요.',
@@ -413,7 +443,7 @@ export async function submitVoice(
     globalThis.__jangbosoLogError?.('services/api/voice.ts', e);
     if (controller.signal.aborted || e instanceof TypeError)
       throw new Error('분석 결과를 가져오지 못했어요. 다시 시도해주세요.');
-    return analysisError(e);
+    return analysisError(e, action);
   } finally {
     clearTimeout(timeout);
   }

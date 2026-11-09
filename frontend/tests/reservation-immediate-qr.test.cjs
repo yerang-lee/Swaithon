@@ -70,13 +70,13 @@ function walk(node) {
   const pickup = new Date(Date.now() + 86400000);
   pickup.setHours(15, 0, 0, 0);
   const created = await service.reserveProduct(
-    '1002',
-    String(product.product_id),
+    1002,
+    product.product_id,
     1,
     pickup,
     '',
   );
-  assert.equal(typeof created.reservation_id, 'string');
+  assert.equal(typeof created.reservation_id, 'number');
   assert.equal(created.status, 'PENDING');
   const detail = await service.getReservationDetail(
     service.reservationDetailId(created.reservation_id),

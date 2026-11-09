@@ -118,7 +118,11 @@ function fixture(action) {
   if (action === 'soldOut')
     Object.assign(base, { is_sold_out: true, transcript: '사과 품절.' });
   if (action === 'saleDelete')
-    Object.assign(base, { sale_id: 9, is_on_sale: false });
+    Object.assign(base, {
+      sale_id: 9,
+      is_on_sale: false,
+      transcript: '사과 4개 할인 종료.',
+    });
   return base;
 }
 async function main() {
@@ -203,6 +207,58 @@ async function main() {
     ),
   );
   assert.throws(() => api.parseVoiceAnalysis(fixture('soldOut'), 'soldOut', 8));
+  // 할인 종료 명세의 최소 응답: 가격/카테고리/missing_fields는 요구하지 않음.
+  const saleResponse = {
+    analysis_id: 'analysis_007',
+    intent: 'SALE_DELETE',
+    status: 'READY',
+    transcript: '사과 4개 할인 종료.',
+    sale_id: 1,
+    product_id: 7,
+    product_name: '사과 4개',
+    is_on_sale: false,
+    needs_confirmation: true,
+    expires_at: '2099-11-10T01:15:00Z',
+    message: '확인 후 반영해 주세요.',
+  };
+  payload = saleResponse;
+  const beforeAnalysis = requests.length;
+  const saleAnalysis = await api.submitVoice(
+    'saleDelete',
+    'file:///voice.m4a',
+    1,
+  );
+  assert.equal(requests.length, beforeAnalysis + 1);
+  assert.equal(requests.at(-1).headers.Authorization, 'Bearer test-merchant');
+  assert.equal(requests.at(-1).headers['Content-Type'], undefined);
+  assert.equal(saleAnalysis.saleId, 1);
+  assert.equal(saleAnalysis.productId, 7);
+  assert.equal(saleAnalysis.isOnSale, false);
+  assert.equal(saleAnalysis.price, undefined);
+  assert.deepEqual(
+    requests.at(-1).body.fields.map(([name]) => name),
+    ['sale_id', 'audio_file'],
+  );
+  for (const change of [
+    { sale_id: '1' },
+    { sale_id: 2 },
+    { product_id: null },
+    { is_on_sale: true },
+    { needs_confirmation: false },
+    { transcript: undefined },
+    { product_name: undefined },
+  ])
+    assert.throws(() =>
+      api.parseVoiceAnalysis({ ...saleResponse, ...change }, 'saleDelete', 1),
+    );
+  for (const code of [400, 401, 403, 404, 409, 422, 500]) {
+    status = code;
+    await assert.rejects(
+      () => api.submitVoice('saleDelete', 'file:///voice.m4a', 1),
+      (e) => e.status === code,
+    );
+  }
+  status = 200;
   const analysis = api.parseRegistrationAnalysis(fixture('registration'));
   const confirmed = {
     product_name: '배',

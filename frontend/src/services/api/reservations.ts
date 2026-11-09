@@ -1,19 +1,19 @@
 import { ApiError, getJson, patchJson, postJson } from './client';
 import { getAuthSession } from './auth';
 export type Reservation = {
-  reservation_id: string;
-  user_id: string;
-  listing_id: string;
-  product_id: string;
+  reservation_id: number;
+  user_id: number;
+  listing_id: number;
+  product_id: number;
   product_name: string;
-  store_id: string;
+  store_id: number;
   store_name: string;
   quantity: number;
   unit_price: number;
   total_price: number;
   pickup_at: string;
   request_note: string | null;
-  status: string;
+  status: 'PENDING';
   created_at: string;
   message: string;
 };
@@ -24,18 +24,18 @@ export function pickupAtKst(date: Date): string {
   );
 }
 export async function reserveProduct(
-  listingId: string,
-  productId: string,
+  listingId: number,
+  productId: number,
   quantity: number,
   pickup: Date,
   requestNote: string,
   requestId?: string,
 ): Promise<Reservation> {
   if (
-    typeof listingId !== 'string' ||
-    !listingId.trim() ||
-    typeof productId !== 'string' ||
-    !productId.trim() ||
+    !Number.isSafeInteger(listingId) ||
+    listingId <= 0 ||
+    !Number.isSafeInteger(productId) ||
+    productId <= 0 ||
     !Number.isSafeInteger(quantity) ||
     quantity <= 0
   )
@@ -82,17 +82,13 @@ export async function reserveProduct(
   if (
     !r ||
     ![
-      'reservation_id',
-      'user_id',
-      'listing_id',
-      'product_id',
-      'product_name',
-      'store_id',
-      'store_name',
-      'message',
-      'created_at',
-      'pickup_at',
-    ].every(
+      r.reservation_id,
+      r.user_id,
+      r.listing_id,
+      r.product_id,
+      r.store_id,
+    ].every((id) => Number.isSafeInteger(id) && id > 0) ||
+    !['product_name', 'store_name', 'message', 'created_at', 'pickup_at'].every(
       (key) =>
         typeof (r as unknown as Record<string, unknown>)[key] === 'string' &&
         String((r as unknown as Record<string, unknown>)[key]).trim().length >

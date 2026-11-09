@@ -20,7 +20,7 @@
 | 초안 취소 | POST /voice/commands/{command_id}/cancel, 본문 없음 |
 | 실행 | 서버 execution_endpoint, JSON {command_id,confirmed:true} |
 
-실행 경로는 상대 경로 허용 목록에서만 선택하고 같은 EXPO_PUBLIC_API_URL로 요청합니다. 기존 /voice/product-registration, product-update, product-delete, sold-out, sale-delete와 새 /voice/sale-registration만 허용합니다. 오래된 sale-update 경로는 FRONTEND_HANDOFF의 실행 표에 없어 임의로 허용하지 않습니다. parsed.intent로 경로를 추측하지 않습니다. 실행 JSON과 기존 분석 파일 요청은 모드가 다르므로 실제 서버 라우트의 중복/호환 처리를 백엔드와 확인해야 합니다.
+실행 경로는 상대 경로 허용 목록에서만 선택하고 같은 EXPO_PUBLIC_API_URL로 요청합니다. 기존 /voice/product-registration, product-update, product-delete, sold-out, sale-delete와 새 /voice/sale-registration만 허용합니다. 오래된 sale-update 경로는 FRONTEND_HANDOFF의 실행 표에 없어 임의로 허용하지 않습니다. parsed.intent로 경로를 추측하지 않습니다. 사용자 답변에 따라 /voice/sale-delete는 JSON 통합 명령 실행과 multipart 할인 종료 분석을 함께 지원하는 전제로 유지합니다. 첨부된 할인 종료 분석 명세는 sale_id·audio_file 분석 요청에 적용하며, 통합 명령의 command_id·confirmed 실행 요청과 구분합니다. 실제 서버의 호환 처리는 연동 시 검증합니다.
 
 ## 상태별 동작
 

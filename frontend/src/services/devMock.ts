@@ -109,6 +109,8 @@ function notificationsFor(userId: number) {
   }
   return items;
 }
+const mockPickupCompletions = new Map<number, string>();
+const mockUsedPickupTokens = new Set<string>();
 const mockCancellations = new Map<number, Set<number>>();
 const mockPickupQr = new Map<
   number,
@@ -134,7 +136,7 @@ function mockReservationItems(userId: number): MockReservation[] {
     listing_id: 1001 + index,
     product_id: 101 + index,
     product_name: ['햇사과', '당근', '배'][index % 3],
-    store_id: 10,
+    store_id: index === 0 ? 101 : 10,
     store_name: '행복청과',
     market_id: 1,
     market_name: '용산용문시장',
@@ -151,7 +153,9 @@ function mockReservationItems(userId: number): MockReservation[] {
     (item) =>
       cancelled.has(item.reservation_id)
         ? { ...item, status: 'CANCELLED' }
-        : item,
+        : mockPickupCompletions.has(item.reservation_id)
+          ? { ...item, status: 'COMPLETED' }
+          : item,
   );
 }
 function mockReservationOwner(id: number) {
@@ -172,6 +176,10 @@ export function prepareMockAccount(role: Account['role']): string {
   for (const [key, account] of sessions)
     if (account.user_id === userId || account.phone === phone)
       sessions.delete(key);
+  for (const item of mockReservationItems(userId))
+    mockPickupCompletions.delete(item.reservation_id);
+  for (const qr of mockPickupQr.get(userId)?.values() ?? [])
+    mockUsedPickupTokens.delete(qr.data);
   mockCancellations.delete(userId);
   mockPickupQr.delete(userId);
   mockCreatedReservations.delete(userId);
@@ -346,8 +354,12 @@ export async function mockRequest(
     };
     if (!account) return fail(401);
     if (
-      typeof input.listing_id !== 'string' ||
-      typeof input.product_id !== 'string' ||
+      typeof input.listing_id !== 'number' ||
+      !Number.isSafeInteger(input.listing_id) ||
+      Number(input.listing_id) <= 0 ||
+      typeof input.product_id !== 'number' ||
+      !Number.isSafeInteger(input.product_id) ||
+      Number(input.product_id) <= 0 ||
       typeof input.quantity !== 'number' ||
       !Number.isSafeInteger(input.quantity) ||
       input.quantity <= 0 ||
@@ -371,7 +383,7 @@ export async function mockRequest(
       is_on_sale: boolean;
       is_sold_out: boolean;
     };
-    if (String(product.product_id) !== input.product_id) return fail(400);
+    if (product.product_id !== input.product_id) return fail(400);
     if (product.is_sold_out) return fail(409);
     const price =
       product.is_on_sale && product.sale_price !== null
@@ -399,11 +411,7 @@ export async function mockRequest(
     ]);
     return {
       ...reservation,
-      reservation_id: String(reservation.reservation_id),
-      user_id: String(account.user_id),
-      listing_id: String(reservation.listing_id),
-      product_id: String(reservation.product_id),
-      store_id: String(reservation.store_id),
+      user_id: account.user_id,
       request_note:
         typeof input.request_note === 'string' ? input.request_note : null,
       message: '예약이 완료되었습니다.',
@@ -428,6 +436,45 @@ export async function mockRequest(
       total_count: all.length,
       page,
       size,
+    };
+  }
+  if (url.pathname === '/reservations/pickup/verify' && method === 'POST') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('픽업 QR 검증에 실패했어요.'), { status });
+    };
+    if (!account) return fail(401);
+    if (account.role !== 'MERCHANT') return fail(403);
+    if (typeof input.qr_code_data !== 'string' || !input.qr_code_data.trim())
+      return fail(400);
+    if (mockUsedPickupTokens.has(input.qr_code_data)) return fail(410);
+    let found: { ownerId: number; id: number; expiresAt: number } | undefined;
+    for (const [ownerId, tokens] of mockPickupQr) {
+      for (const [id, qr] of tokens) {
+        if (qr.data === input.qr_code_data)
+          found = { ownerId, id, expiresAt: qr.expiresAt };
+      }
+    }
+    if (!found) return fail(404);
+    const item = mockReservationItems(found.ownerId).find(
+      (item) => item.reservation_id === found.id,
+    );
+    if (!item) return fail(404);
+    if (item.store_id !== account.store_id) return fail(403);
+    if (found.expiresAt <= Date.now()) return fail(410);
+    if (item.status !== 'READY') return fail(409);
+    const completedAt = new Date().toISOString();
+    // 검증과 상태 갱신 사이 await가 없어 테스트 서버에서도 한 요청만 성공합니다.
+    mockPickupCompletions.set(item.reservation_id, completedAt);
+    mockUsedPickupTokens.add(input.qr_code_data);
+    return {
+      reservation_id: item.reservation_id,
+      listing_id: item.listing_id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      store_name: item.store_name,
+      status: 'COMPLETED',
+      completed_at: completedAt,
+      message: '픽업이 완료 처리되었습니다.',
     };
   }
   const detailMatch = url.pathname.match(/^\/reservations\/(\d+)$/);
@@ -739,6 +786,34 @@ export async function mockRequest(
     };
   }
   // Numeric category IDs below are test fixtures, not production mappings.
+  const historyMatch = url.pathname.match(
+    /^\/products\/([1-9]\d*)\/price-history$/,
+  );
+  if (historyMatch && method === 'GET') {
+    if (!account || !token) throw new Error('로그인 후 확인해주세요.');
+    const product = (await mockRequest(
+      `/products/${historyMatch[1]}`,
+      'GET',
+      undefined,
+      token,
+    )) as Record<string, any>;
+    const current =
+      product.is_on_sale && product.sale_price !== null
+        ? product.sale_price
+        : product.price;
+    return {
+      listing_id: Number(historyMatch[1]),
+      product_id: product.product_id,
+      product_name: product.product_name,
+      store_id: product.store_id,
+      store_name: product.store_name,
+      current_price: current,
+      price_history: [30, 20, 7, 2, 0].map((days, i) => ({
+        price: Math.round(current * [1.2, 1.1, 1.15, 1.05, 1][i]),
+        recorded_at: new Date(Date.now() - days * 86400000).toISOString(),
+      })),
+    };
+  }
   if (
     (url.pathname === '/products' && method === 'GET') ||
     (/^\/products\/\d+$/.test(url.pathname) && method === 'GET')

@@ -296,6 +296,23 @@ async function main() {
     assert.deepEqual(saved.result, snapshot);
     assert.deepEqual(discount.preview.after, snapshot);
   }
+  response = state('NEEDS_CONFIRMATION', {
+    intent: 'SALE_DELETE',
+    execution_endpoint: '/voice/sale-delete',
+    preview: { before: { is_on_sale: true }, after: { is_on_sale: false } },
+  });
+  const saleDeleteCommand = await api.analyzeText('사과 할인 종료');
+  response = state('SUCCEEDED', {
+    intent: 'SALE_DELETE',
+    result: { is_on_sale: false },
+  });
+  await api.executeCommand(saleDeleteCommand);
+  assert.ok(calls.at(-1).url.endsWith('/voice/sale-delete'));
+  assert.equal(calls.at(-1).headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(calls.at(-1).body), {
+    command_id: saleDeleteCommand.command_id,
+    confirmed: true,
+  });
   mock = true;
   let draft = await api.analyzeText('질문');
   assert.equal(draft.status, 'NEEDS_INPUT');
