@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -110,23 +109,19 @@ export function PriceHistoryChart({
   const last = points.length
     ? Date.parse(points[points.length - 1].recorded_at)
     : 0;
+  const plotRight = Math.max(60, width - 52);
   const x = (i: number) =>
     last === first
-      ? 135
+      ? (8 + plotRight) / 2
       : 8 +
-        ((Date.parse(points[i].recorded_at) - first) / (last - first)) * 254;
+        ((Date.parse(points[i].recorded_at) - first) / (last - first)) *
+          (plotRight - 8);
   const y = (price: number) => 22 + ((max - price) / (max - min)) * 128;
   const path = points
     .map((p, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(p.price)}`)
     .join(' ');
   return (
     <View style={styles.container}>
-      <Text style={styles.muted}>
-        {chosen ? `${date(chosen.recorded_at)} 선택 가격` : '현재 판매 가격'}
-      </Text>
-      <Text style={styles.price}>
-        {won(chosen?.price ?? data.current_price)}
-      </Text>
       <View style={styles.tabs}>
         {periods.map((p) => (
           <Pressable
@@ -163,14 +158,14 @@ export function PriceHistoryChart({
             onResponderGrant={(e) => select(e.nativeEvent.locationX)}
             onResponderMove={(e) => select(e.nativeEvent.locationX)}
             onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-            accessibilityLabel="가격 변동 그래프. 아래 기록을 눌러 가격을 확인할 수 있어요."
+            accessibilityLabel="가격 변동 그래프. 그래프를 터치해 해당 시점의 가격을 확인할 수 있어요."
           >
-            <Svg width="100%" height={190} viewBox="0 0 350 190">
+            <Svg width="100%" height={190} viewBox={`0 0 ${width} 190`}>
               {[max, (max + min) / 2, min].map((v, i) => (
                 <Line
                   key={i}
                   x1={8}
-                  x2={270}
+                  x2={plotRight}
                   y1={y(v)}
                   y2={y(v)}
                   stroke="#EDEDED"
@@ -178,7 +173,14 @@ export function PriceHistoryChart({
                 />
               ))}
               {[max, (max + min) / 2, min].map((v, i) => (
-                <SvgText key={i} x={278} y={y(v) + 4} fontSize={11} fill="#888">
+                <SvgText
+                  key={i}
+                  x={width - 4}
+                  y={y(v) + 4}
+                  textAnchor="end"
+                  fontSize={11}
+                  fill="#888"
+                >
                   {Math.round(v).toLocaleString('ko-KR')}
                 </SvgText>
               ))}
@@ -207,7 +209,7 @@ export function PriceHistoryChart({
               </SvgText>
               {points.length > 1 && (
                 <SvgText
-                  x={270}
+                  x={plotRight}
                   y={182}
                   textAnchor="end"
                   fontSize={11}
@@ -218,28 +220,18 @@ export function PriceHistoryChart({
               )}
             </Svg>
           </View>
-          <ScrollView horizontal contentContainerStyle={styles.records}>
-            {points.map((p, i) => (
-              <Pressable
-                key={`${p.recorded_at}-${i}`}
-                onPress={() => setSelected(i)}
-                accessibilityRole="button"
-                accessibilityLabel={`${date(p.recorded_at)} ${won(p.price)}`}
-              >
-                <Text
-                  style={[styles.record, selected === i && styles.activeText]}
-                >
-                  {date(p.recorded_at)} · {won(p.price)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
         </>
       )}
+      <Text style={styles.muted}>
+        {chosen ? `${date(chosen.recorded_at)} 선택 가격` : '현재 판매 가격'}
+      </Text>
+      <Text style={styles.price}>
+        {won(chosen?.price ?? data.current_price)}
+      </Text>
     </View>
   );
   function select(touchX: number) {
-    const svgX = (touchX / Math.max(width, 1)) * 350;
+    const svgX = touchX;
     let nearest = 0;
     points.forEach((_, i) => {
       if (Math.abs(x(i) - svgX) < Math.abs(x(nearest) - svgX)) nearest = i;
@@ -293,15 +285,6 @@ const styles = StyleSheet.create({
   activeText: {
     color: '#23864C',
     fontWeight: '700',
-  },
-  records: {
-    gap: 12,
-    paddingVertical: 8,
-  },
-  record: {
-    fontSize: 12,
-    color: '#7C7C7C',
-    padding: 8,
   },
   retry: {
     fontSize: 16,
