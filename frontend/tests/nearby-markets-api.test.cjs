@@ -34,28 +34,28 @@ const market = {
   address: '주소',
   latitude: 37.55,
   longitude: 126.91,
-  distance: 350,
+  distance: 0.35,
   image_url: null,
 };
 (async () => {
   const items = [
-    { ...market, market_id: null, market_name: '동명시장', distance: 100 },
+    { ...market, market_id: null, market_name: '동명시장', distance: 0.1 },
     {
       ...market,
       market_id: null,
       market_name: '동명시장',
       address: '다른 주소',
-      distance: 200,
+      distance: 0.2,
     },
     market,
-    { ...market, distance: 400 },
+    { ...market, distance: 0.4 },
     {
       ...market,
       market_id: 2,
       image_url: 'https://example.com/market.jpg',
-      distance: 50,
+      distance: 0.05,
     },
-    { ...market, market_id: 3, distance: 2000 },
+    { ...market, market_id: 3, distance: 2 },
   ];
   payload = { markets: items };
   const result = await api.getNearbyMarkets(location);
@@ -64,6 +64,13 @@ const market = {
     [2, null, null, 1],
   );
   assert.equal(result[1].image_url, null);
+  assert.deepEqual(
+    result.map((m) => m.distance),
+    [50, 100, 200, 350],
+  );
+  assert.equal(items[2].distance, 0.35);
+  payload = { markets: [{ ...market, distance: 0 }] };
+  assert.equal((await api.getNearbyMarkets(location))[0].distance, 0);
   assert.equal(items.length, 6);
   const query = new URL(requested, 'https://test.invalid').searchParams;
   assert.equal(query.get('radius'), '1000');

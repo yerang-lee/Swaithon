@@ -394,10 +394,7 @@ export async function mockRequest(
     };
     if (product.product_id !== input.product_id) return fail(400);
     if (product.is_sold_out) return fail(409);
-    const price =
-      product.is_on_sale && product.sale_price !== null
-        ? product.sale_price
-        : product.price;
+    const price = product.sale_price ?? product.price;
     const reservation: MockReservation = {
       reservation_id: 10000 + ++sequence,
       listing_id: product.listing_id,
@@ -743,7 +740,7 @@ export async function mockRequest(
       return {
         event_id: input.event_id,
         listing_id: input.listing_id,
-        event_type: 'VIEW',
+        event_type: 'detail_view',
         recorded_at: mockRecommendationEvents.get(String(input.event_id))!
           .recordedAt,
         message: '상품 상세 조회 기록이 저장되었습니다.',
@@ -760,6 +757,27 @@ export async function mockRequest(
     if (!account) throw new Error('로그인 후 추천 상품을 확인해주세요.');
     const marketId = url.searchParams.get('market_id');
     const topN = Number(url.searchParams.get('top_n') ?? 20);
+    const latitude = url.searchParams.get('latitude');
+    const longitude = url.searchParams.get('longitude');
+    if (
+      latitude === null ||
+      longitude === null ||
+      !latitude.trim() ||
+      !longitude.trim() ||
+      !Number.isFinite(Number(latitude)) ||
+      Math.abs(Number(latitude)) > 90 ||
+      !Number.isFinite(Number(longitude)) ||
+      Math.abs(Number(longitude)) > 180 ||
+      !Number.isSafeInteger(topN) ||
+      topN < 1 ||
+      topN > 20 ||
+      (marketId !== null &&
+        (!/^[1-9]\d*$/.test(marketId) ||
+          !Number.isSafeInteger(Number(marketId))))
+    )
+      throw Object.assign(new Error('추천 조회 조건을 확인해주세요.'), {
+        status: 400,
+      });
     const result = (await mockRequest(
       `/products?page=1&size=${topN}${marketId ? `&market_id=${encodeURIComponent(marketId)}` : ''}`,
       'GET',
@@ -776,8 +794,9 @@ export async function mockRequest(
       request_id: requestId,
       as_of: now,
       generated_at: now,
-      rule_version: 'mock-v1',
-      user_state: {},
+      recommendation_type: 'rule',
+      model_version: null,
+      user_state: 'new_no_interest',
       items: result.products.map((product, index) => ({
         rank: index + 1,
         score: 1 - index / 100,
@@ -788,7 +807,7 @@ export async function mockRequest(
         market_id: String(product.market_id),
         name: product.product_name,
         category_id: String(product.category_id),
-        price: product.price,
+        price: product.sale_price ?? product.price,
         distance_km: 0.3 + index / 10,
         created_at: product.created_at,
       })),
@@ -806,10 +825,7 @@ export async function mockRequest(
       undefined,
       token,
     )) as Record<string, any>;
-    const current =
-      product.is_on_sale && product.sale_price !== null
-        ? product.sale_price
-        : product.price;
+    const current = product.sale_price ?? product.price;
     return {
       listing_id: Number(historyMatch[1]),
       product_id: product.product_id,
@@ -884,9 +900,19 @@ export async function mockRequest(
       );
       if (!product) throw new Error('상품을 찾을 수 없어요.');
       return {
-        ...product,
-        image_url: '',
-        description: '화면 확인용 예시 상품입니다.',
+        listing_id: product.listing_id,
+        product_id: product.product_id,
+        product_name: product.product_name,
+        category_id: product.category_id,
+        description: null,
+        image_url: product.image_url,
+        price: product.price,
+        sale_price: product.sale_price,
+        is_sold_out: product.is_sold_out,
+        store_id: product.store_id,
+        store_name: product.store_name,
+        market_id: product.market_id,
+        market_name: product.market_id === 1 ? '용산용문시장' : '테스트 시장',
       };
     }
     const filtered = all.filter(
@@ -963,10 +989,10 @@ export async function mockRequest(
           address: '테스트 시장 주소',
           latitude: lat,
           longitude: lng,
-          distance: (index + 1) * 250,
+          distance: (index + 1) * 0.25,
           image_url: '',
         }))
-        .filter((m) => m.distance <= radius),
+        .filter((m) => m.distance * 1000 <= radius),
     };
   }
   const match = url.pathname.match(/^\/markets\/(\d+)\/stores$/);

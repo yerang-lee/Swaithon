@@ -1,7 +1,7 @@
 # 상품 상세 및 예약 API
 
 사용자 제공 상세 명세를 적용했습니다.
-상품 상세: GET /products/{listing_id}, 문자열 판매 게시물 ID. 기본/세일 가격, 설명, 이미지, 품절 상태를 표시합니다. 400/404/500 오류를 처리합니다.
+상품 상세: GET /products/{listing_id}, 정수 판매 게시물 ID(라우트에서는 숫자 문자열). 기본/세일 가격, 설명, 이미지, 품절 상태를 표시합니다. 400/404/500 오류를 처리합니다.
 홈 추천은 GET /recommendations의 실제 문자열 listing_id를 사용하며 일반 상품 상세 및 서버 예약으로 연결합니다. 개발 테스트 로그인에서만 모의 응답을 사용합니다. 실제 가게 상품 목록의 listing_id로 이동합니다. 상세 요청에서 숫자로 변환하지 않고 URL 인코딩합니다. 관심 상태도 listing_id로 구분합니다.
 
 예약: POST /reservations, Bearer JWT, JSON { product_id, quantity, pickup_at, request_note? }.
@@ -14,7 +14,7 @@ pickup_at 예시에 시간대가 없으므로 현재는 한국 시간(Asia/Seoul
 
 가격 이력 API 제안은 price-history-api-proposal.md를 참고하세요. 아직 존재하는 API로 간주하지 않습니다.
 수령 시간 UI: 오늘만 선택하며, 현재 시각 이후의 다음 정각/30분부터 당일 23:30까지 표시합니다. 휠은 3줄, 가운데 글자 22입니다. 수량 입력은 제거하고 quantity=1, 요청사항은 생략합니다. 바텀 시트에는 날짜·시간 휠·관심·예약 버튼만 표시합니다.
-상품 상세 최신 응답 본문은 미제공이므로 listing_id 일치와 기존 표시 필드를 검증하는 임시 호환 방식입니다. product_id/store_id/market_id는 문자열 또는 양의 정수를 허용하며 서버 상세 명세 확인이 필요합니다. 기존 예약 API의 정수 product_id 명세는 변경하지 않았습니다. 문자열 product_id 응답의 상품은 예약 명세 확인 안내를 표시하고 잘못된 예약 요청을 보내지 않습니다.
+상품 상세는 최신 백엔드 ProductDetailResponse에 맞춰 정수 ID, nullable category_id/description/image_url 및 market_name을 검증합니다. 상세 응답에 없는 category/is_on_sale/created_at은 요구하지 않습니다.
 
 ## 예약 목록·취소 (사용자 제공 상세 명세)
 
@@ -28,7 +28,7 @@ pickup_at 예시에 시간대가 없으므로 현재는 한국 시간(Asia/Seoul
 
 ## 상품 목록 ID 최신 호환
 
-GET /products의 사용자 제공 최신 응답은 listing_id=Integer입니다. 라우트/관심 상태는 String으로 변환하며 상세 응답의 listing_id는 양의 정수 또는 기존 문자열을 허용하고 String으로 비교합니다. 기존 문자열 판매 게시물 ID를 Number로 바꾸지 않습니다. 상품 상세의 나머지 필드는 최신 상세 명세가 없어 기존 검증을 유지합니다. 예시 시장에서 조회한 상품은 상세에서도 preview 플래그를 유지해 실제 상품 요청/예약과 혼동하지 않습니다.
+GET /products의 사용자 제공 최신 응답은 listing_id=Integer입니다. 라우트/관심 상태는 String으로 변환하며 상세 응답의 listing_id는 양의 정수 또는 기존 문자열을 허용하고 String으로 비교합니다. 기존 문자열 판매 게시물 ID를 Number로 바꾸지 않습니다. 상품 상세의 나머지 필드는 아래 최신 백엔드 구조를 따릅니다. 예시 시장에서 조회한 상품은 상세에서도 preview 플래그를 유지해 실제 상품 요청/예약과 혼동하지 않습니다.
 
 ## 예약 생성 최신 명세 (이 절이 기존 생성 설명을 대체함)
 
@@ -43,7 +43,7 @@ POST /reservations는 정수 listing_id/product_id, 양의 정수 quantity, 시�
 
 ## 방문 수령 선택 시간
 시간 선택 화면을 연 시각 기준으로 오늘 오전 9시부터 오후 4시까지 30분 간격으로 표시합니다. 지난 시간은 제외하고 정각/30분과 정확히 일치하면 해당 시간을 포함합니다. 오후 4시가 지난 경우 오늘 예약 마감 안내를 표시합니다. 서버의 최종 예약 검증은 유지합니다.
-상품 상세의 시장명은 기존 가게 상세 GET /stores/{store_id} 응답에서 시장 ID를 확인한 후 표시합니다. 상품 상세 API에 없는 market_name 필드를 필수로 추가하지 않습니다. 홈 추천 상품은 추천 API 응답을 사용하며 실제 판매 게시물 상세로 연결합니다. 추천 응답에 없는 이미지·시장명 처리 방식은 recommendations-api.md를 참고합니다.
+상품 상세의 시장명은 상품 상세 응답 market_name을 표시합니다. 시장명을 얻기 위한 추가 가게 조회는 하지 않습니다. 홈 추천 상품은 추천 API 응답을 사용하며 실제 판매 게시물 상세로 연결합니다. 추천 응답에 없는 이미지·시장명 처리 방식은 recommendations-api.md를 참고합니다.
 
 
 ## 예약 상세 조회 및 픽업 QR
@@ -81,3 +81,9 @@ QR 표시 예시는 assets/pickup-qr-test.png를 참고합니다. 해당 파일 
 ## 예약 생성 ID 정수 타입 수정본
 
 최신 사용자 명세에 따라 요청 listing_id/product_id 및 응답 reservation_id/user_id/listing_id/product_id/store_id를 모두 양의 정수로 검증합니다. 테스트 서버도 숫자 요청·응답을 사용합니다. request_id는 기존처럼 선택 문자열이며 추천 출처가 있을 때만 전달합니다. 추천 AI의 RESERVATION 행동 이벤트는 서버에서 기록하므로 프론트는 별도 이벤트 API 요청을 추가하지 않습니다. 이벤트의 event_id 및 관련 ID도 이번 서버 명세에서 정수로 변경되었으나 프론트가 전송하거나 응답받는 필드는 아닙니다.
+
+## 최신 백엔드 상품 상세 응답 일치
+
+사용자 요청으로 GitHub main의 98a2d8e 커밋을 가져와 backend/schemas.py의 ProductDetailResponse와 backend/routers/products.py를 확인했습니다. listing_id/product_id/store_id/market_id는 정수이며, category_id는 정수 또는 null, description/image_url은 문자열 또는 null입니다. product_name/store_name/market_name은 문자열, price는 정수, sale_price는 정수 또는 null, is_sold_out은 Boolean입니다. 응답에 없는 category/is_on_sale/created_at 검증은 제거했습니다. 임의 접두사 ID를 정수로 해석하지 않습니다.
+
+상품 상세는 sale_price가 null이 아니면 해당 가격(0원 포함)을 표시하고 null이면 price를 사용합니다. 설명이 null이면 생략하고 이미지가 null이면 기존 기본 이미지 영역을 표시합니다. market_name은 상세 응답을 사용하므로 추가 GET /stores 요청을 제거했습니다. 추천·시장·가게 등 모든 상세 진입 경로가 같은 API를 사용하며 추천 request_id 및 예약·찜 연결은 유지합니다. 테스트 상세 응답도 같은 필드 구조를 사용합니다.
