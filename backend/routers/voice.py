@@ -1,4 +1,58 @@
-from datetime import datetime, timezone
+
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from database import get_db
+from dependencies import get_current_user
+from models import User, Store
+
+from voice.jangboso_voice.api import Merchant, build_router
+
+
+# 1. 로그인한 사용자가 상인인지 확인하고 본인 가게 조회
+def get_current_merchant(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Merchant:
+
+    if current_user.role != "MERCHANT":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="상인만 이용할 수 있는 기능입니다.",
+        )
+
+    store = (
+        db.query(Store)
+        .filter(Store.user_id == current_user.user_id)
+        .first()
+    )
+
+    if not store:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="등록된 가게가 없습니다.",
+        )
+
+    return Merchant(
+        user_id=str(current_user.user_id),
+        store_id=str(store.store_id),
+    )
+
+
+# 2. AI 음성 라우터 생성
+def create_voice_router(service, stt=None):
+    """
+    service: PostgreSQL 저장소가 연결된 VoiceService
+    stt: WhisperSTT 인스턴스 (미연결 시 None)
+    """
+    return build_router(
+        service=service,
+        merchant_dependency=get_current_merchant,
+        stt=stt,
+    )
+
+
+"""from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -6,6 +60,7 @@ from security import get_current_user
 from database import get_db
 from models import VoiceAnalysis, User, Store, Product, Listing
 from schemas import VoiceAnalysisCreate, VoiceAnalysisResponse
+from voice.jangboso_voice.api import Merchant
 
 # 기존 인증 함수에 맞게 import 필요
 # from auth import get_current_user
@@ -92,11 +147,7 @@ def apply_voice_analysis(
         )
 
     # 4. 분석 결과 가져오기
-    # Read pre-rename saved analyses without losing an explicit sale amount.
-    result = dict(analysis.analysis_result)
-    if 'sale_price' not in result and 'discount_price' in result:
-        result['sale_price'] = result['discount_price']
-    result.pop('discount_price', None)
+    result = analysis.analysis_result
     intent = analysis.intent
     product_name = result.get("product_name")
 
@@ -178,9 +229,8 @@ def apply_voice_analysis(
 
             db.delete(listing)
 
-        # Voice engine SOLD_OUT and the legacy PRODUCT_SOLD_OUT both map to
-        # Listing.is_sold_out, which is the existing DB availability field.
-        elif intent in ("SOLD_OUT", "PRODUCT_SOLD_OUT"):
+        # 품절 처리
+        elif intent == "PRODUCT_SOLD_OUT":
             if not listing:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -188,27 +238,6 @@ def apply_voice_analysis(
                 )
 
             listing.is_sold_out = True
-
-        # 할인 등록: Listing.sale_price stores either the spoken fixed price
-        # or the price calculated from discount_rate.
-        elif intent == "SALE_CREATE":
-            if not listing:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="할인할 상품이 없습니다.",
-                )
-
-            if result.get("sale_price") is not None:
-                listing.sale_price = result["sale_price"]
-            elif result.get("discount_rate") is not None:
-                listing.sale_price = int(
-                    listing.price * (1 - result["discount_rate"] / 100)
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="할인율 또는 할인 가격이 필요합니다.",
-                )
 
         # 할인 등록 취소
         elif intent == "SALE_DELETE":
@@ -352,3 +381,32 @@ def delete_voice_analysis(
     db.refresh(analysis)
 
     return analysis
+
+def get_current_merchant(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Merchant:
+
+    if current_user.role != "MERCHANT":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="상인만 이용할 수 있는 기능입니다.",
+        )
+
+    store = (
+        db.query(Store)
+        .filter(Store.user_id == current_user.user_id)
+        .first()
+    )
+
+    if not store:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="등록된 가게가 없습니다.",
+        )
+
+    return Merchant(
+        user_id=str(current_user.user_id),
+        store_id=str(store.store_id),
+    )"""
+

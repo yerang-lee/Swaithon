@@ -341,3 +341,62 @@ class StoreDetailResponse(BaseModel):
     description: str | None = None
 
     model_config = {"from_attributes": True}
+
+# 찜하기 등록 요청
+class FavoriteCreateRequest(BaseModel):
+    listing_id: int = Field(gt=0)
+    request_id: str | None = Field(default=None, max_length=100)
+
+
+# 찜하기 등록 응답
+class FavoriteResponse(BaseModel):
+    favorite_id: int
+    listing_id: int
+    is_active: bool
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+class FavoriteCreateResponse(BaseModel):
+    favorite_id: int
+    user_id: int
+    listing_id: int
+    product_id: int
+    store_id: int
+    product_name: str
+    store_name: str
+    created_at: datetime
+    message: str
+
+class FavoriteListItem(BaseModel):
+    favorite_id: int
+    listing_id: int
+    product_id: int
+    product_name: str
+    store_id: int
+    store_name: str
+    market_id: int
+    market_name: str
+    category_id: int | None = None
+    price: int
+    sale_price: int | None = None
+    is_sold_out: bool
+    is_on_sale: bool
+    image_url: str | None = None
+    created_at: datetime
+
+
+class FavoriteListResponse(BaseModel):
+    total_count: int
+    page: int
+    size: int
+    favorites: list[FavoriteListItem]
+
+
+# 찜하기 취소 응답
+class FavoriteDeleteResponse(BaseModel):
+    favorite_id: int
+    listing_id: int
+    message: str
