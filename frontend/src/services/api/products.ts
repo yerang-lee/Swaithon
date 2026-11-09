@@ -1,26 +1,29 @@
 import { mockRequest } from '../devMock';
 import { ApiError, getJson } from './client';
 export type ProductDetail = {
-  listing_id: string | number;
-  product_id: string | number;
-  store_id: string | number;
+  listing_id: number;
+  product_id: number;
+  store_id: number;
   store_name: string;
-  market_id: string | number;
+  market_id: number;
+  market_name: string;
   product_name: string;
+  category_id: number | null;
   price: number;
   sale_price: number | null;
-  category: string;
-  description: string;
+  description: string | null;
   is_sold_out: boolean;
-  is_on_sale: boolean;
-  image_url: string;
-  created_at: string;
+  image_url: string | null;
 };
 export async function getProduct(
   listingId: string,
   preview = false,
 ): Promise<ProductDetail> {
-  if (typeof listingId !== 'string' || !listingId.trim())
+  if (
+    typeof listingId !== 'string' ||
+    !/^[1-9]\d*$/.test(listingId) ||
+    !Number.isSafeInteger(Number(listingId))
+  )
     throw new Error('잘못된 판매 게시물 ID예요.');
   let data: unknown;
   try {
@@ -40,36 +43,26 @@ export async function getProduct(
     throw error;
   }
   const p = data as ProductDetail | null;
+  const positiveId = (value: unknown) =>
+    typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+  const price = (value: unknown) =>
+    typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
   if (
     !p ||
-    !isIdentifier(p.listing_id) ||
-    String(p.listing_id) !== listingId ||
-    !isIdentifier(p.product_id) ||
-    !isIdentifier(p.store_id) ||
-    !isIdentifier(p.market_id) ||
+    ![p.listing_id, p.product_id, p.store_id, p.market_id].every(positiveId) ||
+    p.listing_id !== Number(listingId) ||
     typeof p.product_name !== 'string' ||
     typeof p.store_name !== 'string' ||
-    !Number.isFinite(p.price) ||
-    p.price < 0 ||
-    !(
-      p.sale_price === null ||
-      (Number.isFinite(p.sale_price) && p.sale_price >= 0)
-    ) ||
+    typeof p.market_name !== 'string' ||
+    !(p.category_id === null || positiveId(p.category_id)) ||
+    !price(p.price) ||
+    !(p.sale_price === null || price(p.sale_price)) ||
     typeof p.is_sold_out !== 'boolean' ||
-    typeof p.is_on_sale !== 'boolean' ||
-    typeof p.description !== 'string' ||
-    typeof p.image_url !== 'string' ||
-    typeof p.category !== 'string' ||
-    typeof p.created_at !== 'string'
+    !(p.description === null || typeof p.description === 'string') ||
+    !(p.image_url === null || typeof p.image_url === 'string')
   )
     throw new Error('상품 응답 형식이 명세와 달라요.');
   return p;
-}
-
-function isIdentifier(value: unknown): value is string | number {
-  return typeof value === 'string'
-    ? value.trim().length > 0
-    : typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 export type ProductListing = {

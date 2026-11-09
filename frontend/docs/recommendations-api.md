@@ -19,7 +19,7 @@ POST /recommendations/events/impressions는 Bearer 인증으로 {request_id, eve
 
 카드·가로 스크롤·세로 스크롤의 실제 measureInWindow 좌표와 기기 창을 교차 계산해 카드 면적의 50% 이상이 보일 때만 노출로 판단합니다. 추천 응답 수신만으로 기록하지 않습니다. 탭 전환·화면 이탈·위치 설정 모달·앱 백그라운드·계정 변경 시에는 새 노출을 만들지 않습니다. 가로/세로 스크롤, 레이아웃/창 크기 변경, 화면 복귀 시 다시 확인합니다. 같은 추천 요청/상품은 앱 메모리 내에서 최초 한 번만 기록합니다.
 
-POST /recommendations/events/views는 {request_id,event_id,listing_id,occurred_at}를 보내고 201 응답의 event_id/listing_id/event_type=VIEW/recorded_at/message를 검증합니다. 상품 클릭 때가 아니라 추천 경로로 열린 상품 상세가 해당 listing_id의 데이터를 로드하고 화면 포커스를 가진 뒤에 기록합니다. 로딩 실패·일반 상품 상세·레거시 미리보기 상품은 제외합니다. 같은 상세 화면의 재렌더링, 상품 데이터 새로고침, 가게 화면에서의 복귀에는 동일한 방문 ID를 사용해 중복을 만들지 않습니다. 새 추천 요청/상세 진입은 별도 방문 ID를 사용합니다.
+POST /recommendations/events/views는 {request_id,event_id,listing_id,occurred_at}를 보내고 201 응답의 event_id/listing_id/event_type=detail_view/recorded_at/message를 검증합니다. 상품 클릭 때가 아니라 추천 경로로 열린 상품 상세가 해당 listing_id의 데이터를 로드하고 화면 포커스를 가진 뒤에 기록합니다. 로딩 실패·일반 상품 상세·레거시 미리보기 상품은 제외합니다. 같은 상세 화면의 재렌더링, 상품 데이터 새로고침, 가게 화면에서의 복귀에는 동일한 방문 ID를 사용해 중복을 만들지 않습니다. 새 추천 요청/상세 진입은 별도 방문 ID를 사용합니다.
 
 분석 이벤트는 사용자 화면과 독립된 메모리 큐로 전송하며 실패해도 상세 진입/찜/예약을 막지 않습니다. 이벤트 시각은 ISO 8601 UTC입니다. 통신 실패·5xx·결과 형식 오류에는 1초/3초 후 최대 두 번 추가 전송하며, event_id와 occurred_at 등 원본 이벤트를 바꾸지 않습니다. 400/401/404/409는 재시도하지 않습니다. 로그인한 계정으로 수신한 추천 요청만 추적하며 다른 계정으로 이전 큐를 재전송하지 않습니다. 앱 종료 후 큐 복원과 영구 보관은 하지 않습니다.
 
@@ -30,3 +30,11 @@ POST /recommendations/events/views는 {request_id,event_id,listing_id,occurred_a
 rule_version은 사용하지 않습니다. recommendation_type은 ai 또는 rule, model_version은 문자열 또는 null이며 rule 방식은 null입니다. user_state는 new_no_interest/new_with_interest/behavior_based 문자열입니다. 추천 항목의 ID는 명세대로 문자열로 유지하며 요청 market_id만 정수입니다. 시장 필터가 있으면 응답의 market_id 문자열을 요청 정수의 문자열 표현과 비교합니다. price는 서버가 반환한 실제 판매 가격으로 사용하며 프론트가 추가 할인 계산을 하지 않습니다. 400 응답도 조회 조건 오류로 안내합니다.
 
 테스트 서버도 필수 좌표와 top_n/market_id 타입을 검증하고 recommendation_type=rule, model_version=null, user_state=new_no_interest 형식을 반환합니다. 테스트 추천의 가격도 sale_price가 있으면 해당 가격을 사용합니다. 실제 AI 모델 선정·사용자 상태 계산과 추천 요청 저장은 서버 책임입니다. 노출·상세 조회 API 계약 및 request_id 전파는 유지합니다.
+
+## 이벤트 ID 길이 제한
+
+추천 노출·상세 조회 이벤트의 공통 생성기는 종류·18자 실행 식별자·36진수 순번으로 36자 이하 ID를 생성합니다. 두 전송 함수는 36자를 넘는 ID를 API 호출 전에 차단합니다. ID를 잘라서 사용하지 않으며, 재시도 시 최초 ID와 occurred_at을 그대로 유지하여 서버 중복 처리를 보장합니다. 실행 중 메모리 큐만 사용하고 개인정보나 좌표를 이벤트 ID에 넣지 않습니다.
+
+## 노출·상세 기록 최신 명세 반영
+
+상세 조회 응답의 event_type은 기존 VIEW에서 detail_view로 변경되었습니다. 서비스와 테스트 서버 모두 detail_view를 사용합니다. 요청 listing_id는 여전히 문자열이며 position은 1부터 시작합니다. 실제 화면 노출 추적, 36자 이하 이벤트 ID, 재전송 시 동일 ID·시각 유지와 중복 처리 정책은 유지합니다. 요청 소유권과 해당 추천 결과에 포함된 상품인지 검증하는 것은 서버 책임이며 테스트 서버에도 동일 검증이 있습니다. 추천에 포함되지 않은 listing_id는 404이고, 같은 이벤트 ID에 다른 데이터는 409로 처리합니다.

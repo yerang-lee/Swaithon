@@ -42,6 +42,7 @@ export async function postRecommendationImpressions(
         (event) =>
           event &&
           text(event.event_id) &&
+          event.event_id.length <= 36 &&
           text(event.listing_id) &&
           Number.isSafeInteger(event.position) &&
           event.position > 0 &&
@@ -89,6 +90,7 @@ export async function postRecommendationView(
     if (
       !event ||
       ![event.request_id, event.event_id, event.listing_id].every(text) ||
+      event.event_id.length > 36 ||
       !timestamp(event.occurred_at)
     )
       throw new Error('상품 상세 조회 기록 형식이 올바르지 않아요.');
@@ -108,7 +110,7 @@ export async function postRecommendationView(
       !result ||
       result.event_id !== event.event_id ||
       result.listing_id !== event.listing_id ||
-      result.event_type !== 'VIEW' ||
+      result.event_type !== 'detail_view' ||
       !timestamp(result.recorded_at) ||
       !text(result.message)
     )
@@ -148,9 +150,11 @@ type Scope = {
 };
 let scope: Scope | null = null;
 let sequence = 0;
-const installation = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+// 18자 실행 식별자 + 종류 + 36진수 순번으로 DB의 36자 제한을 지킵니다.
+// 순번은 생성 시에만 증가하며 재전송 시 기존 이벤트 ID를 그대로 사용합니다.
+const installation = `${Date.now().toString(36).slice(-10).padStart(10, '0')}${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
 export function newRecommendationEventId(kind: 'imp' | 'view') {
-  return `evt_${kind}_${installation}_${++sequence}`;
+  return `${kind}_${installation}_${(++sequence).toString(36)}`;
 }
 function current(owner: Scope) {
   const session = getAuthSession();

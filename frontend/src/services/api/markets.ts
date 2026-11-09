@@ -71,6 +71,7 @@ export type NearbyMarket = {
   address: string;
   latitude: number;
   longitude: number;
+  // 앱 내부 거리 단위는 미터입니다.
   distance: number;
   image_url: string | null;
 };
@@ -128,7 +129,12 @@ export async function getNearbyMarkets(
       !data.markets.every(isMarket)
     )
       throw new Error('주변 시장 응답 형식이 명세와 달라요.');
-    const markets: NearbyMarket[] = data.markets;
+    // 백엔드 markets.py는 카카오 거리(m)를 km로 변환해 반환합니다.
+    // 반경 필터·라우트·가게 거리·화면 포맷은 기존처럼 m로 통일합니다.
+    const markets: NearbyMarket[] = data.markets.map((market) => ({
+      ...market,
+      distance: market.distance * 1000,
+    }));
     if (markets.length < limit) {
       const seen = new Set<number>();
       return markets
