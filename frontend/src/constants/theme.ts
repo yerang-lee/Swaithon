@@ -8,6 +8,6 @@ export const theme = {
     background: '#FFFFFF',
     error: '#C23D3D',
   },
-  button: { radius: 19, height: 67 },
+  button: { radius: 16, height: 54 },
   radii: { small: 8, input: 12, card: 16, sheet: 24 },
 } as const;
