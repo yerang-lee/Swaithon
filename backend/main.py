@@ -24,6 +24,7 @@ from routers.markets import router as markets_router
 from routers.stores import router as stores_router
 from routers.products import router as products_router
 from routers.favorites import router as favorites_router
+from routers.recommendations import router as recommendations_router
 
 # 음성 AI 모듈
 from routers.voice import create_voice_router
@@ -86,6 +87,7 @@ app.include_router(markets_router)
 app.include_router(stores_router)
 app.include_router(products_router)
 app.include_router(favorites_router)
+app.include_router(recommendations_router)
 
 # 음성 AI API 등록
 app.include_router(voice_router)

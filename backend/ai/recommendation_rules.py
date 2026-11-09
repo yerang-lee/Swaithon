@@ -661,23 +661,32 @@ def recommend_from_payload(payload, top_n=20):
         now=as_of,
     )
 
-    items = [
-        {
-            "listing_id": row["listing_id"],
+    listing_lookup = {
+        str(item["listing_id"]): item
+        for item in payload["listings"]
+    }
+
+    items = []
+
+    for row in result["items"].to_dict(orient="records"):
+        listing_id = str(row["listing_id"])
+        listing_info = listing_lookup[listing_id]
+
+        items.append({
+            "listing_id": listing_id,
+            "product_id": listing_info["product_id"],
+            "name": listing_info["name"],
+            "category_id": listing_info["category_id"],
+            "store_id": listing_info["store_id"],
+            "distance_km": listing_info["distance_km"],
+            "created_at": listing_info["created_at"],
             "rank": int(row["rank"]),
             "score": float(row["score"]),
+        })
+        return {
+            "request_id": normalize_id(payload["request_id"]),
+            "generated_at": as_of.isoformat(),
+            "rule_version": RULE_VERSION,
+            "user_state": result["state"],
+            "items": items,
         }
-        for row in result["items"].to_dict(
-            orient="records"
-        )
-    ]
-
-    return {
-        "request_id": normalize_id(
-            payload["request_id"]
-        ),
-        "generated_at": as_of.isoformat(),
-        "rule_version": RULE_VERSION,
-        "user_state": result["state"],
-        "items": items,
-    }

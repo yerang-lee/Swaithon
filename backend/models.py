@@ -508,7 +508,220 @@ class FavoriteEvent(Base):
         nullable=False,
     )
 
-request_id: Mapped[str | None] = mapped_column(
-    String(100),
-    nullable=True,
-)
+
+# =========================================================
+# 추천 요청 기록
+# =========================================================
+
+class RecommendationRequest(Base):
+    __tablename__ = "recommendation_requests"
+
+    # AI 모델이 생성한 추천 요청 ID
+    request_id: Mapped[str] = mapped_column(
+        String(100), primary_key=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
+
+    # 추천 기준 시각
+    as_of: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    # 추천 결과 생성 시각
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    # 추천 규칙 버전
+    rule_version: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )
+
+    # 사용자 추천 상태
+    # new_no_interest / new_with_interest / behavior_based
+    user_state: Mapped[str] = mapped_column(
+        String(30), nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+# =========================================================
+# 추천 상품 기록
+# =========================================================
+
+class RecommendationItem(Base):
+    __tablename__ = "recommendation_items"
+
+    recommendation_item_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+
+    request_id: Mapped[str] = mapped_column(
+        String(100),
+        ForeignKey("recommendation_requests.request_id"),
+        nullable=False,
+        index=True,
+    )
+
+    listing_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("listings.listing_id"),
+        nullable=False,
+    )
+
+    # 추천 당시 상품 및 점포 정보
+    product_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("products.product_id"),
+        nullable=False,
+    )
+
+    store_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("stores.store_id"),
+        nullable=False,
+    )
+
+    # 추천 순위 및 점수
+    rank: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+
+    score: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "request_id",
+            "listing_id",
+            name="uq_recommendation_request_listing",
+        ),
+        UniqueConstraint(
+            "request_id",
+            "rank",
+            name="uq_recommendation_request_rank",
+        ),
+    )
+
+
+# =========================================================
+# 추천 상품 노출 기록
+# =========================================================
+
+class RecommendationImpression(Base):
+    __tablename__ = "recommendation_impressions"
+
+    # 프론트엔드에서 생성하는 UUID
+    # 중복 요청 방지용
+    event_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True
+    )
+
+    request_id: Mapped[str] = mapped_column(
+        String(100),
+        ForeignKey("recommendation_requests.request_id"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
+
+    listing_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("listings.listing_id"),
+        nullable=False,
+    )
+
+    # 화면에 실제로 노출된 순서
+    position: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "request_id",
+            "listing_id",
+            name="uq_impression_request_listing",
+        ),
+    )
+
+
+# =========================================================
+# 상품 상세 조회 기록
+# =========================================================
+
+class ProductViewEvent(Base):
+    __tablename__ = "product_view_events"
+
+    # 프론트엔드에서 생성하는 UUID
+    event_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id"),
+        nullable=False,
+        index=True,
+    )
+
+    listing_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("listings.listing_id"),
+        nullable=False,
+        index=True,
+    )
+
+    product_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("products.product_id"),
+        nullable=False,
+    )
+
+    store_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("stores.store_id"),
+        nullable=False,
+    )
+
+    # 추천을 통해 상세 페이지에 진입한 경우 연결
+    # 일반적인 상품 상세 조회라면 NULL
+    request_id: Mapped[str | None] = mapped_column(
+        String(100),
+        ForeignKey("recommendation_requests.request_id"),
+        nullable=True,
+    )
+
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )

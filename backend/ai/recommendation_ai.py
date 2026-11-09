@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from recommendation_rules import (
+from .recommendation_rules import (
     build_recommendation_inputs,
     recommend,
     normalize_id,
