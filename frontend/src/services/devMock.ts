@@ -760,6 +760,27 @@ export async function mockRequest(
     if (!account) throw new Error('로그인 후 추천 상품을 확인해주세요.');
     const marketId = url.searchParams.get('market_id');
     const topN = Number(url.searchParams.get('top_n') ?? 20);
+    const latitude = url.searchParams.get('latitude');
+    const longitude = url.searchParams.get('longitude');
+    if (
+      latitude === null ||
+      longitude === null ||
+      !latitude.trim() ||
+      !longitude.trim() ||
+      !Number.isFinite(Number(latitude)) ||
+      Math.abs(Number(latitude)) > 90 ||
+      !Number.isFinite(Number(longitude)) ||
+      Math.abs(Number(longitude)) > 180 ||
+      !Number.isSafeInteger(topN) ||
+      topN < 1 ||
+      topN > 20 ||
+      (marketId !== null &&
+        (!/^[1-9]\d*$/.test(marketId) ||
+          !Number.isSafeInteger(Number(marketId))))
+    )
+      throw Object.assign(new Error('추천 조회 조건을 확인해주세요.'), {
+        status: 400,
+      });
     const result = (await mockRequest(
       `/products?page=1&size=${topN}${marketId ? `&market_id=${encodeURIComponent(marketId)}` : ''}`,
       'GET',
@@ -776,8 +797,9 @@ export async function mockRequest(
       request_id: requestId,
       as_of: now,
       generated_at: now,
-      rule_version: 'mock-v1',
-      user_state: {},
+      recommendation_type: 'rule',
+      model_version: null,
+      user_state: 'new_no_interest',
       items: result.products.map((product, index) => ({
         rank: index + 1,
         score: 1 - index / 100,
@@ -788,7 +810,7 @@ export async function mockRequest(
         market_id: String(product.market_id),
         name: product.product_name,
         category_id: String(product.category_id),
-        price: product.price,
+        price: product.sale_price ?? product.price,
         distance_km: 0.3 + index / 10,
         created_at: product.created_at,
       })),

@@ -220,7 +220,7 @@ async function advance(ms) {
     await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
   ).access_token;
   const recommendations = await mock.mockRequest(
-    '/recommendations?top_n=2',
+    '/recommendations?latitude=37.5&longitude=127&top_n=2',
     'GET',
     undefined,
     token,
