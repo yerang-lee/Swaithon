@@ -13,10 +13,10 @@
 | 작업 | 요청 |
 | --- | --- |
 | 최초 텍스트 | POST /voice/analyze, JSON {text} |
-| 최초 녹음 | POST /voice/analyze-audio, multipart audio_file |
+| 최초 녹음 | POST /voice/analyze-audio, multipart file |
 | 추가 텍스트 | POST /voice/commands/{command_id}/answer, JSON {answer} |
 | 후보 선택 | 같은 answer 경로, JSON {listing_id} |
-| 추가 녹음 | POST /voice/commands/{command_id}/answer-audio, multipart audio_file |
+| 추가 녹음 | POST /voice/commands/{command_id}/answer-audio, multipart file |
 | 초안 취소 | POST /voice/commands/{command_id}/cancel, 본문 없음 |
 | 실행 | 서버 execution_endpoint, JSON {command_id,confirmed:true} |
 
@@ -74,13 +74,13 @@ iOS/Android 업로드는 공통 postMultipart의 React Native XMLHttpRequest를 
 
 이전 제안 설명 중 analyze-audio/answer/answer-audio는 이번에 전달받은 사용자 확정 명세를 우선합니다.
 
-- 최초·추가 녹음은 audio_file 파일만 multipart로 전송합니다. RN은 기존 native XHR 업로드를 유지하고 boundary를 직접 지정하지 않습니다. 추가 텍스트는 answer 문자열만 JSON으로 전송합니다.
+- 최초·추가 녹음은 사용자의 최신 연동 지시에 따라 확인된 백엔드 구현에 맞춰 file 필드만 multipart로 전송합니다. RN은 기존 native XHR 업로드를 유지하고 boundary를 직접 지정하지 않습니다. 추가 텍스트는 answer 문자열만 JSON으로 전송합니다.
 - READY는 분석 완료 상태이며 상품 완료가 아닙니다. analysis_result를 상품명·가격·unit 표시로 사용하고, needs_confirmation=true 및 빈 missing_fields를 검증합니다. NEEDS_INPUT은 부족 필드와 question을 표시하고 추가 텍스트·녹음 입력을 받습니다. 필드 부족 자체로 상품 정보를 변경하지 않습니다.
 - 같은 command_id만 허용합니다. 최초 서버 expires_at을 보관하고 추가 응답이 만료 시각을 생략해도 원래 시각을 유지합니다. 추가 응답으로 기한을 연장하지 않습니다. 분석 결과의 서버 시간 필드는 삭제하거나 null로 바꾸지 않으며 할인 기간·종료 시각·카운트다운을 표시하지 않습니다.
 - 410은 만료, 413은 크기 초과, 422는 인식/분석 실패로 안내합니다. 실패하면 추가 분석이나 최종 실행을 자동 호출하지 않습니다. 분석은 HTTP 200을 확인합니다.
 - 기존 NEEDS_CONFIRMATION/preview 응답도 호환 처리합니다. 후보 선택·취소·최종 실행은 이번 세 API 명세에서 변경되지 않았으므로 기존 계약을 유지합니다.
 - 새 예시에는 execution_endpoint가 없습니다. 응답에 주소가 있으면 기존 허용 목록·command_id/confirmed 실행 규칙을 적용합니다. 주소가 없으면 READY 분석 결과는 표시하되 실행 버튼을 비활성화하고 최종 연결 대기 안내를 표시합니다. intent로 실행 경로를 추측하거나 command_id를 analysis_id로 바꾸지 않습니다. 사용자 답변에 따라 기존 command_id/confirmed 실행 계약을 유지하고 READY 응답에 execution_endpoint를 추가하는 백엔드 구현 요청안을 voice-stt-api.md에 정리했습니다. 백엔드는 아직 구현 전이므로 서버 적용 완료로 간주하지 않습니다.
-- 테스트 서버도 READY·분석 필드·추가 질문과 answer/audio_file을 사용합니다. 기존 최종 반영 동작 테스트를 위해 테스트 응답은 execution_endpoint 메타데이터를 추가 제공하며, 이 값이 실제 최신 응답에도 있다고 가정하지 않습니다.
+- 테스트 서버도 READY·분석 필드·추가 질문과 answer/file을 사용합니다. 기존 최종 반영 동작 테스트를 위해 테스트 응답은 execution_endpoint 메타데이터를 추가 제공하며, 이 값이 실제 최신 응답에도 있다고 가정하지 않습니다.
 
 ## 텍스트 명령 분석 최신 명세
 
@@ -89,3 +89,7 @@ POST /voice/analyze는 JSON {text}를 상인 Bearer 인증으로 보냅니다. �
 텍스트 분석의 SUCCEEDED/CANCELLED 응답은 실제 반영 완료로 처리하지 않고 오류로 차단합니다. 분석 API를 한 번 호출한 뒤 최종 실행을 자동 호출하지 않습니다. 사용자 확인과 서버가 제공하는 허용된 execution_endpoint가 모두 있어야 기존 실행 요청을 보냅니다. 새 SALE_UPDATE 실행 경로는 이번 명세에 없으므로 /voice/sale-update 등을 임의 추가하지 않습니다. 주소 없는 READY는 결과만 표시합니다.
 
 테스트 서버의 텍스트 분석도 READY 또는 추가 입력 상태만 반환하며 조회/취소 단독 입력을 성공 완료로 처리하지 않습니다. 기존 후보 선택 응답은 레거시 호환용으로 유지합니다. 최신 요청·응답과 400/401/403/422/500 및 자동 실행 금지를 회귀 테스트로 검증합니다.
+
+## 실행 중 백엔드 업로드 필드 정합성
+
+사용자가 음성 분석 직후 HTTP 422를 보고했고, 확인한 backend/voice/jangboso_voice/api.py의 analyze-audio 및 answer-audio 함수가 file: UploadFile = File(...)을 수신하는 것을 확인했습니다. 사용자의 백엔드 구현 우선 지시에 따라 두 경로의 실제 multipart 파일 키를 audio_file에서 file로 변경했습니다. audio_file을 함께 보내거나 422 이후 자동 재전송하지 않습니다. 기존 별도 분석 모드 voice.ts의 audio_file 계약은 이번 변경 대상이 아닙니다. 텍스트 답변의 answer와 READY 응답 처리도 유지합니다.

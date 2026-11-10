@@ -13,3 +13,7 @@
 JS 실행 전 컴파일 오류는 Metro가 원래 표시합니다. 앱 프로세스 자체가 종료되는 네이티브 크래시는 JS 로거가 수집할 수 없고 adb logcat/Xcode 등 기기 로그가 필요합니다. RN 런타임에서 발생한 미처리 Promise는 RN의 콘솔 경고 경로로 전달되는 범위에서 수집하며 브라우저 전용 unhandledrejection을 모든 네이티브 엔진에서 지원한다고 가정하지 않습니다.
 
 검증: npm run typecheck, node tests/app-diagnostics.test.cjs, node --check metro.config.js. 진단 테스트는 실제 네트워크 없이 Metro 미들웨어의 터미널 출력을 검증합니다. 휴대폰에서 Metro로 로그가 전송되는지는 연결 환경별 확인이 필요합니다.
+
+## 음성 HTTP 422 진단
+
+voiceCommands 서비스 로그의 scope에 POST 경로를 표시하고 command_id 경로 값은 {command_id}로 치환합니다. 필드 검증 배열은 미리 정한 필드명·오류 유형만 추출해 VALIDATION:file/missing 등의 code로 기록합니다. input/msg/ctx 및 알 수 없는 필드명은 기록하지 않습니다. 확인한 백엔드 STT의 고정 오류 문구는 STT_NO_SPEECH/STT_UNSUPPORTED_FORMAT/STT_AUDIO_TOO_LONG/STT_AUDIO_SIZE 같은 고정 code로 바꿉니다. 알려지지 않은 422는 UNCLASSIFIED_422로 표시하고 원문은 남기지 않습니다. 알려진 서버 오류 code만 허용하므로 임의 서버 code나 음성 내용이 로그에 포함되지 않습니다.

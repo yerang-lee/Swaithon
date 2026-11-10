@@ -7,6 +7,7 @@ import {
 import { useRecommendationImpressions } from '../hooks/useRecommendationTracking';
 import { useFavorites } from '../hooks/useFavorites';
 import { FavoritesScreen } from '../components/favorites/FavoritesScreen';
+import { MerchantReservationsScreen } from '../components/reservations/MerchantReservationsScreen';
 import { ReservationsScreen } from '../components/reservations/ReservationsScreen';
 import { MyPage } from '../components/auth/MyPage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -232,7 +233,12 @@ export default function HomeScreen() {
     };
   }, [location, nearbyRetry]);
 
-  if (active === '예약') return <ReservationsScreen onTab={setActive} />;
+  if (active === '예약')
+    return getAuthSession()?.role === 'MERCHANT' ? (
+      <MerchantReservationsScreen onTab={setActive} />
+    ) : (
+      <ReservationsScreen onTab={setActive} />
+    );
   if (active === '관심상품') return <FavoritesScreen onTab={setActive} />;
 
   if (active === '마이')

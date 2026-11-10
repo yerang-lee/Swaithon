@@ -145,7 +145,10 @@ function invalidateMockPickupQr(ownerId: number, reservationId: number) {
 function reservationBase(userId: number) {
   return userId === 2 ? 501 : userId * 1000 + 501;
 }
-type MockReservation = ReservationItem & { listing_id: number };
+type MockReservation = ReservationItem & {
+  listing_id: number;
+  request_note?: string | null;
+};
 const mockCreatedReservations = new Map<number, MockReservation[]>();
 function mockReservationItems(userId: number): MockReservation[] {
   const cancelled = mockCancellations.get(userId) ?? new Set<number>();
@@ -442,6 +445,8 @@ export async function mockRequest(
       unit_price: price,
       total_price: price * input.quantity,
       pickup_at: input.pickup_at,
+      request_note:
+        typeof input.request_note === 'string' ? input.request_note : null,
       status: 'PENDING',
       created_at: new Date().toISOString(),
     };
@@ -455,6 +460,61 @@ export async function mockRequest(
       request_note:
         typeof input.request_note === 'string' ? input.request_note : null,
       message: '예약이 완료되었습니다.',
+    };
+  }
+  if (url.pathname === '/reservations/merchant' && method === 'GET') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('상인 예약 조회 실패'), { status });
+    };
+    if (!account) return fail(401);
+    if (account.role !== 'MERCHANT' || !account.store_id) return fail(403);
+    const page = Number(url.searchParams.get('page') ?? 1);
+    const size = Number(url.searchParams.get('size') ?? 10);
+    const status = url.searchParams.get('status');
+    if (
+      ![page, size].every(
+        (value) => Number.isSafeInteger(value) && value > 0,
+      ) ||
+      (status !== null &&
+        !['PENDING', 'CONFIRMED', 'READY', 'COMPLETED', 'CANCELLED'].includes(
+          status,
+        ))
+    )
+      return fail(422);
+    const all = [...accounts.values()]
+      .flatMap((user) =>
+        mockReservationItems(user.user_id).map((item) => ({
+          reservation_id: item.reservation_id,
+          customer_id: user.user_id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          pickup_at: item.pickup_at,
+          request_note: item.request_note ?? null,
+          status: item.status,
+          created_at: item.created_at,
+          store_id: item.store_id,
+        })),
+      )
+      .filter(
+        (item) =>
+          item.store_id === account.store_id &&
+          (!status || item.status === status),
+      )
+      .sort(
+        (a, b) =>
+          Date.parse(b.created_at) - Date.parse(a.created_at) ||
+          b.reservation_id - a.reservation_id,
+      );
+    return {
+      reservations: all
+        .slice((page - 1) * size, page * size)
+        .map(({ store_id, ...item }) => item),
+      total_count: all.length,
+      page,
+      size,
     };
   }
   if (

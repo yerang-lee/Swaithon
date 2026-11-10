@@ -2,6 +2,8 @@
 
 사용자가 제공한 analyze/analyze-audio/answer/answer-audio 명세를 반영한 프론트 기준입니다. 아래 execution_endpoint 추가와 최종 실행 응답은 기존 프론트 실행 계약을 유지하기 위한 **백엔드 구현 요청안**이며, 운영 서버 구현 완료를 의미하지 않습니다.
 
+업로드 필드 참고: 사용자의 최신 지시에 따라 확인된 백엔드 api.py의 file: UploadFile = File(...)과 일치하도록 analyze-audio/answer-audio 파일 키를 file로 맞췄습니다. 앞서 받은 audio_file 명세와 다른 부분이므로 실제 서버 구현을 우선한 연동 수정입니다.
+
 ## 음성 명령 분석(텍스트)
 
 `POST /voice/analyze`
@@ -37,9 +39,9 @@
 | 필드 | 타입 | 위치 | 필수 | 설명 |
 | --- | --- | --- | --- | --- |
 | Authorization | Bearer Token | Header | O | 상인 인증 토큰 |
-| audio_file | File | Body | O | 음성 파일 |
+| file | File | Body | O | 음성 파일 |
 
-`Content-Type: multipart/form-data`. 파일 필드는 audio_file이며 boundary는 업로드 라이브러리가 지정합니다.
+`Content-Type: multipart/form-data`. 파일 필드는 file이며 boundary는 업로드 라이브러리가 지정합니다.
 
 ### Response — 200 OK
 
@@ -108,7 +110,7 @@ expires_at은 최초 분석에서 필수이며 추가 답변 응답에서는 생
 | --- | --- | --- | --- | --- |
 | Authorization | Bearer Token | Header | O | 상인 인증 토큰 |
 | command_id | String | Path | O | 기존 명령 ID |
-| audio_file | File | Body | O | 추가 답변 음성 |
+| file | File | Body | O | 추가 답변 음성 |
 
 `Content-Type: multipart/form-data`
 

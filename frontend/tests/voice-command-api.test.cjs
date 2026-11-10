@@ -140,7 +140,7 @@ async function main() {
     fileSize: 1024,
   });
   assert.ok(calls.at(-1).url.endsWith('/commands/cmd-1/answer-audio'));
-  assert.equal(calls.at(-1).body.fields[0][0], 'audio_file');
+  assert.equal(calls.at(-1).body.fields[0][0], 'file');
   assert.equal(calls.at(-1).headers['Content-Type'], undefined);
   assert.equal(confirmed.intent, 'PRODUCT_UPDATE');
   assert.equal(confirmed.expiresAt, initial.expiresAt);
@@ -339,7 +339,7 @@ async function main() {
   });
   assert.deepEqual(
     calls.at(-1).body.fields.map(([key]) => key),
-    ['audio_file'],
+    ['file'],
   );
   assert.equal(modernInitial.question, response.question);
   assert.equal(modernInitial.expiresAt, Date.parse(deadline));
@@ -384,7 +384,7 @@ async function main() {
   assert.equal(audioReady.expiresAt, modernInitial.expiresAt);
   assert.deepEqual(
     calls.at(-1).body.fields.map(([key]) => key),
-    ['audio_file'],
+    ['file'],
   );
   for (const change of [
     { needs_confirmation: false },
@@ -513,6 +513,76 @@ async function main() {
   const beforeEmptyText = calls.length;
   await assert.rejects(() => api.analyzeText('   '));
   assert.equal(calls.length, beforeEmptyText);
+  const diagnostics = [];
+  const previousLogger = globalThis.__jangbosoLogError;
+  globalThis.__jangbosoLogError = (scope, error) =>
+    diagnostics.push({ scope, code: error.code, message: error.message });
+  status = 422;
+  response = {
+    detail: [
+      {
+        loc: ['body', 'file'],
+        type: 'missing',
+        msg: 'private validation message',
+        input: { transcript: 'private speech' },
+      },
+    ],
+  };
+  await assert.rejects(
+    () =>
+      api.analyzeAudio({
+        uri: 'file:///voice.m4a',
+        durationMillis: 1000,
+        fileSize: 4,
+      }),
+    (error) =>
+      error.code === 'VALIDATION:file/missing' &&
+      error.message.includes('누락'),
+  );
+  assert.ok(diagnostics.at(-1).scope.endsWith('POST /voice/analyze-audio'));
+  response = { detail: '음성을 확인하지 못했습니다. 다시 녹음해 주세요.' };
+  await assert.rejects(
+    () =>
+      api.analyzeAudio({
+        uri: 'file:///voice.m4a',
+        durationMillis: 1000,
+        fileSize: 4,
+      }),
+    (error) => error.code === 'STT_NO_SPEECH',
+  );
+  response = {
+    detail: [
+      {
+        loc: ['body', 'private input key'],
+        type: 'private type',
+        msg: 'private msg',
+        input: 'private text',
+      },
+    ],
+  };
+  await assert.rejects(
+    () =>
+      api.analyzeAudio({
+        uri: 'file:///voice.m4a',
+        durationMillis: 1000,
+        fileSize: 4,
+      }),
+    (error) => error.code === 'VALIDATION:request/invalid',
+  );
+  response = { detail: { code: 'private code', message: 'private content' } };
+  await assert.rejects(
+    () =>
+      api.analyzeAudio({
+        uri: 'file:///voice.m4a',
+        durationMillis: 1000,
+        fileSize: 4,
+      }),
+    (error) => error.code === 'UNCLASSIFIED_422',
+  );
+  assert.equal(JSON.stringify(diagnostics).includes('private'), false);
+  assert.equal(JSON.stringify(diagnostics).includes('file:///'), false);
+  globalThis.__jangbosoLogError = previousLogger;
+  status = 200;
   mock = true;
   let draft = await api.analyzeText('질문');
   assert.equal(draft.status, 'NEEDS_INPUT');

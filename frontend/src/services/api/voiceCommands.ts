@@ -240,8 +240,94 @@ export function parseCommand(
   };
 }
 function failure(status: number, detail: unknown): CommandError {
-  const code =
-    object(detail) && typeof detail.code === 'string' ? detail.code : '';
+  const knownCodes = [
+    'WRONG_ENDPOINT',
+    'EXPIRED',
+    'STALE_COMMAND',
+    'STALE_PRODUCT',
+    'INVALID_TIME',
+    'EMPTY_ANSWER',
+    'INVALID_SELECTION',
+  ];
+  let code =
+    object(detail) &&
+    typeof detail.code === 'string' &&
+    knownCodes.includes(detail.code)
+      ? detail.code
+      : '';
+  let validationMessage: string | undefined;
+  if (status === 422) {
+    const sttErrors: Record<string, { code: string; message: string }> = {
+      '지원하지 않는 녹음 형식입니다.': {
+        code: 'STT_UNSUPPORTED_FORMAT',
+        message: '서버가 이 녹음 형식을 지원하지 않아요.',
+      },
+      '녹음은 10MB 이하로 보내주세요.': {
+        code: 'STT_AUDIO_SIZE',
+        message:
+          '서버가 녹음 파일 크기를 처리하지 못했어요. 다시 녹음해주세요.',
+      },
+      '30초 이내로 녹음해 주세요.': {
+        code: 'STT_AUDIO_TOO_LONG',
+        message:
+          '서버 기준으로 녹음이 30초를 넘었어요. 짧게 다시 녹음해주세요.',
+      },
+      '음성을 확인하지 못했습니다. 다시 녹음해 주세요.': {
+        code: 'STT_NO_SPEECH',
+        message:
+          '서버가 음성을 인식하지 못했어요. 마이크 가까이에서 다시 말해주세요.',
+      },
+    };
+    const recognized =
+      typeof detail === 'string' &&
+      Object.prototype.hasOwnProperty.call(sttErrors, detail)
+        ? sttErrors[detail]
+        : undefined;
+    if (recognized) {
+      code = recognized.code;
+      validationMessage = recognized.message;
+    } else if (Array.isArray(detail)) {
+      const fields: Record<string, string> = {
+        file: '녹음 파일(file)',
+        audio_file: '녹음 파일(audio_file)',
+        text: '명령 텍스트',
+        answer: '추가 답변',
+        command_id: '명령 ID',
+        confirmed: '확인 여부',
+        listing_id: '판매 게시물 ID',
+      };
+      const types: Record<string, string> = {
+        missing: '누락',
+        string_type: '문자열 형식 오류',
+        int_parsing: '정수 형식 오류',
+        bool_parsing: '확인 값 형식 오류',
+        extra_forbidden: '허용되지 않는 항목',
+      };
+      const problems = detail.slice(0, 5).map((item) => {
+        const rawField =
+          object(item) && Array.isArray(item.loc)
+            ? item.loc[item.loc.length - 1]
+            : undefined;
+        const field =
+          typeof rawField === 'string' &&
+          Object.prototype.hasOwnProperty.call(fields, rawField)
+            ? rawField
+            : 'request';
+        const type =
+          object(item) &&
+          typeof item.type === 'string' &&
+          Object.prototype.hasOwnProperty.call(types, item.type)
+            ? item.type
+            : 'invalid';
+        return { field, type };
+      });
+      code = problems.length
+        ? `VALIDATION:${problems.map((p) => `${p.field}/${p.type}`).join(',')}`
+        : 'UNCLASSIFIED_422';
+      if (problems.length)
+        validationMessage = `서버 요청 항목 확인이 필요해요: ${problems.map((p) => `${fields[p.field] ?? '요청 항목'} ${types[p.type] ?? '형식 오류'}`).join(', ')}`;
+    } else if (!code) code = 'UNCLASSIFIED_422';
+  }
   const codes: Record<string, string> = {
     WRONG_ENDPOINT: '실행 경로가 변경됐어요. 새로 분석하고 확인해주세요.',
     EXPIRED: '명령이 만료됐어요. 새로 분석해주세요.',
@@ -263,7 +349,8 @@ function failure(status: number, detail: unknown): CommandError {
   return new CommandError(
     status,
     code,
-    codes[code] ??
+    validationMessage ??
+      codes[code] ??
       messages[status] ??
       '음성 요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
   );
@@ -303,7 +390,7 @@ async function audioBody(audio: RecordedAudio) {
     };
     const ext = types[blob.type.split(';')[0]];
     if (!ext) throw new Error('지원하지 않는 녹음 형식이에요.');
-    form.append('audio_file', blob, `voice.${ext}`);
+    form.append('file', blob, `voice.${ext}`);
   } else {
     const ext = audio.uri.split('?')[0].split('.').pop()?.toLowerCase();
     const types: Record<string, string> = {
@@ -323,7 +410,7 @@ async function audioBody(audio: RecordedAudio) {
     )
       throw new Error('빈 파일이 아닌 10MB 이내 녹음이 필요해요.');
     // postMultipart uses native XHR for RN's URI-based file parts.
-    form.append('audio_file', {
+    form.append('file', {
       uri: audio.uri,
       name: `voice.${ext}`,
       type: types[ext],
@@ -388,7 +475,10 @@ async function request(
       throw new Error('로그인 계정이 변경됐어요.');
     return parseCommand(data, previousId, start);
   } catch (e) {
-    globalThis.__jangbosoLogError?.('services/api/voiceCommands.ts', e);
+    globalThis.__jangbosoLogError?.(
+      `services/api/voiceCommands.ts POST ${path.replace(/\/commands\/[^/]+/, '/commands/{command_id}')}`,
+      e,
+    );
     if (controller.signal.aborted || e instanceof TypeError)
       throw new CommandError(0, 'NETWORK', '서버 응답을 확인하지 못했어요.');
     throw e;

@@ -205,6 +205,8 @@ export function MyPage() {
         <>
           {menu('내 가게 보기', () => void showMyStore())}
           <View style={styles.line} />
+          {menu('예약 관리', () => router.push('/merchant-reservations'))}
+          <View style={styles.line} />
           {menu('픽업 QR 스캔', () => router.push('/pickup-scan'))}
           <View style={styles.divider} />
         </>
