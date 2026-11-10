@@ -87,3 +87,13 @@ QR 표시 예시는 assets/pickup-qr-test.png를 참고합니다. 해당 파일 
 사용자 요청으로 GitHub main의 98a2d8e 커밋을 가져와 backend/schemas.py의 ProductDetailResponse와 backend/routers/products.py를 확인했습니다. listing_id/product_id/store_id/market_id는 정수이며, category_id는 정수 또는 null, description/image_url은 문자열 또는 null입니다. product_name/store_name/market_name은 문자열, price는 정수, sale_price는 정수 또는 null, is_sold_out은 Boolean입니다. 응답에 없는 category/is_on_sale/created_at 검증은 제거했습니다. 임의 접두사 ID를 정수로 해석하지 않습니다.
 
 상품 상세는 sale_price가 null이 아니면 해당 가격(0원 포함)을 표시하고 null이면 price를 사용합니다. 설명이 null이면 생략하고 이미지가 null이면 기존 기본 이미지 영역을 표시합니다. market_name은 상세 응답을 사용하므로 추가 GET /stores 요청을 제거했습니다. 추천·시장·가게 등 모든 상세 진입 경로가 같은 API를 사용하며 추천 request_id 및 예약·찜 연결은 유지합니다. 테스트 상세 응답도 같은 필드 구조를 사용합니다.
+
+## 상인 예약 상태 변경
+
+사용자 제공 명세의 PATCH /reservations/{reservation_id}/status를 상인 Bearer 인증과 JSON {status}로 호출합니다. 요청 ID는 양의 정수이며 응답 reservation_id/status가 대상과 일치하고 updated_at/message가 유효해야 성공으로 표시합니다. 400/401/403/404/409/500을 구분하고 네트워크 실패나 잘못된 응답을 자동 재전송하지 않습니다. 가게 소유권과 허용 상태 전이는 서버가 최종 검증합니다.
+
+백엔드 전달 사항에 따라 예약 번호를 직접 입력하는 화면과 마이페이지 메뉴는 제거했습니다. 소비자는 예약 탭에서 예약을 선택하고 해당 항목의 reservation_id로 GET /reservations/{reservation_id}를 호출합니다. 선택 시 목록에 있는 QR 데이터를 추정하거나 토큰을 직접 생성하지 않으며, 상세 응답의 status가 READY이고 qr_code_data·유효한 만료 시각이 있을 때만 QR 이미지를 표시합니다. PENDING·CONFIRMED·COMPLETED·CANCELLED에는 QR을 표시하지 않습니다. 상인 상태 변경 API 서비스는 유지하되 소비자 화면에서 호출하지 않습니다. 상인 목록 조회 명세가 전달되기 전에는 목록/상세를 상인용으로 임의 재사용하지 않습니다.
+
+QR 자체는 상태 변경 응답에서 요구하지 않습니다. READY가 되면 고객이 기존 GET /reservations/{reservation_id}로 QR을 조회합니다. 실제 토큰 발급·24시간 만료·만료 재발급·이전 토큰 무효화·해시 저장은 서버 책임입니다. COMPLETED는 기존 QR 검증 흐름으로 처리하며 상태 변경 화면에는 바로 완료시키는 버튼을 제공하지 않습니다.
+
+테스트 서버는 제공된 예시 전이 PENDING→CONFIRMED→READY를 지원하고 READY 전환 시각에 테스트 토큰을 발급합니다. 고객 상세 조회가 늦어져도 이 시각부터 24시간을 유지합니다. 유효 토큰 재사용·만료 재발급·완료/취소 무효화를 모의 처리합니다. 테스트 예약 503은 예약 대기, 505는 예약 확인 상태이며 테스트 상인 가게 101에 속합니다. 테스트 계정 재입장 버튼은 기존 정책대로 예시 계정을 초기화하므로 역할을 바꿔 새 테스트 입장하면 고객 예시 예약도 초기화될 수 있습니다. 상태 변경부터 고객 상세·QR 검증까지는 자동 테스트에서 같은 테스트 서버 세션으로 검증합니다.

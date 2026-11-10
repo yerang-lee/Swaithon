@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { ReservationItem } from './api/reservations';
+import type { ReservationItem, ReservationStatus } from './api/reservations';
 
 let enabled = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const listeners = new Set<() => void>();
@@ -109,6 +109,10 @@ function notificationsFor(userId: number) {
   }
   return items;
 }
+const mockReservationStatuses = new Map<
+  number,
+  { status: ReservationStatus; updatedAt: string }
+>();
 const mockPickupCompletions = new Map<number, string>();
 const mockUsedPickupTokens = new Set<string>();
 const mockCancellations = new Map<number, Set<number>>();
@@ -116,6 +120,28 @@ const mockPickupQr = new Map<
   number,
   Map<number, { data: string; expiresAt: number }>
 >();
+function ensureMockPickupQr(ownerId: number, reservationId: number) {
+  const saved =
+    mockPickupQr.get(ownerId) ??
+    new Map<number, { data: string; expiresAt: number }>();
+  let qr = saved.get(reservationId);
+  if (!qr || qr.expiresAt <= Date.now()) {
+    if (qr) mockUsedPickupTokens.add(qr.data);
+    qr = {
+      data: `TEST_ONLY_PICKUP_${ownerId}_${reservationId}_${++sequence}_${Date.now()}`,
+      expiresAt: Date.now() + 24 * 3600000,
+    };
+    saved.set(reservationId, qr);
+    mockPickupQr.set(ownerId, saved);
+  }
+  return qr;
+}
+function invalidateMockPickupQr(ownerId: number, reservationId: number) {
+  const saved = mockPickupQr.get(ownerId);
+  const qr = saved?.get(reservationId);
+  if (qr) mockUsedPickupTokens.add(qr.data);
+  saved?.delete(reservationId);
+}
 function reservationBase(userId: number) {
   return userId === 2 ? 501 : userId * 1000 + 501;
 }
@@ -136,7 +162,7 @@ function mockReservationItems(userId: number): MockReservation[] {
     listing_id: 1001 + index,
     product_id: 101 + index,
     product_name: ['햇사과', '당근', '배'][index % 3],
-    store_id: index === 0 ? 101 : 10,
+    store_id: [0, 2, 4].includes(index) ? 101 : 10,
     store_name: '행복청과',
     market_id: 1,
     market_name: '용산용문시장',
@@ -155,7 +181,13 @@ function mockReservationItems(userId: number): MockReservation[] {
         ? { ...item, status: 'CANCELLED' }
         : mockPickupCompletions.has(item.reservation_id)
           ? { ...item, status: 'COMPLETED' }
-          : item,
+          : mockReservationStatuses.has(item.reservation_id)
+            ? {
+                ...item,
+                status: mockReservationStatuses.get(item.reservation_id)!
+                  .status,
+              }
+            : item,
   );
 }
 function mockReservationOwner(id: number) {
@@ -176,8 +208,10 @@ export function prepareMockAccount(role: Account['role']): string {
   for (const [key, account] of sessions)
     if (account.user_id === userId || account.phone === phone)
       sessions.delete(key);
-  for (const item of mockReservationItems(userId))
+  for (const item of mockReservationItems(userId)) {
     mockPickupCompletions.delete(item.reservation_id);
+    mockReservationStatuses.delete(item.reservation_id);
+  }
   for (const qr of mockPickupQr.get(userId)?.values() ?? [])
     mockUsedPickupTokens.delete(qr.data);
   mockCancellations.delete(userId);
@@ -471,7 +505,7 @@ export async function mockRequest(
     const completedAt = new Date().toISOString();
     // 검증과 상태 갱신 사이 await가 없어 테스트 서버에서도 한 요청만 성공합니다.
     mockPickupCompletions.set(item.reservation_id, completedAt);
-    mockUsedPickupTokens.add(input.qr_code_data);
+    invalidateMockPickupQr(found.ownerId, item.reservation_id);
     return {
       reservation_id: item.reservation_id,
       listing_id: item.listing_id,
@@ -481,6 +515,47 @@ export async function mockRequest(
       status: 'COMPLETED',
       completed_at: completedAt,
       message: '픽업이 완료 처리되었습니다.',
+    };
+  }
+  const statusMatch = url.pathname.match(
+    /^\/reservations\/([1-9]\d*)\/status$/,
+  );
+  if (statusMatch && method === 'PATCH') {
+    const fail = (status: number) => {
+      throw Object.assign(new Error('예약 상태 변경 실패'), { status });
+    };
+    if (!account) return fail(401);
+    if (account.role !== 'MERCHANT') return fail(403);
+    const id = Number(statusMatch[1]);
+    if (
+      !['PENDING', 'CONFIRMED', 'READY', 'COMPLETED', 'CANCELLED'].includes(
+        String(input.status),
+      )
+    )
+      return fail(400);
+    const owner = mockReservationOwner(id);
+    if (!owner) return fail(404);
+    const item = mockReservationItems(owner.user_id).find(
+      (item) => item.reservation_id === id,
+    )!;
+    if (item.store_id !== account.store_id) return fail(403);
+    if (!(
+      (item.status === 'PENDING' && input.status === 'CONFIRMED') ||
+      (item.status === 'CONFIRMED' && input.status === 'READY')
+    ))
+      return fail(409);
+    const status = input.status as ReservationStatus;
+    const updatedAt = new Date().toISOString();
+    mockReservationStatuses.set(id, { status, updatedAt });
+    if (status === 'READY') ensureMockPickupQr(owner.user_id, id);
+    return {
+      reservation_id: id,
+      status,
+      updated_at: updatedAt,
+      message:
+        status === 'READY'
+          ? '상품 준비가 완료되었습니다. 고객에게 픽업 QR이 발급되었습니다.'
+          : '예약이 확인되었습니다.',
     };
   }
   const detailMatch = url.pathname.match(/^\/reservations\/(\d+)$/);
@@ -498,21 +573,11 @@ export async function mockRequest(
     const item = mockReservationItems(account.user_id).find(
       (item) => item.reservation_id === id,
     )!;
-    let qr: { data: string; expiresAt: number } | undefined;
-    const saved =
-      mockPickupQr.get(account.user_id) ??
-      new Map<number, { data: string; expiresAt: number }>();
-    if (item.status === 'READY') {
-      qr = saved.get(id);
-      if (!qr || qr.expiresAt <= Date.now()) {
-        qr = {
-          data: `TEST_ONLY_PICKUP_${account.user_id}_${id}_${++sequence}_${Date.now()}`,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        };
-        saved.set(id, qr);
-        mockPickupQr.set(account.user_id, saved);
-      }
-    } else saved.delete(id);
+    const qr =
+      item.status === 'READY'
+        ? ensureMockPickupQr(account.user_id, id)
+        : undefined;
+    if (!qr) invalidateMockPickupQr(account.user_id, id);
     return {
       reservation_id: id,
       listing_id: item.listing_id,
@@ -547,7 +612,7 @@ export async function mockRequest(
       mockCancellations.get(account.user_id) ?? new Set<number>();
     cancelled.add(id);
     mockCancellations.set(account.user_id, cancelled);
-    mockPickupQr.get(account.user_id)?.delete(id);
+    invalidateMockPickupQr(account.user_id, id);
     return {
       reservation_id: id,
       status: 'CANCELLED',

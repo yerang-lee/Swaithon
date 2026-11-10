@@ -148,7 +148,7 @@ const item = {
   unit_price: 5000,
   total_price: 5000,
   pickup_at: '2026-11-03T14:30:00',
-  status: 'READY',
+  status: 'CONFIRMED',
   created_at: '2026-11-03T13:00:00+09:00',
 };
 const response = {
@@ -172,7 +172,7 @@ const panel = (tree) =>
   lists.shift().resolve({ reservations: [item], total_count: 1 });
   await tick();
   let tree = render();
-  assert.ok(text(tree).includes('픽업 준비 완료'));
+  assert.ok(text(tree).includes('픽업 예정'));
   walk(tree)
     .find(
       (node) =>
@@ -187,6 +187,7 @@ const panel = (tree) =>
   await tick();
   tree = render();
   assert.equal(panel(tree).detail.qr_code_data, response.qr_code_data);
+  assert.equal(panel(tree).detail.status, 'READY');
   assert.equal(panel(tree).testMode, true);
   assert.ok(text(tree).includes('상세 사과'));
   assert.ok(text(tree).includes('10,000원'));
@@ -222,14 +223,12 @@ const panel = (tree) =>
   assert.equal(panel(render()).detail, null);
   panel(render()).onRefresh();
   render();
-  details
-    .shift()
-    .resolve({
-      ...response,
-      status: 'CANCELLED',
-      qr_code_data: null,
-      qr_code_expires_at: null,
-    });
+  details.shift().resolve({
+    ...response,
+    status: 'CANCELLED',
+    qr_code_data: null,
+    qr_code_expires_at: null,
+  });
   await tick();
   assert.equal(panel(render()).detail.qr_code_data, null);
   session = { access_token: 'different' };

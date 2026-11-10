@@ -24,7 +24,7 @@
 가게 상세 조회,/stores/{store_id},GET,시장 및 가게,시작 전,시작 전,시작 전
 주변 시장 조회,/markets/nearby,GET,시장 및 가게,시작 전,시작 전,시작 전
 가게 상품 목록 조회,/stores/{store_id}/products,GET,시장 및 가게,시작 전,시작 전,시작 전
-예약 상태 변경,/reservations/{reservation_id}/status,PATCH,픽업 예약,시작 전,시작 전,시작 전
+예약 상태 변경,/reservations/{reservation_id}/status,PATCH,픽업 예약,시작 전,시작 전,완료
 음성 할인 종료 분석,/voice/sale-delete,POST,상품,시작 전,시작 전,시작 전
 상품 이미지 업로드,/images,POST,이미지 업로드 및 알림,시작 전,시작 전,시작 전
 상품 이미지 삭제,/images/{image_id},DELETE,이미지 업로드 및 알림,시작 전,시작 전,시작 전
