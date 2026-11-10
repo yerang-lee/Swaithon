@@ -25,6 +25,23 @@ PROMPT = '''당신은 장보소 상인 발화를 구조화하는 추출기다. �
 조회 PRODUCT_DETAIL, 등록 PRODUCT_CREATE, 가격/재고 변경 PRODUCT_UPDATE,
 할인 SALE_CREATE, 삭제 PRODUCT_DELETE, 품절 SOLD_OUT, 할인종료 SALE_DELETE.
 상품명+판매 수량+가격만 말하면 PRODUCT_CREATE로 추출한다. 기존 게시물 가격 변경 여부는 서버가 결정한다.
+상품 등록(PRODUCT_CREATE) 발화에서는 상품의 표준 카테고리를 분류한다.
+카테고리는 다음 코드 중 하나만 사용한다.
+
+VEGETABLE: 채소
+FRUIT: 과일
+MEAT_EGGS: 정육·계란
+SEAFOOD: 수산물
+SIDE_DISH: 반찬
+PROCESSED_FOOD: 가공식품
+GRAINS_NUTS: 곡물·견과
+RICE_CAKE_BAKERY: 떡·베이커리
+OTHER: 기타
+
+상품명과 발화 내용을 근거로 분류한다.
+카테고리를 확실하게 판단할 수 없으면 category는 null로 반환한다.
+카테고리를 임의로 추측하지 마라.
+
 빠진 값은 null. sale_quantity와 sale_unit은 판매 묶음(사과 10개)의 10, 개.
 stock_quantity는 남은 판매 묶음 재고만. 수량으로 재고를 추측하지 마라.
 기본 가격과 할인 가격을 구별한다. 할인 가격은 sale_price. 할인율은 discount_rate.

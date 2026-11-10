@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import text
 
 from database import SessionLocal
-from models import Product, Listing, VoiceCommand, VoiceEvent
+from models import Product, Listing, VoiceCommand, VoiceEvent, ListingPriceHistory
 
 
 def to_datetime(value):
@@ -27,16 +27,32 @@ def to_int(value):
 
 class PostgreSQLStore:
 
-    def __init__(self, session_factory=SessionLocal):
+    CATEGORY_IDS = {
+    "VEGETABLE": 1,
+    "FRUIT": 2,
+    "MEAT_EGGS": 3,
+    "SEAFOOD": 4,
+    "SIDE_DISH": 5,
+    "PROCESSED_FOOD": 6,
+    "GRAINS_NUTS": 7,
+    "RICE_CAKE_BAKERY": 8,
+    "OTHER": 9,
+}
+
+    def __init__(self, store_id: int, session_factory=SessionLocal):
         self.session_factory = session_factory
+        self.store_id = store_id
 
     @contextmanager
     def transaction(self):
         with self.session_factory() as db:
             with db.begin():
-                # 음성 명령의 동시 실행으로 인한 충돌 방지
+                # 가게별 동시 실행 충돌 방지
                 db.execute(
-                    text("SELECT pg_advisory_xact_lock(20261106)")
+                    text(
+                        "SELECT pg_advisory_xact_lock(:lock_id)"
+                    ),
+                    {"lock_id": 20261106 + self.store_id},
                 )
 
                 state = self._load_state(db)
@@ -53,6 +69,10 @@ class PostgreSQLStore:
         rows = (
             db.query(Listing, Product)
             .join(Product, Listing.product_id == Product.product_id)
+            .filter(
+                Listing.store_id == self.store_id,
+                Listing.deleted_at.is_(None),
+            )
             .all()
         )
 
@@ -104,7 +124,7 @@ class PostgreSQLStore:
 
         commands = {}
 
-        for command in db.query(VoiceCommand).all():
+        for command in db.query(VoiceCommand).filter(VoiceCommand.store_id == self.store_id).all():
             commands[command.command_id] = {
                 "command_id": command.command_id,
                 "user_id": str(command.user_id),
@@ -130,7 +150,7 @@ class PostgreSQLStore:
 
         events = []
 
-        for event in db.query(VoiceEvent).all():
+        for event in db.query(VoiceEvent).filter(VoiceEvent.store_id == self.store_id).all():
             events.append({
                 "command_id": event.command_id,
                 "user_id": str(event.user_id),
@@ -172,18 +192,23 @@ class PostgreSQLStore:
             # 표준 상품(Product)이 이미 있으면 재사용
             product = (
                 db.query(Product)
-                .filter(
-                    Product.product_name == data["product_name"]
-                )
+                .filter(Product.product_name == data["product_name"])
                 .first()
             )
 
+            category_code = data.get("category")
+            category_id = self.CATEGORY_IDS.get(category_code)
+
             if product is None:
                 product = Product(
-                    product_name=data["product_name"]
+                    product_name=data["product_name"],
+                    category_id=category_id,
                 )
                 db.add(product)
                 db.flush()
+
+            elif product.category_id is None and category_id is not None:
+                product.category_id = category_id
 
             sale = data.get("sale") or {}
 
@@ -211,6 +236,15 @@ class PostgreSQLStore:
             db.add(listing)
             db.flush()
 
+            # 신규 판매 게시물의 최초 정상 판매가 기록
+            db.add(
+                ListingPriceHistory(
+                    listing_id=listing.listing_id,
+                    price=data["price"],
+                )
+            )
+            db.flush()
+
             id_mapping[str(listing_id)] = str(listing.listing_id)
 
             data["listing_id"] = str(listing.listing_id)
@@ -235,7 +269,15 @@ class PostgreSQLStore:
             if listing_id is None:
                 continue
 
-            listing = db.get(Listing, listing_id)
+            listing = (
+                db.query(Listing)
+                .filter(
+                    Listing.listing_id == listing_id,
+                    Listing.store_id == self.store_id,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if listing is None:
                 continue

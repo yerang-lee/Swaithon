@@ -6,9 +6,8 @@ from uuid import uuid4
 
 from .schema import Command
 
-
 EXECUTION_ENDPOINTS = {
-    "PRODUCT_CREATE": "/voice/product-registration",
+    "PRODUCT_CREATE": "/voice/product-registration/confirm",
     "PRODUCT_UPDATE": "/voice/product-update",
     "SALE_CREATE": "/voice/sale-registration",
     "PRODUCT_DELETE": "/voice/product-delete",
@@ -207,6 +206,14 @@ class VoiceService:
             )
 
         if listing_id:
+            # 상품 선택이 필요한 상태에서만 선택값 검증
+            if original_status != "NEEDS_SELECTION":
+                raise VoiceError(
+                    "INVALID_SELECTION",
+                    "현재는 상품 선택이 필요한 상태가 아닙니다.",
+                    422,
+                )
+
             valid_ids = [
                 str(p["listing_id"])
                 for p in command.get("candidates", [])
@@ -248,7 +255,15 @@ class VoiceService:
             return deepcopy(command)
 
 
-    def execute(self, cid, user, shop, confirmed, allowed):
+    def execute(
+        self,
+        cid,
+        user,
+        shop,
+        confirmed,
+        allowed,
+        sale_action=None,
+    ):
         with self.store.transaction() as state:
             command = self._owned(state, cid, user, shop)
 
@@ -293,6 +308,27 @@ class VoiceService:
                         "상품이 변경되었습니다. 새 명령으로 다시 확인해 주세요.",
                     )
 
+            # 할인 등록과 할인 수정 구분
+            if command["intent"] == "SALE_CREATE":
+                has_active_sale = sale_is_active(
+                    product.get("sale") if product else None,
+                    self.clock(),
+                )
+
+                if sale_action == "create" and has_active_sale:
+                    raise VoiceError(
+                        400,
+                        "SALE_ALREADY_EXISTS",
+                        "이미 진행 중인 할인이 있습니다. 할인 수정을 이용해 주세요.",
+                    )
+
+                if sale_action == "update" and not has_active_sale:
+                    raise VoiceError(
+                        "SALE_NOT_FOUND",
+                        "수정할 진행 중인 할인이 없습니다. 먼저 할인을 등록해 주세요.",
+                        400,
+                    )
+
             fresh = deepcopy(command)
             self._plan(state, fresh)
 
@@ -304,6 +340,7 @@ class VoiceService:
                 raise VoiceError(
                     "RECONFIRM_REQUIRED",
                     "상품이나 조건이 변경되었습니다. 새 명령으로 다시 확인해 주세요.",
+                    400,
                 )
 
             after = self._changed(product, command)
@@ -330,7 +367,6 @@ class VoiceService:
                 message="처리했습니다.",
             )
 
-        # 저장 완료 후 실제 DB ID를 다시 읽어 반환
         with self.store.transaction() as state:
             saved_command = self._owned(state, cid, user, shop)
             return deepcopy(saved_command)
@@ -376,7 +412,12 @@ class VoiceService:
         if data["intent"] == "PRODUCT_CREATE":
             missing += [
                 field
-                for field in ("price", "sale_quantity", "sale_unit")
+                for field in (
+                    "price",
+                    "sale_quantity",
+                    "sale_unit",
+                    "category",
+                )
                 if data[field] is None
             ]
 
@@ -389,8 +430,8 @@ class VoiceService:
             for product in state["products"].values()
             if str(product["store_id"]) == str(command["store_id"])
             and not product.get("deleted_at")
-            and normalized(product["product_name"])
-            == normalized(data["product_name"])
+            and product["product_name"].strip()
+            == data["product_name"].strip()
         ]
 
         if data["sale_quantity"] is not None:
@@ -472,6 +513,12 @@ class VoiceService:
 
         if command["intent"] == "SALE_CREATE":
             discount_price = sale_price_from(data)
+
+            if (
+                data["discount_rate"] is None
+                and discount_price is None
+            ):
+                missing.append("discount")
 
             if (
                 data["discount_rate"] is None
@@ -594,6 +641,7 @@ class VoiceService:
                 ),
                 "store_id": str(command["store_id"]),
                 "product_name": data["product_name"].strip(),
+                "category": data["category"],
                 "price": data["price"],
                 "sale_price": None,
                 "sale_quantity": data["sale_quantity"],

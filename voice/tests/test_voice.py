@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from jangboso_voice.schema import Command
-from jangboso_voice.parser import FixtureParser
-from jangboso_voice.storage import SQLiteStore
-from jangboso_voice.engine import VoiceService, VoiceError, effective_price
-from jangboso_voice.api import build_router, Merchant
+from backend.voice.jangboso_voice.schema import Command
+from backend.voice.jangboso_voice.parser import FixtureParser
+from backend.voice.jangboso_voice.storage import SQLiteStore
+from backend.voice.jangboso_voice.engine import VoiceService, VoiceError, effective_price
+from backend.voice.jangboso_voice.api import build_router, Merchant
 
 CASES=json.loads((Path(__file__).parent/'cases.json').read_text(encoding='utf-8'))
 NOW=datetime.fromisoformat('2026-11-06T12:00:00+09:00')
@@ -160,7 +160,7 @@ def test_http_contract(svc):
     assert client.post('/voice/analyze-audio',files={'file':('test.wav',b'bad','audio/wav')}).status_code==503
 
 def test_demo_requires_auth(tmp_path,monkeypatch):
-    from jangboso_voice.demo import create_app
+    from backend.voice.jangboso_voice.demo import create_app
     monkeypatch.setenv('VOICE_DEMO_TOKEN','test-token-local-only')
     monkeypatch.setenv('VOICE_PARSER','fixture')
     monkeypatch.setenv('VOICE_DB',str(tmp_path/'demo.db'))

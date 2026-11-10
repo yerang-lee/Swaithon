@@ -59,6 +59,18 @@ class Command(BaseModel):
         "근",
     ] | None = None
 
+    category: Literal[
+        "VEGETABLE",
+        "FRUIT",
+        "MEAT_EGGS",
+        "SEAFOOD",
+        "SIDE_DISH",
+        "PROCESSED_FOOD",
+        "GRAINS_NUTS",
+        "RICE_CAKE_BAKERY",
+        "OTHER",
+    ] | None = None
+
     stock_quantity: int | None = Field(
         default=None,
         strict=True,

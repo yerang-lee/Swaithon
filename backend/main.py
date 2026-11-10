@@ -1,4 +1,3 @@
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -15,6 +14,7 @@ from models import (
     VoiceAnalysis,
     VoiceCommand,
     VoiceEvent,
+    ListingPriceHistory,
 )
 
 # 기존 API 라우터
@@ -35,25 +35,28 @@ from voice.jangboso_voice.storage import PostgreSQLStore
 from voice.jangboso_voice.stt import WhisperSTT
 
 
-# PostgreSQL 저장소 연결
-voice_store = PostgreSQLStore()
-
 # Gemini AI 파서 연결
 voice_parser = GeminiParser()
 
 # Whisper STT 연결
 voice_stt = WhisperSTT()
 
-# 음성 명령 처리 서비스 생성
-voice_service = VoiceService(
-    store=voice_store,
-    parser=voice_parser,
-)
+
+# 상인별 음성 명령 처리 서비스 생성
+def create_voice_service(actor):
+    voice_store = PostgreSQLStore(
+        store_id=int(actor.store_id)
+    )
+
+    return VoiceService(
+        store=voice_store,
+        parser=voice_parser,
+    )
+
 
 # 음성 AI API 라우터 생성
-
 voice_router = create_voice_router(
-    service=voice_service,
+    service_factory=create_voice_service,
     stt=voice_stt,
 )
 
@@ -90,6 +93,7 @@ app.include_router(products_router)
 app.include_router(favorites_router)
 app.include_router(recommendations_router)
 app.include_router(reservations_router)
+
 # 음성 AI API 등록
 app.include_router(voice_router)
 

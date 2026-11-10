@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from jangboso_voice.demo import create_app
+from backend.voice.jangboso_voice.demo import create_app
 
 def test_swagger_bearer_scheme_and_authentication(tmp_path, monkeypatch):
     monkeypatch.setenv('VOICE_DEMO_TOKEN', 'local-demo-test-token')

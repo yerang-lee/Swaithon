@@ -3,8 +3,8 @@ from unittest.mock import Mock
 import pytest
 from google import genai
 from google.genai import models, types
-from jangboso_voice.parser import GeminiParser, gemini_schema
-from jangboso_voice.schema import Command
+from backend.voice.jangboso_voice.parser import GeminiParser, gemini_schema
+from backend.voice.jangboso_voice.schema import Command
 
 def test_real_sdk_request_conversion_without_network():
     client = genai.Client(api_key='unit-test-not-a-real-key')

@@ -257,6 +257,30 @@ class Listing(Base):
         nullable=False
     )
 
+# =========================================================
+# 판매 가격 이력
+# =========================================================
+
+class ListingPriceHistory(Base):
+    __tablename__ = "listing_price_histories"
+
+    history_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    listing_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("listings.listing_id"),
+        nullable=False,
+        index=True,
+    )
+    price: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
 class Reservation(Base):
     __tablename__ = "reservations"

@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from jangboso_voice.parser import GeminiParser
+from backend.voice.jangboso_voice.parser import GeminiParser
 
 def main():
     args=argparse.ArgumentParser(description='실제 Gemini 호출: 텍스트만 전송하며 API 사용량이 발생합니다.')

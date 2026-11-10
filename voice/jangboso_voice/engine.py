@@ -4,13 +4,22 @@ from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
 from .schema import Command
 
-EXECUTION_ENDPOINTS = {
+"""EXECUTION_ENDPOINTS = {
     'PRODUCT_CREATE': '/voice/product-registration',
     'PRODUCT_UPDATE': '/voice/product-update',
     'SALE_CREATE': '/voice/sale-registration',
     'PRODUCT_DELETE': '/voice/product-delete',
     'SOLD_OUT': '/voice/sold-out',
     'SALE_DELETE': '/voice/sale-delete',
+}"""
+
+EXECUTION_ENDPOINTS = {
+    "PRODUCT_CREATE": "/voice/product-registration/confirm",
+    "PRODUCT_UPDATE": "/voice/product-update",
+    "SALE_CREATE": "/voice/sale-registration",
+    "PRODUCT_DELETE": "/voice/product-delete",
+    "SOLD_OUT": "/voice/sold-out",
+    "SALE_DELETE": "/voice/sale-delete",
 }
 
 def utcnow():
