@@ -2,6 +2,8 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Text,
+    Column,
     Boolean,
     DateTime,
     ForeignKey,
@@ -255,6 +257,113 @@ class Listing(Base):
         nullable=False
     )
 
+
+class Reservation(Base):
+    __tablename__ = "reservations"
+
+    reservation_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"),
+        nullable=False, index=True
+    )
+    listing_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("listings.listing_id"),
+        nullable=False, index=True
+    )
+    product_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("products.product_id"),
+        nullable=False, index=True
+    )
+    store_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("stores.store_id"),
+        nullable=False, index=True
+    )
+
+    quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    unit_price: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    total_price: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+
+    pickup_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    request_note: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+    request_id: Mapped[str | None] = mapped_column(
+        String(100),
+        ForeignKey("recommendation_requests.request_id"),
+        nullable=True, index=True
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(30), default="PENDING", nullable=False
+    )
+
+    qr_token_hash: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True
+    )
+
+    qr_code_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(), nullable=False
+    )
+    picked_up_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+class ReservationEvent(Base):
+    __tablename__ = "reservation_events"
+
+    event_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    request_id: Mapped[str | None] = mapped_column(
+        String(100),
+        ForeignKey("recommendation_requests.request_id"),
+        nullable=True, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"),
+        nullable=False, index=True
+    )
+    reservation_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("reservations.reservation_id"),
+        nullable=False, unique=True
+    )
+    listing_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("listings.listing_id"),
+        nullable=False
+    )
+    product_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("products.product_id"),
+        nullable=False
+    )
+    store_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("stores.store_id"),
+        nullable=False
+    )
+
+    event_type: Mapped[str] = mapped_column(
+        String(30), default="RESERVATION", nullable=False
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 # =========================================================
 # 기존 음성 분석 테이블 (기존 데이터 호환용)
@@ -725,3 +834,5 @@ class ProductViewEvent(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+

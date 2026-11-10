@@ -468,3 +468,128 @@ def record_recommendation_impressions(
         "duplicate_count": duplicate_count,
         "message": "Recommendation impressions recorded successfully",
     }
+
+@router.post("/events/views", status_code=201)
+def record_recommendation_view(
+    body: ProductViewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # 1. 추천 요청이 존재하고 로그인한 사용자의 것인지 확인
+    request = (
+        db.query(RecommendationRequest)
+        .filter(
+            RecommendationRequest.request_id == body.request_id,
+            RecommendationRequest.user_id == current_user.user_id,
+        )
+        .first()
+    )
+
+    if request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Recommendation request not found",
+        )
+
+    # 2. listing_id를 Integer로 변환
+    try:
+        listing_id = int(body.listing_id)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid listing_id: {body.listing_id}",
+        )
+
+    # 3. 조회 시각에 타임존이 포함되어 있는지 확인
+    if body.occurred_at.tzinfo is None:
+        raise HTTPException(
+            status_code=400,
+            detail="occurred_at must include timezone information",
+        )
+
+    # 4. 해당 상품이 이 추천 요청에 포함되어 있는지 확인
+    recommendation_item = (
+        db.query(RecommendationItem)
+        .filter(
+            RecommendationItem.request_id == body.request_id,
+            RecommendationItem.listing_id == listing_id,
+        )
+        .first()
+    )
+
+    if recommendation_item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Listing not found in recommendation result",
+        )
+
+    # 5. 동일한 event_id가 이미 존재하는지 확인
+    existing_event = (
+        db.query(ProductViewEvent)
+        .filter(
+            ProductViewEvent.event_id == body.event_id
+        )
+        .first()
+    )
+
+    if existing_event:
+        existing_data = (
+            existing_event.request_id,
+            existing_event.user_id,
+            existing_event.listing_id,
+            existing_event.product_id,
+            existing_event.store_id,
+            existing_event.occurred_at,
+        )
+
+        new_data = (
+            body.request_id,
+            current_user.user_id,
+            listing_id,
+            recommendation_item.product_id,
+            recommendation_item.store_id,
+            body.occurred_at,
+        )
+
+        if existing_data != new_data:
+            raise HTTPException(
+                status_code=409,
+                detail="Event ID already exists with different data",
+            )
+
+        return {
+            "event_id": existing_event.event_id,
+            "listing_id": str(existing_event.listing_id),
+            "event_type": "detail_view",
+            "recorded_at": existing_event.occurred_at.isoformat(),
+            "message": "상품 상세 조회 기록이 저장되었습니다.",
+        }
+
+    # 6. 상세 조회 이벤트 저장
+    view_event = ProductViewEvent(
+        event_id=body.event_id,
+        request_id=body.request_id,
+        user_id=current_user.user_id,
+        listing_id=listing_id,
+        product_id=recommendation_item.product_id,
+        store_id=recommendation_item.store_id,
+        occurred_at=body.occurred_at,
+    )
+
+    try:
+        db.add(view_event)
+        db.commit()
+        db.refresh(view_event)
+
+    except Exception:
+        db.rollback()
+        raise
+
+    # 7. 응답 반환
+    return {
+        "event_id": view_event.event_id,
+        "listing_id": str(view_event.listing_id),
+        "event_type": "detail_view",
+        "recorded_at": view_event.occurred_at.isoformat(),
+        "message": "상품 상세 조회 기록이 저장되었습니다.",
+    }

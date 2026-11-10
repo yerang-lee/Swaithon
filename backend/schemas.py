@@ -400,3 +400,147 @@ class FavoriteDeleteResponse(BaseModel):
     favorite_id: int
     listing_id: int
     message: str
+
+# 추천 상품 상세 조회 기록 요청
+class ProductViewRequest(BaseModel):
+    request_id: str = Field(..., min_length=1, max_length=100)
+    event_id: str = Field(..., min_length=1, max_length=36)
+    listing_id: int = Field(gt=0)
+    occurred_at: datetime
+
+class ReservationCreateRequest(BaseModel):
+    listing_id: int
+    product_id: int
+    quantity: int = Field(..., gt=0)
+    pickup_at: datetime
+    request_note: str | None = None
+    request_id: str | None = None
+
+
+class ReservationCreateResponse(BaseModel):
+    reservation_id: int
+    user_id: int
+    listing_id: int
+    product_id: int
+    product_name: str
+    store_id: int
+    store_name: str
+    quantity: int
+    unit_price: int
+    total_price: int
+    pickup_at: datetime
+    request_note: str | None
+    status: str
+    created_at: datetime
+    message: str
+
+class ReservationDetailResponse(BaseModel):
+    reservation_id: int
+    listing_id: int
+    product_id: int
+    product_name: str
+    store_id: int
+    store_name: str
+    quantity: int
+    total_price: int
+    status: str
+    created_at: datetime
+    qr_code_data: str | None = None
+    qr_code_expires_at: datetime | None = None
+
+class PickupVerifyRequest(BaseModel):
+    qr_code_data: str = Field(..., min_length=1)
+
+
+class PickupVerifyResponse(BaseModel):
+    reservation_id: int
+    listing_id: int
+    product_id: int
+    product_name: str
+    store_name: str
+    status: str
+    completed_at: datetime
+    message: str
+
+class ReservationListItem(BaseModel):
+    reservation_id: int
+    listing_id: int
+    product_id: int
+    product_name: str
+    store_id: int
+    store_name: str
+    market_id: int
+    market_name: str
+    category_id: int | None
+    category: str | None
+    category_name: str | None
+    quantity: int
+    unit_price: int
+    total_price: int
+    pickup_at: datetime
+    status: str
+    created_at: datetime
+
+
+class ReservationListResponse(BaseModel):
+    reservations: list[ReservationListItem]
+    total_count: int
+    page: int
+    size: int
+
+class ReservationStatusUpdateRequest(BaseModel):
+    status: str
+
+
+class ReservationStatusUpdateResponse(BaseModel):
+    reservation_id: int
+    status: str
+    updated_at: datetime
+    message: str
+
+class MerchantReservationListItem(BaseModel):
+    reservation_id: int
+    customer_id: int
+    product_id: int
+    product_name: str
+    quantity: int
+    unit_price: int
+    total_price: int
+    pickup_at: datetime
+    request_note: str | None
+    status: str
+    created_at: datetime
+
+
+class MerchantReservationListResponse(BaseModel):
+    reservations: list[MerchantReservationListItem]
+    total_count: int
+    page: int
+    size: int
+
+class ReservationCancelResponse(BaseModel):
+    reservation_id: int
+    status: str
+    cancelled_at: datetime
+    message: str
+
+class MerchantListingItem(BaseModel):
+    listing_id: int
+    product_id: int
+    product_name: str
+    category_id: int | None
+    price: int
+    sale_price: int | None
+    sale_quantity: float | None
+    sale_unit: str | None
+    stock_quantity: int | None
+    is_sold_out: bool
+    sale_rate: int | None
+    created_at: datetime
+
+
+class MerchantListingListResponse(BaseModel):
+    listings: list[MerchantListingItem]
+    total_count: int
+    page: int
+    size: int

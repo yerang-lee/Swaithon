@@ -1,15 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from datetime import datetime, timezone
 from database import get_db
 from dependencies import get_current_user
-from models import User, Market, Store, RefreshToken
+from models import (
+    User, Market, Store, RefreshToken,
+    Reservation, Product
+)
 from schemas import (
-  UserMeResponse, UserUpdateRequest, UserUpdateResponse, 
-  OnboardingRequest, OnboardingResponse, DeleteAccountResponse
+    UserMeResponse, UserUpdateRequest, UserUpdateResponse,
+    OnboardingRequest, OnboardingResponse, DeleteAccountResponse,
+    ReservationListResponse
 )
 
+category_map = {
+    1: ("VEGETABLE", "채소"),
+    2: ("FRUIT", "과일"),
+    3: ("MEAT_EGGS", "정육·계란"),
+    4: ("SEAFOOD", "수산물"),
+    5: ("SIDE_DISH", "반찬"),
+    6: ("PROCESSED_FOOD", "가공식품"),
+    7: ("GRAINS_NUTS", "곡물·견과"),
+    8: ("RICE_CAKE_BAKERY", "떡·베이커리"),
+    9: ("OTHER", "기타"),
+}
 
 
 router = APIRouter(
@@ -265,3 +280,105 @@ def delete_account(
             status_code=500,
             detail="회원 탈퇴 처리 중 오류가 발생했습니다."
         )
+
+
+# 내 예약 목록 조회
+@router.get(
+    "/me/reservations",
+    response_model=ReservationListResponse,
+)
+def get_my_reservations(
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
+    reservation_status: str | None = Query(None, alias="status"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # 허용된 예약 상태
+    allowed_statuses = [
+        "PENDING",
+        "CONFIRMED",
+        "READY",
+        "COMPLETED",
+        "CANCELLED",
+    ]
+
+    # 잘못된 상태값 확인
+    if reservation_status is not None:
+        if reservation_status not in allowed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="올바르지 않은 예약 상태입니다.",
+            )
+
+    # 예약 목록 기본 조회
+    query = (
+        db.query(Reservation, Product, Store, Market)
+        .join(
+            Product,
+            Reservation.product_id == Product.product_id,
+        )
+        .join(
+            Store,
+            Reservation.store_id == Store.store_id,
+        )
+        .join(
+            Market,
+            Store.market_id == Market.market_id,
+        )
+        .filter(
+            Reservation.user_id == current_user.user_id,
+        )
+    )
+
+    # 상태 필터 적용
+    if reservation_status is not None:
+        query = query.filter(
+            Reservation.status == reservation_status
+        )
+
+    # 전체 예약 개수
+    total_count = query.count()
+
+    # 최신 예약순 정렬 및 페이지네이션
+    results = (
+        query
+        .order_by(Reservation.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    reservations = []
+
+    for reservation, product, store, market in results:
+        category_id = product.category_id
+
+        category_info = category_map.get(category_id)
+
+        reservations.append({
+            "reservation_id": reservation.reservation_id,
+            "listing_id": reservation.listing_id,
+            "product_id": reservation.product_id,
+            "product_name": product.product_name,
+            "store_id": reservation.store_id,
+            "store_name": store.store_name,
+            "market_id": market.market_id,
+            "market_name": market.market_name,
+            "category_id": category_id,
+            "category": category_info[0] if category_info else None,
+            "category_name": category_info[1] if category_info else None,
+            "quantity": reservation.quantity,
+            "unit_price": reservation.unit_price,
+            "total_price": reservation.total_price,
+            "pickup_at": reservation.pickup_at,
+            "status": reservation.status,
+            "created_at": reservation.created_at,
+        })
+
+    return {
+        "reservations": reservations,
+        "total_count": total_count,
+        "page": page,
+        "size": size,
+    }

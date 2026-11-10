@@ -1,6 +1,6 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from database import get_db
 from models import Market, Store, User, Listing, Product
@@ -10,6 +10,8 @@ from schemas import (
     StoreDetailResponse,
     StoreProductListResponse,
     StoreProductListItem,
+    MerchantListingItem,
+    MerchantListingListResponse,
 )
 from dependencies import get_current_user
 
@@ -221,6 +223,91 @@ def get_store_products(
 
     return StoreProductListResponse(
         products=products,
+        total_count=total_count,
+        page=page,
+        size=size,
+    )
+
+@router.get(
+    "/me/listings",
+    response_model=MerchantListingListResponse,
+)
+def get_my_listings(
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
+    is_sold_out: bool | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # 상인 계정 확인
+    if current_user.role != "MERCHANT":
+        raise HTTPException(
+            status_code=403,
+            detail="상인만 상품 목록을 조회할 수 있습니다.",
+        )
+
+    # 로그인한 상인의 가게 조회
+    store = db.query(Store).filter(
+        Store.user_id == current_user.user_id
+    ).first()
+
+    if not store:
+        raise HTTPException(
+            status_code=403,
+            detail="등록된 가게가 없습니다.",
+        )
+
+    # 해당 가게의 판매 상품 조회
+    query = (
+        db.query(Listing, Product)
+        .join(
+            Product,
+            Listing.product_id == Product.product_id,
+        )
+        .filter(
+            Listing.store_id == store.store_id,
+            Listing.deleted_at.is_(None),
+        )
+    )
+
+    # 품절 여부 필터
+    if is_sold_out is not None:
+        query = query.filter(
+            Listing.is_sold_out == is_sold_out
+        )
+
+    # 전체 개수
+    total_count = query.count()
+
+    # 페이지네이션
+    results = (
+        query
+        .order_by(Listing.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    listings = [
+        MerchantListingItem(
+            listing_id=listing.listing_id,
+            product_id=listing.product_id,
+            product_name=product.product_name,
+            category_id=product.category_id,
+            price=listing.price,
+            sale_price=listing.sale_price,
+            sale_quantity=listing.sale_quantity,
+            sale_unit=listing.sale_unit,
+            stock_quantity=listing.stock_quantity,
+            is_sold_out=listing.is_sold_out,
+            sale_rate=listing.sale_rate,
+            created_at=listing.created_at,
+        )
+        for listing, product in results
+    ]
+
+    return MerchantListingListResponse(
+        listings=listings,
         total_count=total_count,
         page=page,
         size=size,
