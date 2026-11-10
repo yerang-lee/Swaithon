@@ -21,7 +21,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   clearAuthSession,
   getAuthSession,
-  getMyStoreId,
   logout,
 } from '../../services/api/auth';
 import { ApiError } from '../../services/api/client';
@@ -81,28 +80,8 @@ export function MyPage() {
       active = false;
     };
   }, [retry]);
-  async function showMyStore() {
-    if (lock.current) return;
-    lock.current = true;
-    setLoading(true);
-    setError('');
-    try {
-      const storeId = await getMyStoreId();
-      router.push({
-        pathname: '/stores/[storeId]',
-        params: { storeId: String(storeId) },
-      });
-    } catch (e) {
-      logAppError('mypage/my-store', e);
-      if (e instanceof ApiError && e.status === 401) goToLogin();
-      else
-        setError(
-          e instanceof Error ? e.message : '내 가게를 불러오지 못했어요.',
-        );
-    } finally {
-      lock.current = false;
-      setLoading(false);
-    }
+  function showMyStore() {
+    if (!lock.current) router.push('/my-store');
   }
   async function perform(action: 'logout' | 'save' | 'delete') {
     if (lock.current) return;

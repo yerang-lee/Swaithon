@@ -18,6 +18,7 @@ new Function('exports', compile('src/utils/voiceCommandPresentation.ts'))(
 );
 const jsx = (type, props) => ({ type, props });
 let confirmed = 0;
+const routes = [];
 const modules = {
   react: { useState: (initial) => [initial, () => {}] },
   'react/jsx-runtime': { jsx, jsxs: jsx },
@@ -31,7 +32,7 @@ const modules = {
   },
   'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
   'expo-status-bar': { StatusBar: 'StatusBar' },
-  'expo-router': { router: {} },
+  'expo-router': { router: { push: (route) => routes.push(route) } },
   '../ui/PageHeader': { PageHeader: 'PageHeader' },
   '../../constants/theme': {
     theme: {
@@ -101,7 +102,10 @@ function text(tree) {
   assert.equal(confirmed, 0);
   tree = api.CommandResultScreen({
     ...props,
-    command: { ...command, execution_endpoint: '/voice/product-registration' },
+    command: {
+      ...command,
+      execution_endpoint: '/voice/product-registration/confirm',
+    },
   });
   button = nodes(tree).find(
     (node) => node.type === 'Pressable' && text(node) === '이대로 등록하기',
@@ -110,6 +114,19 @@ function text(tree) {
   button.props.onPress();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(confirmed, 1);
+  tree = api.CommandResultScreen({
+    ...props,
+    command: {
+      ...command,
+      status: 'SUCCEEDED',
+      result: { product_id: 1 },
+      execution_endpoint: null,
+    },
+  });
+  nodes(tree)
+    .find((node) => node.type === 'Pressable' && text(node) === '내 상품 보기')
+    .props.onPress();
+  assert.equal(routes.pop(), '/my-store');
   console.log(
     'PASS: READY analysis shows product/price/unit without success claim, missing server execute path blocks submission, server path plus user confirmation enables apply',
   );

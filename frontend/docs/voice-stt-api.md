@@ -197,3 +197,39 @@ SALE_UPDATE의 실행 주소는 별도 명세가 필요하며, 프론트에서 �
 8. 할인 종료에 따른 가격 이력 저장은 최종 반영 단계의 서버 책임입니다.
 
 최종 실행 오류/멱등성의 세부 서버 구현과 라우트는 백엔드 확인 대상입니다. 위 문서는 프론트가 기존 허용 경로·요청 본문을 유지하기 위한 연동 요청안입니다.
+
+
+## 최신 실행 서버 연동 변경
+
+사용자 확인에 따라 최초 녹음 분석은 `POST /voice/product-registration`으로 전송하며 multipart 파일 키는 `audio_file`을 사용합니다. 앞선 최초 `/voice/analyze-audio`·`file` 설명을 대체합니다. m4a 녹음은 `audio/mp4` MIME을 유지합니다. 추가 음성 답변은 기존 `/voice/commands/{command_id}/answer-audio`와 `file` 필드를 유지합니다.
+
+최초 multipart 요청은 분석 전용이며 `SUCCEEDED`를 성공 분석으로 수용하지 않습니다. 사용자 확인 후 JSON `{command_id, confirmed:true}`를 보내는 최종 실행은 기존 서버 `execution_endpoint` 계약을 유지합니다. 동일 주소라도 multipart 분석과 JSON 최종 실행은 구분합니다. 응답 형식은 현재 command_id 기반 검증을 유지하며 analysis_id 응답을 임의 변환하지 않습니다.
+
+
+## command_id 기반 통일
+
+메인 음성 화면은 `command_id`만 사용합니다. `/voice/product-registration`의 최초 녹음은 `audio_file` multipart로 보내며 `analysis_id` 응답은 더 이상 등록/취소/실행 분기로 처리하지 않습니다. 서버에 저장된 command_id를 그대로 반환해야 하며 ID 이름만 변경하여 호환시키지 않습니다.
+
+확인된 엔진 응답의 `parsed`를 화면용 `analysis_result`로 읽습니다. `NEEDS_INPUT`에서는 `question`이 없으면 `message`를 질문으로 표시하고, `transcript`가 없으면 `messages`의 텍스트를 표시합니다. 명시적인 `needs_confirmation`이 없으면 READY/NEEDS_CONFIRMATION에서만 확인 대상으로 표시합니다. 서버 만료 시각과 할인 시간 데이터는 보존합니다. 기존 analysis_result 기반 응답도 같은 command_id 계약으로 지원합니다.
+
+추가 답변은 기존 command_id의 answer/answer-audio로 보내고, 취소는 command_id의 cancel을 사용합니다. 최종 확인은 서버 execution_endpoint에 `{command_id, confirmed:true}`를 보내며 SUCCEEDED 이후에만 완료를 표시합니다. 실행 주소는 추측하지 않습니다. 메인 화면에서 `/voice/analysis/{analysis_id}/apply` 및 analysis_id 취소 API를 호출하지 않습니다.
+
+
+## 상품 등록 확정 주소 수정
+
+백엔드 확인에 따라 상품 등록 확정은 `POST /voice/product-registration/confirm`을 사용합니다. 요청 본문은 기존 command_id 기반 `{command_id, confirmed:true}`를 유지합니다. 상품 등록 의도의 과거 실행 주소 `/voice/product-registration` 또는 미전달 주소는 이 확인된 등록 확정 주소로 연결하며, 다른 외부/불일치 주소는 허용하지 않습니다.
+
+NEEDS_INPUT은 추가 질문, NEEDS_SELECTION은 후보 선택, NEEDS_CONFIRMATION은 미리보기 후 사용자 확정으로 처리합니다. 이 세 단계의 분석/추가 입력만으로 확정 요청을 전송하지 않습니다. READY 호환 응답도 사용자 확인을 기다립니다. 미완성 필드가 남거나 needs_confirmation=false이면 확정하지 않습니다. SUCCEEDED 이후에만 완료를 표시합니다.
+
+사용하지 않는 analysis_id 호환 서비스에서도 실제 서버 `/voice/analysis/{id}/apply` 호출은 제거했습니다. 오래된 분석 결과는 다시 녹음하도록 안내하며 analysis_id를 command_id로 바꿔 전송하지 않습니다. 테스트 모드의 상품 등록 실행도 새 confirm 경로를 사용합니다.
+
+
+## 현재 백엔드 registration_response 형식에 맞춘 경계 변환
+
+사용자 요청에 따라 현재 실행 백엔드의 응답 변환 방식에 프론트를 맞춥니다. 공유된 `backend/voice/jangboso_voice/api.py`의 `registration_response()`는 `analysis_id = result["command_id"]`로 같은 명령 식별자를 반환하는 것이 확인됐습니다. 최초 `/voice/product-registration` multipart 응답에 한해서 이 검증된 alias를 내부 command_id로 읽으며, 최상위 상품 필드를 화면용 analysis_result로 정리합니다. 이 절이 앞선 analysis_id 응답 일괄 거부 지침을 대체합니다. 두 식별자가 동시에 있고 값이 다르면 거부합니다.
+
+READY는 분석 결과와 사용자 확인 버튼을 표시하고, NEEDS_INPUT은 message를 질문으로 사용합니다. 추가 텍스트/음성은 같은 명령 ID의 기존 answer/answer-audio 경로로 보냅니다. 실행 서버 OpenAPI와 AnswerRequest 확인 결과 텍스트 본문은 `{text: "답변"}`이며 2,000자 이내입니다. 후보 선택의 listing_id는 문자열로 전송합니다. 파일 키는 최초 audio_file, 추가 음성 file입니다.
+
+확정은 POST /voice/product-registration/confirm에 `{command_id: 최초 analysis_id와 같은 값, confirmed:true}`를 보내고 SUCCEEDED 후에만 완료를 표시합니다. /voice/analysis/{id}/apply를 재도입하지 않습니다. 카테고리·판매 단위·가격·만료 데이터는 서버 값 그대로 사용합니다.
+
+현재 백엔드 wrapper는 후보 목록을 반환하지 않습니다. NEEDS_SELECTION에 candidates가 없으면 실제 상품 후보를 복원할 수 없으므로 명확한 오류로 처리하고 상품을 추측하거나 자동 확정하지 않습니다. 후보가 제공되는 command_id 응답은 기존 선택 화면을 사용합니다.

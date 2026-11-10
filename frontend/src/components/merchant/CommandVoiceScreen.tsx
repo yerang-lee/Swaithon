@@ -132,6 +132,7 @@ export function CommandVoiceScreen() {
     try {
       session();
       const value = await task();
+      session();
       if (!alive.current) return null;
       setCommand(value);
       setText('');
@@ -296,9 +297,69 @@ export function CommandVoiceScreen() {
         onBack={() => void exit()}
       />
     );
+  const micSize = Math.min(width * 0.58, 240);
+  const microphone = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={recording ? '녹음 완료 및 분석' : '음성 녹음 시작'}
+      accessibilityState={{
+        selected: recording,
+        disabled: busy || expired || blocked || uncertain,
+      }}
+      disabled={busy || expired || blocked || uncertain}
+      onPress={() => void (recording ? stop() : start())}
+      style={({ pressed }) => [
+        recordingStyles.micRing,
+        { width: micSize, height: micSize, borderRadius: micSize / 2 },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      {recording &&
+        [0, 1].map((index) => {
+          const phase = Animated.modulo(Animated.add(ripple, index * 0.5), 1);
+          return (
+            <Animated.View
+              key={index}
+              pointerEvents="none"
+              accessible={false}
+              style={[
+                recordingStyles.ripple,
+                command && { borderColor: theme.colors.primary },
+                {
+                  borderRadius: micSize / 2,
+                  opacity: phase.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 0],
+                  }),
+                  transform: [
+                    {
+                      scale: phase.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.28],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          );
+        })}
+      <View style={recordingStyles.micCircle}>
+        <Svg width={64} height={76} viewBox="0 0 64 76">
+          <Rect x={23} y={8} width={18} height={38} rx={9} fill="#176735" />
+          <Path
+            d="M14 37a18 18 0 0 0 36 0M32 56v12"
+            stroke="#176735"
+            strokeWidth={6}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+      </View>
+    </Pressable>
+  );
   if (!command) {
     const seconds = Math.floor(state.durationMillis / 1000);
-    const micSize = Math.min(width * 0.58, 240);
     return (
       <SafeAreaView style={recordingStyles.safe} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
@@ -314,76 +375,7 @@ export function CommandVoiceScreen() {
           contentContainerStyle={recordingStyles.body}
         >
           <View style={recordingStyles.center}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                recording ? '녹음 완료 및 분석' : '음성 녹음 시작'
-              }
-              accessibilityState={{ selected: recording, disabled: busy }}
-              disabled={busy}
-              onPress={() => void (recording ? stop() : start())}
-              style={({ pressed }) => [
-                recordingStyles.micRing,
-                { width: micSize, height: micSize, borderRadius: micSize / 2 },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              {recording &&
-                [0, 1].map((index) => {
-                  const phase = Animated.modulo(
-                    Animated.add(ripple, index * 0.5),
-                    1,
-                  );
-                  return (
-                    <Animated.View
-                      key={index}
-                      pointerEvents="none"
-                      accessible={false}
-                      style={[
-                        recordingStyles.ripple,
-                        {
-                          borderRadius: micSize / 2,
-                          opacity: phase.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.5, 0],
-                          }),
-                          transform: [
-                            {
-                              scale: phase.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [1, 1.28],
-                              }),
-                            },
-                          ],
-                        },
-                      ]}
-                    />
-                  );
-                })}
-              <View style={recordingStyles.micCircle}>
-                {busy ? (
-                  <ActivityIndicator size="large" color="#176735" />
-                ) : (
-                  <Svg width={64} height={76} viewBox="0 0 64 76">
-                    <Rect
-                      x={23}
-                      y={8}
-                      width={18}
-                      height={38}
-                      rx={9}
-                      fill="#176735"
-                    />
-                    <Path
-                      d="M14 37a18 18 0 0 0 36 0M32 56v12"
-                      stroke="#176735"
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                  </Svg>
-                )}
-              </View>
-            </Pressable>
+            {microphone}
             <View style={recordingStyles.instructions}>
               <Text accessibilityRole="header" style={recordingStyles.heading}>
                 {recording
@@ -498,58 +490,11 @@ export function CommandVoiceScreen() {
                   품절 처리해 줘”
                 </Text>
               )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  recording ? '녹음 종료 및 분석' : '녹음 시작'
-                }
-                disabled={busy || expired || blocked}
-                onPress={() => void (recording ? stop() : start())}
-                style={styles.mic}
-              >
-                {recording && <Text style={styles.micText}>■</Text>}
-                {!recording && (
-                  <Svg width={58} height={68} viewBox="0 0 64 76">
-                    <Rect
-                      x={23}
-                      y={8}
-                      width={18}
-                      height={38}
-                      rx={9}
-                      fill="#176735"
-                    />
-                    <Path
-                      d="M14 37a18 18 0 0 0 36 0M32 56v12"
-                      stroke="#176735"
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                  </Svg>
-                )}
-              </Pressable>
+              {microphone}
               {recording && (
                 <Text style={styles.hint}>
                   {Math.floor(state.durationMillis / 1000)}초
                 </Text>
-              )}
-              {recording && (
-                <View style={styles.wave}>
-                  {Array.from({ length: 13 }, (_, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        width: 5,
-                        borderRadius: 3,
-                        backgroundColor: '#53B175',
-                        height: Math.max(
-                          4,
-                          ((state.metering ?? -60) + 60) * (0.3 + (i % 4) / 5),
-                        ),
-                      }}
-                    />
-                  ))}
-                </View>
               )}
               {recording ? (
                 <Pressable
@@ -692,19 +637,6 @@ const styles = StyleSheet.create({
     gap: 18,
     paddingVertical: 24,
   },
-  mic: {
-    width: 216,
-    height: 216,
-    borderRadius: 108,
-    backgroundColor: '#E5F3EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
-  micText: {
-    fontSize: 55,
-    color: '#176735',
-  },
   hint: {
     fontSize: 14,
     lineHeight: 22,
@@ -720,13 +652,6 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 44,
     alignItems: 'center',
-  },
-  wave: {
-    height: 44,
-    flexDirection: 'row',
-    gap: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

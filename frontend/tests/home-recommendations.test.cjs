@@ -92,6 +92,15 @@ const modules = {
       radius: 3,
     }),
   },
+  '../services/api/products': {
+    getProduct: async (listingId) => ({
+      listing_id: listingId,
+      price: 12000,
+      sale_price: listingId === 'listing_101' ? 10000 : null,
+      image_url: null,
+      is_sold_out: false,
+    }),
+  },
   '../services/api/recommendations': {
     getRecommendations: (options) =>
       new Promise((resolve, reject) =>

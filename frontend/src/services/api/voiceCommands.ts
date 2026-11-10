@@ -5,8 +5,10 @@ import { getAuthSession } from './auth';
 import { isMockMode } from '../devMock';
 
 export const AUDIO_LIMIT = { milliseconds: 30000, bytes: 10 * 1024 * 1024 };
+export const registrationConfirmEndpoint =
+  '/voice/product-registration/confirm';
 export const executionPaths = [
-  '/voice/product-registration',
+  registrationConfirmEndpoint,
   '/voice/product-update',
   '/voice/sale-registration',
   '/voice/product-delete',
@@ -84,10 +86,12 @@ function token() {
   return current.access_token;
 }
 export function parseCommand(
-  data: unknown,
+  input: unknown,
   previousId?: string,
   startedAt = Date.now(),
 ): VoiceCommand {
+  if (!object(input)) throw new Error('음성 명령 응답을 확인하지 못했어요.');
+  let data = input;
   if (
     !object(data) ||
     typeof data.command_id !== 'string' ||
@@ -96,7 +100,32 @@ export function parseCommand(
     (previousId !== undefined && data.command_id !== previousId)
   )
     throw new Error('음성 명령 응답을 확인하지 못했어요.');
+  if (data.analysis_id !== undefined)
+    throw new Error('서버 응답을 command_id 기반으로 확인해주세요.');
+  const commandId = data.command_id;
   const state = data.status as CommandStatus;
+  if (object(data.parsed) && data.analysis_result === undefined) {
+    const confirmable = state === 'READY' || state === 'NEEDS_CONFIRMATION';
+    data = {
+      ...data,
+      intent: data.intent ?? data.parsed.intent,
+      analysis_result: data.parsed,
+      missing_fields: data.missing_fields ?? [],
+      needs_confirmation:
+        data.needs_confirmation === undefined
+          ? confirmable
+          : data.needs_confirmation,
+      ...(state === 'NEEDS_INPUT'
+        ? { question: data.question ?? data.message }
+        : {}),
+      transcript:
+        data.transcript ??
+        (Array.isArray(data.messages) &&
+        data.messages.every((value) => typeof value === 'string')
+          ? data.messages.join(' ')
+          : undefined),
+    };
+  }
   const modern = state === 'READY' || data.analysis_result !== undefined;
   const confirmable = state === 'READY' || state === 'NEEDS_CONFIRMATION';
   if (
@@ -146,7 +175,16 @@ export function parseCommand(
     ].includes(String(data.intent))
   )
     throw new Error('최종 작업 유형을 확인할 수 없어요.');
-  const endpoint = data.execution_endpoint ?? null;
+  let endpoint = data.execution_endpoint ?? null;
+  if (confirmable && data.intent === 'PRODUCT_CREATE') {
+    if (
+      endpoint !== null &&
+      endpoint !== '/voice/product-registration' &&
+      endpoint !== registrationConfirmEndpoint
+    )
+      throw new Error('상품 등록 확정 주소를 확인할 수 없어요.');
+    endpoint = registrationConfirmEndpoint;
+  }
   if (
     (state === 'NEEDS_CONFIRMATION' && endpoint === null) ||
     (endpoint !== null &&
@@ -158,6 +196,8 @@ export function parseCommand(
       '서버의 실행 경로를 확인할 수 없어요. 실행하지 않았습니다.',
     );
   const candidates = data.candidates ?? [];
+  if (state === 'NEEDS_SELECTION' && Array.isArray(candidates) && !candidates.length)
+    throw new Error('서버가 선택할 상품 후보를 보내지 않았어요. 후보 목록을 확인해주세요.');
   if (
     !Array.isArray(candidates) ||
     !candidates.every(
@@ -195,21 +235,17 @@ export function parseCommand(
     throw new Error('변경 전후 정보를 확인할 수 없어 실행하지 않았어요.');
   const serverExpiry =
     typeof data.expires_at === 'string' ? Date.parse(data.expires_at) : NaN;
-  if (
-    modern &&
-    !Number.isFinite(serverExpiry) &&
-    !deadlines.has(data.command_id)
-  )
+  if (modern && !Number.isFinite(serverExpiry) && !deadlines.has(commandId))
     throw new Error('명령의 유효 시간을 확인할 수 없어요. 다시 분석해주세요.');
   const expiresAt = Math.min(
-    deadlines.get(data.command_id) ?? Infinity,
+    deadlines.get(commandId) ?? Infinity,
     Number.isFinite(serverExpiry)
       ? serverExpiry
-      : (deadlines.get(data.command_id) ?? startedAt + 10 * 60 * 1000),
+      : (deadlines.get(commandId) ?? startedAt + 10 * 60 * 1000),
   );
-  deadlines.set(data.command_id, expiresAt);
+  deadlines.set(commandId, expiresAt);
   return {
-    command_id: data.command_id,
+    command_id: commandId,
     status: state,
     intent: typeof data.intent === 'string' ? data.intent : undefined,
     message:
@@ -371,7 +407,10 @@ export function checkAudio(audio: RecordedAudio) {
   )
     throw new Error('빈 파일이 아닌 10MB 이내 녹음이 필요해요.');
 }
-async function audioBody(audio: RecordedAudio) {
+async function audioBody(
+  audio: RecordedAudio,
+  field: 'file' | 'audio_file' = 'file',
+) {
   checkAudio(audio);
   const form = new FormData();
   if (Platform.OS === 'web') {
@@ -390,7 +429,7 @@ async function audioBody(audio: RecordedAudio) {
     };
     const ext = types[blob.type.split(';')[0]];
     if (!ext) throw new Error('지원하지 않는 녹음 형식이에요.');
-    form.append('file', blob, `voice.${ext}`);
+    form.append(field, blob, `voice.${ext}`);
   } else {
     const ext = audio.uri.split('?')[0].split('.').pop()?.toLowerCase();
     const types: Record<string, string> = {
@@ -410,13 +449,45 @@ async function audioBody(audio: RecordedAudio) {
     )
       throw new Error('빈 파일이 아닌 10MB 이내 녹음이 필요해요.');
     // postMultipart uses native XHR for RN's URI-based file parts.
-    form.append('file', {
+    form.append(field, {
       uri: audio.uri,
       name: `voice.${ext}`,
       type: types[ext],
     } as unknown as Blob);
   }
   return form;
+}
+// The current backend registration_response returns the stored command_id as analysis_id.
+// Adapt this verified wire format only at the initial registration boundary.
+function registrationCommandResponse(input: unknown): unknown {
+  if (!object(input) || input.analysis_id === undefined) return input;
+  if (
+    typeof input.analysis_id !== 'string' ||
+    !input.analysis_id.trim() ||
+    input.intent !== 'PRODUCT_CREATE' ||
+    !['READY', 'NEEDS_INPUT', 'NEEDS_SELECTION', 'NEEDS_CONFIRMATION'].includes(
+      String(input.status),
+    ) ||
+    (input.command_id !== undefined && input.command_id !== input.analysis_id)
+  )
+    throw new Error('상품 등록 분석의 식별자와 상태를 확인할 수 없어요.');
+  const { analysis_id, ...response } = input;
+  const result = {
+    product_name: input.product_name,
+    price: input.price,
+    unit: input.unit,
+    category: input.category,
+    category_name: input.category_name,
+  };
+  return {
+    ...response,
+    command_id: analysis_id,
+    analysis_result: result,
+    preview: input.preview ?? { before: null, after: result },
+    ...(input.status === 'NEEDS_INPUT'
+      ? { question: input.question ?? input.message }
+      : {}),
+  };
 }
 async function request(
   path: string,
@@ -463,7 +534,7 @@ async function request(
       throw new Error('음성 명령 응답 상태가 명세와 달라요.');
     const analysisOnly =
       path === '/voice/analyze' ||
-      path === '/voice/analyze-audio' ||
+      (path === '/voice/product-registration' && multipart) ||
       /\/commands\/[^/]+\/answer(?:-audio)?$/.test(path);
     if (
       analysisOnly &&
@@ -473,7 +544,13 @@ async function request(
       throw new Error('분석 응답을 상품 반영 완료로 처리할 수 없어요.');
     if (getAuthSession()?.access_token !== access)
       throw new Error('로그인 계정이 변경됐어요.');
-    return parseCommand(data, previousId, start);
+    return parseCommand(
+      path === '/voice/product-registration' && multipart
+        ? registrationCommandResponse(data)
+        : data,
+      previousId,
+      start,
+    );
   } catch (e) {
     globalThis.__jangbosoLogError?.(
       `services/api/voiceCommands.ts POST ${path.replace(/\/commands\/[^/]+/, '/commands/{command_id}')}`,
@@ -498,14 +575,19 @@ export async function analyzeText(text: string) {
   return request('/voice/analyze', { text: text.trim() });
 }
 export async function analyzeAudio(audio: RecordedAudio) {
-  return request('/voice/analyze-audio', await audioBody(audio));
+  return request(
+    '/voice/product-registration',
+    await audioBody(audio, 'audio_file'),
+  );
 }
 export async function answerText(command: VoiceCommand, text: string) {
   waiting(command);
   if (!text.trim()) throw new Error('답변을 입력해주세요.');
+  if (text.trim().length > 2000)
+    throw new Error('답변은 2,000자 이내로 입력해주세요.');
   return request(
     `/voice/commands/${encodeURIComponent(command.command_id)}/answer`,
-    { answer: text.trim() },
+    { text: text.trim() },
     command.command_id,
   );
 }
@@ -521,7 +603,7 @@ export async function selectCandidate(
     throw new Error('목록에서 상품을 선택해주세요.');
   return request(
     `/voice/commands/${encodeURIComponent(command.command_id)}/answer`,
-    { listing_id: listingId },
+    { listing_id: String(listingId) },
     command.command_id,
   );
 }
@@ -543,6 +625,8 @@ export async function cancelCommand(command: VoiceCommand) {
 export async function executeCommand(command: VoiceCommand, retry = false) {
   if (
     !['READY', 'NEEDS_CONFIRMATION'].includes(command.status) ||
+    command.needs_confirmation === false ||
+    (command.missing_fields?.length ?? 0) > 0 ||
     !command.execution_endpoint ||
     !executionPaths.includes(
       command.execution_endpoint as (typeof executionPaths)[number],
@@ -600,7 +684,7 @@ function mockRequest(
             : 'PRODUCT_UPDATE';
     const saleIntent = intent === 'SALE_CREATE' || intent === 'SALE_UPDATE';
     const endpoint: Record<string, string> = {
-      PRODUCT_CREATE: '/voice/product-registration',
+      PRODUCT_CREATE: registrationConfirmEndpoint,
       PRODUCT_UPDATE: '/voice/product-update',
       PRODUCT_DELETE: '/voice/product-delete',
       SOLD_OUT: '/voice/sold-out',
@@ -715,11 +799,11 @@ function mockRequest(
   }
   waiting(value);
   value.transcript =
-    body instanceof FormData ? '6천 원' : String(body?.answer ?? '상품 선택');
+    body instanceof FormData ? '6천 원' : String(body?.text ?? '상품 선택');
   value.status = 'READY';
   value.execution_endpoint =
     value.intent === 'PRODUCT_CREATE'
-      ? '/voice/product-registration'
+      ? registrationConfirmEndpoint
       : '/voice/product-update';
   value.analysis_result = {
     ...value.analysis_result,

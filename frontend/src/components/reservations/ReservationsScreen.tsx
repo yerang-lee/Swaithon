@@ -334,24 +334,24 @@ export function ReservationsScreen({
       detail?.status === 'COMPLETED' &&
       !detailLoading &&
       !detailError ? (
-        <View style={styles.completion}>
-          <Text accessibilityRole="header" style={styles.completionTitle}>
-            픽업이 완료됐습니다
-          </Text>
-          <Text style={styles.completionProduct}>
-            {detail.product_name} {detail.quantity}개
-          </Text>
-          <Text style={styles.completionText}>{detail.store_name}</Text>
-          <PrimaryButton
-            title="예약 목록으로"
-            onPress={() => {
-              setSelected(null);
-              setCancelError('');
-              setPage(1);
-              setRetry((value) => value + 1);
-            }}
-          />
-        </View>
+        <>
+          <View style={styles.completion}>
+            <Text accessibilityRole="header" style={styles.completionTitle}>
+              픽업이 완료되었어요
+            </Text>
+          </View>
+          <View style={styles.actions}>
+            <PrimaryButton
+              title="예약 목록으로"
+              onPress={() => {
+                setSelected(null);
+                setCancelError('');
+                setPage(1);
+                setRetry((value) => value + 1);
+              }}
+            />
+          </View>
+        </>
       ) : active ? (
         <>
           <ScrollView contentContainerStyle={styles.detailBody}>
@@ -774,23 +774,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   completionTitle: {
-    fontSize: 28,
-    lineHeight: 38,
+    fontSize: 36,
+    lineHeight: 48,
     fontWeight: '700',
     color: '#23864C',
-    textAlign: 'center',
-  },
-  completionProduct: {
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: '600',
-    color: '#181725',
-    textAlign: 'center',
-  },
-  completionText: {
-    fontSize: 18,
-    lineHeight: 27,
-    color: '#666666',
     textAlign: 'center',
   },
   detailBody: {

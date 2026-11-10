@@ -109,20 +109,7 @@ export default function PickupScan() {
             )}
             {result ? (
               <View style={styles.card}>
-                <Text style={styles.title}>픽업이 완료되었어요!</Text>
-                <Text style={styles.name}>{result.product_name}</Text>
-                <Text style={styles.note}>
-                  예약 번호 {result.reservation_id}
-                </Text>
-                <Text style={styles.note}>
-                  {new Date(result.completed_at).toLocaleDateString('ko-KR', {
-                    timeZone: 'Asia/Seoul',
-                  })}
-                  {'\n'}
-                  {new Date(result.completed_at).toLocaleTimeString('ko-KR', {
-                    timeZone: 'Asia/Seoul',
-                  })}
-                </Text>
+                <Text style={styles.title}>픽업이 완료되었어요</Text>
               </View>
             ) : busy ? (
               <View style={styles.card}>
@@ -226,7 +213,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   title: {
-    fontSize: 26,
+    fontSize: 36,
+    lineHeight: 48,
     fontWeight: '700',
     textAlign: 'center',
     color: '#23864C',

@@ -4,6 +4,7 @@ import {
   Alert,
   AppState,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -75,6 +76,8 @@ export function MerchantReservationsScreen({
   const [retry, setRetry] = useState(0);
   const [changing, setChanging] = useState<number | null>(null);
   const [owner, setOwner] = useState<string | undefined>();
+  const [refreshing, setRefreshing] = useState(false);
+  const pullRequested = useRef(false);
   const generation = useRef(0);
   const focused = useRef(false);
   const mutationLock = useRef(false);
@@ -92,9 +95,14 @@ export function MerchantReservationsScreen({
         focused.current &&
         generation.current === visit &&
         getAuthSession()?.access_token === token;
-      setItems([]);
-      setPage(1);
-      setTotal(0);
+      const keepItems = pullRequested.current && owner === token;
+      pullRequested.current = false;
+      if (!keepItems) {
+        setItems([]);
+        setPage(1);
+        setTotal(0);
+        setRefreshing(false);
+      }
       setError('');
       setMoreError('');
       setActionError('');
@@ -103,12 +111,13 @@ export function MerchantReservationsScreen({
       moreLock.current = false;
       if (!merchant) {
         setLoading(false);
+        setRefreshing(false);
         return () => {
           focused.current = false;
           generation.current++;
         };
       }
-      setLoading(true);
+      setLoading(!keepItems);
       void getMerchantReservations({
         ...(filter !== 'ALL' ? { status: filter } : {}),
       })
@@ -127,7 +136,10 @@ export function MerchantReservationsScreen({
             );
         })
         .finally(() => {
-          if (current()) setLoading(false);
+          if (current()) {
+            setLoading(false);
+            setRefreshing(false);
+          }
         });
       const listener = AppState.addEventListener('change', (state) => {
         if (state === 'active' && !mutationLock.current)
@@ -141,7 +153,13 @@ export function MerchantReservationsScreen({
     }, [filter, retry, token, merchant]),
   );
   async function more() {
-    if (loading || moreLock.current || mutationLock.current || !merchant)
+    if (
+      loading ||
+      refreshing ||
+      moreLock.current ||
+      mutationLock.current ||
+      !merchant
+    )
       return;
     const visit = generation.current;
     moreLock.current = true;
@@ -227,14 +245,30 @@ export function MerchantReservationsScreen({
   function confirm(item: MerchantReservation, status: 'CONFIRMED' | 'READY') {
     Alert.alert(
       status === 'READY' ? '픽업 준비 완료' : '예약 확인',
-      `${item.product_name} · 예약 #${item.reservation_id}\n${status === 'READY' ? '준비 완료로 변경하고 고객 QR을 발급할까요?' : '예약을 확인 처리할까요?'}`,
+      status === 'READY'
+        ? '준비 완료로 변경하고 고객 QR을 발급할까요?'
+        : '예약을 확인 처리할까요?',
       [
         { text: '취소', style: 'cancel' },
         { text: '확인', onPress: () => void change(item, status) },
       ],
     );
   }
-  const disabled = changing !== null || loading || moreLoading;
+  function refresh() {
+    if (
+      !merchant ||
+      loading ||
+      moreLoading ||
+      mutationLock.current ||
+      refreshing ||
+      pullRequested.current
+    )
+      return;
+    pullRequested.current = true;
+    setRefreshing(true);
+    setRetry((value) => value + 1);
+  }
+  const disabled = changing !== null || loading || moreLoading || refreshing;
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <PageHeader
@@ -273,24 +307,22 @@ export function MerchantReservationsScreen({
               ))}
             </ScrollView>
           </View>
-          <View style={styles.summary}>
-            <Text style={styles.note}>
-              예약 {owner === token ? total : 0}건
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              disabled={disabled}
-              onPress={() => setRetry((value) => value + 1)}
-            >
-              <Text style={styles.refresh}>새로고침</Text>
-            </Pressable>
-          </View>
           {!!actionError && (
             <Text style={styles.actionError} accessibilityRole="alert">
               {actionError}
             </Text>
           )}
           <ScrollView
+            alwaysBounceVertical
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={refresh}
+                enabled={!loading && !moreLoading && changing === null}
+                tintColor="#53B175"
+                colors={['#53B175']}
+              />
+            }
             contentContainerStyle={[
               styles.list,
               (!visible.length || loading) && styles.center,
@@ -332,10 +364,6 @@ export function MerchantReservationsScreen({
                       </Text>
                     </View>
                     <View style={styles.cardBody}>
-                      <View
-                        style={styles.photo}
-                        accessibilityLabel="예약 상품 사진 영역"
-                      />
                       <View style={styles.cardText}>
                         <Text
                           style={[
@@ -448,19 +476,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#181725',
   },
   filterText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#777777',
   },
   selectedText: {
     color: '#181725',
     fontWeight: '700',
-  },
-  summary: {
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
   },
   list: {
     flexGrow: 1,
@@ -516,12 +537,6 @@ const styles = StyleSheet.create({
     gap: 14,
     alignItems: 'stretch',
   },
-  photo: {
-    width: '34%',
-    minHeight: 130,
-    borderRadius: 8,
-    backgroundColor: '#E3E3E3',
-  },
   cardText: {
     flex: 1,
     minWidth: 0,
@@ -548,24 +563,19 @@ const styles = StyleSheet.create({
     color: '#D33E3E',
   },
   product: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#181725',
   },
   price: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#181725',
   },
   detail: {
-    fontSize: 19,
+    fontSize: 18,
     lineHeight: 28,
     color: '#424743',
-  },
-  refresh: {
-    fontSize: 17,
-    color: '#23864C',
-    paddingVertical: 4,
   },
   error: {
     fontSize: 20,

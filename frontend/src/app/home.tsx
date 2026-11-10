@@ -43,6 +43,7 @@ import {
   marketDistanceParams,
 } from '../utils/marketDistance';
 import { getAuthSession } from '../services/api/auth';
+import { getProduct, type ProductDetail } from '../services/api/products';
 import { getNearbyMarkets, type NearbyMarket } from '../services/api/markets';
 import {
   getStoresForNearbyMarkets,
@@ -91,6 +92,11 @@ export default function HomeScreen() {
   const [recommendationsRetry, setRecommendationsRetry] = useState(0);
   const recommendationToken = getAuthSession()?.access_token;
   const recommendationsOwner = useRef<string | undefined>(undefined);
+  const [recommendationDetails, setRecommendationDetails] = useState<{
+    token?: string;
+    requestId: string;
+    items: Record<string, ProductDetail>;
+  }>({ requestId: '', items: {} });
   const viewportRef = useRef<ComponentRef<typeof ScrollView> | null>(null);
   const impressionTracking = useRecommendationImpressions({
     requestId: recommendations?.request_id,
@@ -132,6 +138,37 @@ export default function HomeScreen() {
           if (current()) {
             recommendationsOwner.current = recommendationToken;
             setRecommendations(result);
+            setRecommendationDetails({
+              token: recommendationToken,
+              requestId: result.request_id,
+              items: {},
+            });
+            let cursor = 0;
+            async function enrich() {
+              while (current() && cursor < result.items.length) {
+                const item = result.items[cursor++];
+                try {
+                  const detail = await getProduct(item.listing_id);
+                  if (current())
+                    setRecommendationDetails((previous) =>
+                      previous.requestId === result.request_id
+                        ? {
+                            ...previous,
+                            items: {
+                              ...previous.items,
+                              [item.listing_id]: detail,
+                            },
+                          }
+                        : previous,
+                    );
+                } catch (error) {
+                  logAppError('home/recommendation-details', error);
+                }
+              }
+            }
+            void Promise.all(
+              Array.from({ length: Math.min(4, result.items.length) }, enrich),
+            );
           }
         })
         .catch((error) => {
@@ -257,7 +294,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <PageHeader title="장보소" />
+      <PageHeader title="장보소" brandTitle titleStyle={{ fontSize: 32 }} />
       <ScrollView
         ref={viewportRef}
         onLayout={impressionTracking.checkVisibility}
@@ -332,50 +369,77 @@ export default function HomeScreen() {
               contentContainerStyle={styles.grid}
               keyboardShouldPersistTaps="handled"
             >
-              {recommendations?.items.map((item) => (
-                <View
-                  key={item.listing_id}
-                  ref={impressionTracking.cardRef(item.listing_id)}
-                  collapsable={false}
-                  onLayout={impressionTracking.checkVisibility}
-                  style={[styles.card, { width: cardWidth }]}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.name} 상세`}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/products/[listingId]',
-                        params: {
-                          listingId: item.listing_id,
-                          requestId: recommendations.request_id,
-                          ...marketDistanceParams(item.distance_km * 1000),
-                        },
-                      })
-                    }
+              {recommendations?.items.map((item) => {
+                const detail =
+                  recommendationDetails.token === recommendationToken &&
+                  recommendationDetails.requestId === recommendations.request_id
+                    ? recommendationDetails.items[item.listing_id]
+                    : undefined;
+                const discounted =
+                  !!detail &&
+                  detail.sale_price !== null &&
+                  detail.sale_price < detail.price &&
+                  item.price === detail.sale_price;
+                return (
+                  <View
+                    key={item.listing_id}
+                    ref={impressionTracking.cardRef(item.listing_id)}
+                    collapsable={false}
+                    onLayout={impressionTracking.checkVisibility}
+                    style={[styles.card, { width: cardWidth }]}
                   >
-                    <View style={styles.productImage} />
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Text
-                      style={[styles.meta, { minHeight: 42 }]}
-                      numberOfLines={2}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.name} 상세`}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/products/[listingId]',
+                          params: {
+                            listingId: item.listing_id,
+                            requestId: recommendations.request_id,
+                            ...marketDistanceParams(item.distance_km * 1000),
+                          },
+                        })
+                      }
                     >
-                      {[
-                        item.store_name,
-                        nearbyMarkets.find(
-                          (market) =>
-                            String(market.market_id) === item.market_id,
-                        )?.market_name,
-                        formatMarketDistance(item.distance_km * 1000),
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
-                  </Pressable>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.price}>
-                      {item.price.toLocaleString('ko-KR')}원
-                    </Text>
+                      <View style={styles.cardImage}>
+                        <PlaceImage uri={detail?.image_url ?? null} />
+                        {detail?.is_sold_out && (
+                          <View style={styles.soldOutOverlay}>
+                            <Text style={styles.soldOutBadge}>품절</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.cardInfo}>
+                        <Text style={styles.cardTitle}>{item.name}</Text>
+                        <Text style={styles.meta} numberOfLines={2}>
+                          {[
+                            item.store_name,
+                            nearbyMarkets.find(
+                              (market) =>
+                                String(market.market_id) === item.market_id,
+                            )?.market_name,
+                            formatMarketDistance(item.distance_km * 1000),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <View style={styles.priceRow}>
+                      <View style={styles.prices}>
+                        {discounted && (
+                          <Text style={styles.oldPrice}>
+                            {detail!.price.toLocaleString('ko-KR')}원
+                          </Text>
+                        )}
+                        <Text
+                          style={[styles.price, discounted && styles.salePrice]}
+                        >
+                          {item.price.toLocaleString('ko-KR')}원
+                        </Text>
+                      </View>
+                    </View>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`${item.name} 찜 ${favorites.includes(item.listing_id) ? '취소' : '추가'}`}
@@ -383,7 +447,7 @@ export default function HomeScreen() {
                         selected: favorites.includes(item.listing_id),
                       }}
                       disabled={pendingFavorites.includes(item.listing_id)}
-                      hitSlop={10}
+                      style={[styles.cardHeart, { top: cardWidth - 54 }]}
                       onPress={() =>
                         void toggleFavorite(item.listing_id, {
                           requestId: recommendations.request_id,
@@ -405,8 +469,8 @@ export default function HomeScreen() {
                       />
                     </Pressable>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </ScrollView>
             {recommendationsLoading && (
               <ActivityIndicator
@@ -566,7 +630,7 @@ function PlaceImage({ uri }: { uri: string | null }) {
     <Image
       source={{ uri: url }}
       resizeMode="cover"
-      style={styles.placeImage}
+      style={styles.cardImage}
       onError={() => {
         logAppError(
           'home/place-image',
@@ -576,7 +640,7 @@ function PlaceImage({ uri }: { uri: string | null }) {
       }}
     />
   ) : (
-    <View style={styles.placeImage} />
+    <View style={styles.cardImage} />
   );
 }
 function PlaceSection({
@@ -638,15 +702,17 @@ function PlaceSection({
               style={[styles.card, styles.placeCard, { width: cardWidth }]}
             >
               <PlaceImage uri={item.imageUrl} />
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.name}
-              </Text>
-              <Text style={styles.meta}>{item.distanceLabel}</Text>
-              {!!item.description && (
-                <Text style={styles.meta} numberOfLines={2}>
-                  {item.description}
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.name}
                 </Text>
-              )}
+                <Text style={styles.meta}>{item.distanceLabel}</Text>
+                {!!item.description && (
+                  <Text style={styles.meta} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                )}
+              </View>
             </Pressable>
           ))}
         </ScrollView>
@@ -669,7 +735,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   brand: {
-    fontSize: 27,
+    fontSize: 29,
     fontWeight: '800',
     color: theme.colors.text,
   },
@@ -684,6 +750,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   body: {
+    paddingTop: 16,
     paddingHorizontal: 24,
     paddingBottom: 28,
     width: '100%',
@@ -719,7 +786,7 @@ const styles = StyleSheet.create({
     color: '#333333',
   },
   radius: {
-    fontSize: 14,
+    fontSize: 16,
     color: theme.colors.muted,
   },
   shortcuts: {
@@ -740,12 +807,12 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   shortcutLabel: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '600',
     color: '#424743',
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: '800',
     color: theme.colors.text,
     marginBottom: 16,
@@ -802,50 +869,92 @@ const styles = StyleSheet.create({
   card: {
     flexShrink: 0,
     minWidth: 0,
-    borderRadius: theme.radii.card,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E8E8E8',
-    padding: 11,
+    borderColor: '#E5E5E5',
+    overflow: 'hidden',
   },
-  productImage: {
-    height: 116,
-    backgroundColor: '#DCDCDC',
-    borderRadius: theme.radii.small,
-    marginBottom: 10,
+  cardImage: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#E3E3E3',
+  },
+  cardInfo: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 4,
   },
   cardTitle: {
-    fontSize: 19,
+    fontSize: 21,
+    lineHeight: 29,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 4,
   },
   meta: {
-    fontSize: 15,
+    fontSize: 16,
     color: theme.colors.muted,
     lineHeight: 21,
+  },
+  cardHeart: {
+    position: 'absolute',
+    right: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  prices: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    columnGap: 8,
+  },
+  oldPrice: {
+    fontSize: 15,
+    color: '#858585',
+    textDecorationLine: 'line-through',
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   price: {
-    fontSize: 21,
+    fontSize: 23,
+    lineHeight: 31,
     fontWeight: '700',
     color: theme.colors.text,
+  },
+  soldOutOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: '#FFFFFF99',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldOutBadge: {
+    backgroundColor: '#777777',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    padding: 5,
+    borderRadius: 4,
   },
   placeSection: {
     marginTop: 34,
   },
   placeCard: {
     minHeight: 184,
-  },
-  placeImage: {
-    height: 104,
-    borderRadius: theme.radii.small,
-    backgroundColor: '#DCDCDC',
-    marginBottom: 10,
   },
   tabbar: {
     flexDirection: 'row',

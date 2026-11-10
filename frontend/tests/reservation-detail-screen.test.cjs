@@ -205,17 +205,15 @@ const panel = (tree) =>
   assert.equal(panel(render()).loading, false);
   timers.forEach((fn) => fn());
   assert.equal(details.length, 1, 'polls must not overlap');
-  details
-    .shift()
-    .resolve({
-      ...response,
-      status: 'COMPLETED',
-      qr_code_data: null,
-      qr_code_expires_at: null,
-    });
+  details.shift().resolve({
+    ...response,
+    status: 'COMPLETED',
+    qr_code_data: null,
+    qr_code_expires_at: null,
+  });
   await tick();
   tree = render();
-  assert.ok(text(tree).includes('픽업이 완료됐습니다'));
+  assert.ok(text(tree).includes('픽업이 완료되었어요'));
   assert.equal(panel(tree), undefined, 'completed pickup must hide QR');
   assert.ok(
     walk(tree).some(

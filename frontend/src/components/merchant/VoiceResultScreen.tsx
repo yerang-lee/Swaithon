@@ -321,7 +321,7 @@ export function VoiceResultScreen({
                       : '가격 정보 없음'}
                   </Text>
                   {action === 'update' && rate !== '' && (
-                    <Text style={styles.label}>
+                    <Text style={[styles.label, styles.salePrice]}>
                       {rate}% 할인 ·{' '}
                       {Number(discountPrice).toLocaleString('ko-KR')}원
                     </Text>
@@ -571,6 +571,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     lineHeight: 29,
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   intent: {
     color: '#101C15',

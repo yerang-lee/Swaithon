@@ -122,7 +122,15 @@ const settle = () => new Promise((done) => setImmediate(done));
   const texts = nodes(render())
     .filter((node) => node.type === 'Text')
     .map((node) => [node.props.children].flat().join(''));
-  assert.ok(texts.some((value) => value.includes('\n')));
+  assert.ok(texts.includes('픽업이 완료되었어요'));
+  assert.ok(
+    !texts.some(
+      (value) =>
+        value.includes('예약 번호') ||
+        value.includes('2026') ||
+        value === '사과',
+    ),
+  );
   assert.ok(!texts.includes('가게'));
   let button = find('PrimaryButton');
   assert.equal(button.props.title, '다음 QR 스캔하기');

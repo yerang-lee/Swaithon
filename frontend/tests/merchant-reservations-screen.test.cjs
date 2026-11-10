@@ -68,6 +68,7 @@ const modules = {
     Alert: { alert: (...args) => alerts.push(args) },
     AppState: { addEventListener: () => ({ remove() {} }) },
     Pressable: 'Pressable',
+    RefreshControl: 'RefreshControl',
     ScrollView: 'ScrollView',
     StyleSheet: { create: (s) => s },
     Text: 'Text',
@@ -177,6 +178,8 @@ function card(id) {
   );
   confirmButton.props.onPress();
   assert.equal(changes.length, 0);
+  assert.ok(!alerts.at(-1)[1].includes('상품501'));
+  assert.ok(!alerts.at(-1)[1].includes('501'));
   const confirm = alerts
     .at(-1)[2]
     .find((button) => button.text === '확인').onPress;
@@ -236,10 +239,18 @@ function card(id) {
     .resolve({ reservations: [], total_count: 0, page: 1, size: 10 });
   await tick();
   assert.ok(text(render()).includes('해당 상태의 예약이 없어요.'));
-  nodes(render())
-    .find((node) => node.type === 'Pressable' && text(node) === '새로고침')
-    .props.onPress();
+  assert.ok(!text(render()).includes('새로고침'));
+  const refreshControl = nodes(render()).find(
+    (node) => node.type === 'ScrollView' && node.props.refreshControl,
+  ).props.refreshControl;
+  refreshControl.props.onRefresh();
+  refreshControl.props.onRefresh();
   render();
+  assert.equal(
+    lists.length,
+    1,
+    'pull refresh must not create duplicate requests',
+  );
   const stale = lists.shift();
   session = { ...session, access_token: 'other-merchant' };
   render();

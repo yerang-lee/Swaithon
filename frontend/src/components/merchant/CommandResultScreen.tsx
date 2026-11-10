@@ -21,12 +21,6 @@ import { commandProductPresentation } from '../../utils/voiceCommandPresentation
 import { theme } from '../../constants/theme';
 import { logAppError } from '../../utils/appDiagnostics';
 import { uploadProductImage } from '../../services/api/images';
-import {
-  getAuthSession,
-  getMyStoreId,
-  setAuthRole,
-} from '../../services/api/auth';
-import { getProduct } from '../../services/api/products';
 import type { VoiceCommand } from '../../services/api/voiceCommands';
 
 const intentLabels: Record<string, string> = {
@@ -76,6 +70,7 @@ export function CommandResultScreen({
   const [photoError, setPhotoError] = useState('');
   const [uploaded, setUploaded] = useState(false);
   const done = command.status === 'SUCCEEDED';
+  const intent = command.intent;
   const data = {
     ...command.preview.before,
     ...command.preview.after,
@@ -101,8 +96,7 @@ export function CommandResultScreen({
   const { price, saleActive } = commandProductPresentation(command);
   const executionMissing = !done && !command.execution_endpoint;
   const locked = busy || photoBusy;
-  const canPhoto =
-    command.intent === 'PRODUCT_CREATE' || command.intent === 'PRODUCT_UPDATE';
+  const canPhoto = intent === 'PRODUCT_CREATE' || intent === 'PRODUCT_UPDATE';
   const complete = done && (!photo || uploaded);
   async function pickPhoto(source: ProductPhotoSource) {
     if (locked || uncertain) return;
@@ -154,40 +148,8 @@ export function CommandResultScreen({
       setPhotoBusy(false);
     }
   }
-  async function showProducts() {
-    if (locked) return;
-    setPhotoBusy(true);
-    setPhotoError('');
-    try {
-      let storeId = command.result?.store_id;
-      const listingId = command.result?.listing_id;
-      if (
-        typeof storeId !== 'number' &&
-        typeof storeId !== 'string' &&
-        (typeof listingId === 'number' || typeof listingId === 'string')
-      )
-        storeId = (await getProduct(String(listingId))).store_id;
-      if (
-        (typeof storeId !== 'number' && typeof storeId !== 'string') ||
-        !String(storeId).trim()
-      )
-        storeId = await getMyStoreId();
-      const session = getAuthSession();
-      const numericStoreId = Number(storeId);
-      if (session?.role === 'MERCHANT')
-        setAuthRole('MERCHANT', session.access_token, numericStoreId);
-      router.push({
-        pathname: '/stores/[storeId]',
-        params: { storeId: String(storeId) },
-      });
-    } catch (e) {
-      logAppError('voice/result/my-products', e);
-      setPhotoError(
-        e instanceof Error ? e.message : '내 상품을 불러오지 못했어요.',
-      );
-    } finally {
-      setPhotoBusy(false);
-    }
+  function showProducts() {
+    if (!locked) router.push('/my-store');
   }
   const button = (
     title: string,
@@ -221,8 +183,7 @@ export function CommandResultScreen({
         <View style={styles.main}>
           <Text accessibilityRole="header" style={styles.title}>
             {done
-              ? (doneLabels[command.intent ?? ''] ??
-                '상품 처리가 완료되었어요!')
+              ? (doneLabels[intent ?? ''] ?? '상품 처리가 완료되었어요!')
               : 'AI 분석 결과'}
           </Text>
           {!done && (
@@ -244,7 +205,9 @@ export function CommandResultScreen({
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>판매 가격</Text>
-              <Text style={styles.value}>
+              <Text
+                style={[styles.value, saleActive === true && styles.salePrice]}
+              >
                 {price !== null
                   ? `${price.toLocaleString('ko-KR')}원`
                   : '가격 정보 없음'}
@@ -255,7 +218,7 @@ export function CommandResultScreen({
             </View>
             <View style={styles.lastRow}>
               <Text style={styles.value}>
-                {intentLabels[command.intent ?? ''] ?? '정보 없음'}
+                {intentLabels[intent ?? ''] ?? '정보 없음'}
               </Text>
             </View>
           </View>
@@ -307,9 +270,9 @@ export function CommandResultScreen({
                   ? '처리 중...'
                   : done
                     ? '사진 업로드 다시 시도'
-                    : command.intent === 'PRODUCT_CREATE'
+                    : intent === 'PRODUCT_CREATE'
                       ? '이대로 등록하기'
-                      : command.intent === 'PRODUCT_DELETE'
+                      : intent === 'PRODUCT_DELETE'
                         ? '이대로 삭제하기'
                         : '이대로 반영하기',
                 () => void finish(),
@@ -384,6 +347,9 @@ const styles = StyleSheet.create({
     lineHeight: 29,
     fontWeight: '700',
     color: '#101C15',
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   saleLabel: {
     color: '#176735',

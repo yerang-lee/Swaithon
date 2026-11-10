@@ -242,6 +242,61 @@ export async function mockRequest(
   const input = (body ?? {}) as Record<string, unknown>;
   const account = token ? sessions.get(token) : undefined;
 
+  if (url.pathname === '/stores/me/listings' && method === 'GET') {
+    const fail = (status: number): never => {
+      throw Object.assign(new Error('내 상품 목록을 확인해주세요.'), {
+        status,
+      });
+    };
+    if (!account) fail(401);
+    if (account!.role !== 'MERCHANT' || !account!.store_id) fail(403);
+    const page = Number(url.searchParams.get('page') ?? 1);
+    const size = Number(url.searchParams.get('size') ?? 10);
+    const soldOut = url.searchParams.get('is_sold_out');
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(size) ||
+      size < 1 ||
+      size > 100 ||
+      (soldOut !== null && soldOut !== 'true' && soldOut !== 'false')
+    )
+      fail(422);
+    const all = (await mockRequest('/products?page=1&size=100', 'GET')) as {
+      products: Array<Record<string, unknown>>;
+    };
+    const listings = all.products
+      .filter(
+        (item) =>
+          item.store_id === account!.store_id &&
+          (soldOut === null || item.is_sold_out === (soldOut === 'true')),
+      )
+      .map((item) => ({
+        listing_id: item.listing_id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        category_id: item.category_id,
+        price: item.price,
+        sale_price: item.sale_price,
+        sale_quantity: 1,
+        sale_unit: '봉지',
+        stock_quantity: 10,
+        is_sold_out: item.is_sold_out,
+        sale_rate:
+          item.sale_price === null
+            ? null
+            : Math.round(
+                (1 - Number(item.sale_price) / Number(item.price)) * 100,
+              ),
+        created_at: item.created_at,
+      }));
+    return {
+      listings: listings.slice((page - 1) * size, page * size),
+      total_count: listings.length,
+      page,
+      size,
+    };
+  }
   if (url.pathname === '/users/me/notifications' && method === 'GET') {
     const fail = (status: number) => {
       throw Object.assign(new Error('알림 요청을 처리하지 못했어요.'), {
