@@ -2,7 +2,7 @@
 
 사용자 상세 명세: GET `/markets/nearby`.
 Query: latitude, longitude (필수 Float), radius (Integer, 미터, 기본 5000), limit (Integer, 기본 10).
-응답 200: `{ markets: [{ market_id, market_name, address, latitude, longitude, distance, image_url }] }`. distance는 미터(숫자)입니다. market_id는 Integer | null, image_url은 String | null이며 두 필드는 생략하지 않습니다. 미등록 시장은 market_id=null, 대표 이미지가 없으면 image_url=null을 반환합니다.
+응답 200: `{ markets: [{ market_id, market_name, address, latitude, longitude, distance, image_url }] }`. 실제 백엔드 markets.py는 distance를 km(숫자)로 반환합니다. API 수신 직후 1,000을 곱해 앱 내부 미터로 정규화합니다. radius 요청은 기존처럼 미터입니다. market_id는 Integer | null, image_url은 String | null이며 두 필드는 생략하지 않습니다. 미등록 시장은 market_id=null, 대표 이미지가 없으면 image_url=null을 반환합니다.
 400은 위치/반경 오류, 404는 결과 없음, 500은 서버 오류로 처리합니다.
 
 선택 반경을 km에서 m로 변환합니다. 명세 응답을 검증하고 반경 밖 항목과 등록 시장의 중복 ID를 제거한 뒤 거리순으로 표시합니다. market_id=null인 미등록 시장은 같은 ID로 합치지 않고 각 항목을 유지합니다. 위치 변경 시 이전 응답은 무시합니다.
@@ -52,3 +52,7 @@ Query: latitude, longitude (필수 Float), radius (Integer, 미터, 기본 5000)
 거리 파라미터가 없는 직접 진입은 기존 저장 탐색 위치(없으면 GPS)로 getNearbyMarkets를 조회하고 내부 market_id가 일치하는 항목에서 거리를 가져옵니다. 조회 범위 밖 시장·거리 확인 실패는 숫자를 만들지 않고 표시를 생략합니다. 미리보기 상품은 기존 예시 거리만 표시합니다. 거리 표시 때문에 저장 위치를 바꾸지 않습니다.
 
 검증: node tests/market-distance.test.cjs, node tests/home-nearby.test.cjs, node tests/market-selection.test.cjs, npm run typecheck.
+
+## 주변 시장 거리 단위 보정
+
+저장소 origin/main의 backend/routers/markets.py에서 카카오 distance(m)를 1,000으로 나눈 km 응답을 확인했습니다. 프론트가 응답을 다시 1,000으로 나누면 0.35km가 0.0km로 표시되므로 getNearbyMarkets에서 km→m를 한 번 변환합니다. 이후 홈·시장 찾기·시장 상세·가게·상품 상세 거리 전달과 formatMarketDistance는 기존 m 기준을 유지합니다. 단위는 값 크기로 추측하지 않으며 테스트 서버도 km 응답을 사용합니다. 과거 전달 명세의 distance(m) 설명과 실제 백엔드가 달라 백엔드 명세도 km로 맞춰야 합니다.

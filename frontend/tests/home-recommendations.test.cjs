@@ -15,7 +15,10 @@ const compile = (file) =>
 const helpers = {};
 new Function('exports', compile('src/utils/marketDistance.ts'))(helpers);
 const jsx = (type, props, key) => ({ type, props, key });
-let slots = { 6: [{ market_id: 3, market_name: '확인된시장' }] },
+let slots = {
+    4: { latitude: 37.5, longitude: 127, name: '선택위치', radius: 3 },
+    6: [{ market_id: 3, market_name: '확인된시장' }],
+  },
   cursor = 0,
   focus = [],
   requests = [],
@@ -84,8 +87,10 @@ const modules = {
     }),
   },
   '../services/api/recommendations': {
-    getRecommendations: () =>
-      new Promise((resolve, reject) => requests.push({ resolve, reject })),
+    getRecommendations: (options) =>
+      new Promise((resolve, reject) =>
+        requests.push({ resolve, reject, options }),
+      ),
   },
   '../constants/theme': {
     theme: { colors: { primary: '#53B175', text: '#181725' }, radii: {} },
@@ -141,6 +146,7 @@ const result = {
   focus.forEach((fn) => fn());
   await tick();
   assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].options, { latitude: 37.5, longitude: 127 });
   requests.shift().resolve(result);
   await tick();
   let tree = render();
@@ -193,6 +199,19 @@ const result = {
   requests.shift().resolve({ request_id: 'empty', items: [] });
   await tick();
   assert.ok(text(render()).includes('추천 상품이 없어요.'));
+  slots[4] = null;
+  render();
+  focus[1]();
+  await tick();
+  assert.equal(requests.length, 0);
+  assert.ok(text(render()).includes('위치를 설정하면'));
+  slots[4] = { latitude: 35.1, longitude: 129.1, name: '새 위치', radius: 3 };
+  render();
+  focus[1]();
+  await tick();
+  assert.deepEqual(requests[0].options, { latitude: 35.1, longitude: 129.1 });
+  requests.shift().resolve({ request_id: 'new-location', items: [] });
+  await tick();
   console.log(
     'PASS: home server recommendations, exact market-name matching, request ID detail/favorite propagation, pending hearts, stale responses and error/empty states',
   );

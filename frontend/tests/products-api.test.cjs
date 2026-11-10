@@ -110,16 +110,52 @@ new Function('require', 'exports', source)(
     size: 10,
   };
   await assert.rejects(() => api.getProducts(), /응답/);
-  payload = { ...product, image_url: '', description: '' };
-  assert.equal((await api.getProduct('101')).listing_id, 101);
-  payload = { ...payload, listing_id: 'listing_101' };
-  assert.equal((await api.getProduct('listing_101')).listing_id, 'listing_101');
+  const detail = {
+    listing_id: 101,
+    product_id: 1,
+    product_name: '사과 1kg',
+    category_id: null,
+    description: null,
+    image_url: null,
+    price: 10000,
+    sale_price: 8000,
+    is_sold_out: false,
+    store_id: 1,
+    store_name: '가게',
+    market_id: 1,
+    market_name: '시장',
+  };
+  payload = detail;
+  assert.deepEqual(await api.getProduct('101'), detail);
+  for (const change of [
+    { description: '' },
+    { image_url: 'https://example.com/apple.jpg' },
+    { category_id: 2 },
+    { sale_price: 0 },
+    { sale_price: null },
+  ]) {
+    payload = { ...detail, ...change };
+    assert.deepEqual(await api.getProduct('101'), payload);
+  }
+  for (const change of [
+    { listing_id: '101' },
+    { listing_id: 102 },
+    { category_id: undefined },
+    { description: undefined },
+    { image_url: undefined },
+    { market_name: undefined },
+    { price: -1 },
+  ]) {
+    payload = { ...detail, ...change };
+    await assert.rejects(() => api.getProduct('101'), /응답/);
+  }
+  await assert.rejects(() => api.getProduct('listing_101'), /ID/);
   payload = { products: [], total_count: 0, page: 1, size: 10 };
   assert.equal((await api.getProducts({ market_id: 1 })).total_count, 0);
   fail = new ApiError(400);
   await assert.rejects(() => api.getProducts(), /카테고리/);
   console.log(
-    'PASS: market/category/keyword/boolean pagination queries, null image and sale status, missing/invalid status rejected, strict sale filters, market isolation, integer/string detail IDs, empty results, 400',
+    'PASS: market/category/keyword/boolean pagination queries, null image and sale status, missing/invalid status rejected, strict sale filters, market isolation, backend detail integer IDs/nulls/absent legacy fields, empty results, 400',
   );
 })().catch((e) => {
   console.error(e);

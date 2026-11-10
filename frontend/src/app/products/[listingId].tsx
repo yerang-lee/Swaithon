@@ -30,7 +30,6 @@ import {
   getProduct,
   type ProductDetail as ProductData,
 } from '../../services/api/products';
-import { getStore } from '../../services/api/stores';
 import {
   reserveProduct,
   reservationDetailId,
@@ -86,27 +85,6 @@ export default function ProductDetail() {
     !!demo || preview === 'true',
   );
   const distanceParams = marketDistanceParams(marketDistance);
-  const [storeMarket, setStoreMarket] = useState<{
-    listingId: string;
-    name: string;
-  } | null>(null);
-  useEffect(() => {
-    if (!data) return;
-    const storeId = Number(data.store_id);
-    if (!Number.isSafeInteger(storeId) || storeId <= 0) return;
-    let active = true;
-    void getStore(storeId)
-      .then((store) => {
-        if (active && String(store.market_id) === String(data.market_id))
-          setStoreMarket({ listingId, name: store.market_name });
-      })
-      .catch((error) => {
-        logAppError('product/store-market', error);
-      });
-    return () => {
-      active = false;
-    };
-  }, [data, listingId]);
   useRecommendationView({
     requestId,
     listingId,
@@ -137,18 +115,16 @@ export default function ProductDetail() {
   const favorite = favorites.includes(id);
   const name = data?.product_name ?? demo!.name;
   const store = data?.store_name ?? demo!.store;
-  const market =
-    demo?.market ??
-    (storeMarket?.listingId === listingId ? storeMarket.name : '');
+  const market = data?.market_name ?? demo?.market ?? '';
   const distance = demo
     ? demo.distance
     : marketDistance !== null
       ? formatMarketDistance(marketDistance)
       : '';
   const price = data
-    ? `${(data.is_on_sale && data.sale_price !== null ? data.sale_price : data.price).toLocaleString('ko-KR')}원`
+    ? `${(data.sale_price ?? data.price).toLocaleString('ko-KR')}원`
     : demo!.price;
-  const imageUrl = data?.image_url.replace(/^<|>$/g, '');
+  const imageUrl = data?.image_url?.replace(/^<|>$/g, '');
   const soldOut = data?.is_sold_out ?? false;
   async function confirm(date: Date, quantity: number, note: string) {
     if (lock.current) return;

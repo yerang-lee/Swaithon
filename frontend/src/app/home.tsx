@@ -114,7 +114,19 @@ export default function HomeScreen() {
           alive = false;
         };
       }
-      void getRecommendations()
+      if (!location) {
+        setRecommendationsLoading(false);
+        setRecommendationsError(
+          locationError || '위치를 설정하면 추천 상품을 확인할 수 있어요.',
+        );
+        return () => {
+          alive = false;
+        };
+      }
+      void getRecommendations({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })
         .then((result) => {
           if (current()) {
             recommendationsOwner.current = recommendationToken;
@@ -140,7 +152,9 @@ export default function HomeScreen() {
       active,
       recommendationToken,
       recommendationsRetry,
-      sharedLocationRevision,
+      location?.latitude,
+      location?.longitude,
+      locationError,
     ]),
   );
   useFocusEffect(

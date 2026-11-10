@@ -21,13 +21,15 @@ const product = {
   store_id: 1,
   market_id: 5,
   store_name: '테스트가게',
+  market_name: '테스트시장',
+  category_id: null,
   product_name: '사과',
   price: 5000,
   sale_price: null,
   is_on_sale: false,
   is_sold_out: false,
-  image_url: '',
-  description: '',
+  image_url: null,
+  description: null,
 };
 const store = {
   store_id: 1,
@@ -148,7 +150,7 @@ assert.equal(view.routes[0].params.marketDistanceMeters, '350');
 assert.ok(text(view.tree).includes('0.3km'));
 view = render(
   'src/app/products/[listingId].tsx',
-  { 0: product, 1: false, 7: { listingId: '101', name: '테스트시장' } },
+  { 0: product, 1: false },
   { listingId: '101', marketDistanceMeters: '350', requestId: 'rec_test' },
 );
 walk(view.tree)
@@ -169,6 +171,18 @@ assert.deepEqual(trackedViews.at(-1), {
   listingId: '101',
   ready: true,
 });
+for (const [salePrice, label] of [
+  [4500, '4,500원'],
+  [0, '0원'],
+  [null, '5,000원'],
+]) {
+  const priceView = render(
+    'src/app/products/[listingId].tsx',
+    { 0: { ...product, sale_price: salePrice }, 1: false },
+    { listingId: '101' },
+  );
+  assert.ok(text(priceView.tree).includes(label));
+}
 render(
   'src/app/products/[listingId].tsx',
   { 0: null, 1: false },

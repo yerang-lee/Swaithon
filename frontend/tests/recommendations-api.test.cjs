@@ -14,7 +14,7 @@ const item = {
   product_id: 'product_apple',
   store_id: 'store_12',
   store_name: '과일가게',
-  market_id: 'market_3',
+  market_id: '3',
   name: '사과 1kg',
   category_id: 'category_5',
   price: 10000,
@@ -25,8 +25,9 @@ const original = {
   request_id: 'rec_1',
   as_of: '2026-11-03T11:00:00+09:00',
   generated_at: '2026-11-03T11:00:01+09:00',
-  rule_version: 'v1.0',
-  user_state: {},
+  recommendation_type: 'ai',
+  model_version: 'lgbm_v1',
+  user_state: 'new_with_interest',
   items: [item],
 };
 let session = { access_token: 'current-user', expiresAt: Date.now() + 60000 },
@@ -63,34 +64,70 @@ new Function(
           },
   api,
 );
+const coordinates = { latitude: 37.5, longitude: 127 };
+const recommend = (options = {}) =>
+  api.getRecommendations({ ...coordinates, ...options });
 (async () => {
-  assert.deepEqual(await api.getRecommendations(), original);
+  assert.deepEqual(await recommend(), original);
   let query = new URL(calls.at(-1).url, 'https://test.invalid');
   assert.equal(query.pathname, '/recommendations');
   assert.equal(query.searchParams.get('top_n'), '20');
   assert.equal(query.searchParams.has('market_id'), false);
   assert.equal(calls.at(-1).token, 'current-user');
-  response.items[0].market_id = 'market & 3';
-  await api.getRecommendations({ market_id: 'market & 3', top_n: 5 });
+  response.items[0].market_id = '3';
+  await recommend({ market_id: 3, top_n: 5 });
   query = new URL(calls.at(-1).url, 'https://test.invalid');
-  assert.equal(query.searchParams.get('market_id'), 'market & 3');
+  assert.equal(query.searchParams.get('market_id'), '3');
   assert.equal(query.searchParams.get('top_n'), '5');
   response = structuredClone(original);
   response.items = [{ ...item, rank: 2, listing_id: 'second' }, item];
   assert.deepEqual(
-    (await api.getRecommendations()).items.map((i) => i.listing_id),
+    (await recommend()).items.map((i) => i.listing_id),
     ['listing_101', 'second'],
   );
   assert.equal(response.items[0].rank, 2);
   response = { ...original, items: [] };
-  assert.equal((await api.getRecommendations()).items.length, 0);
+  assert.equal((await recommend()).items.length, 0);
   for (const bad of [
     { top_n: 0 },
     { top_n: 21 },
     { top_n: 1.5 },
     { market_id: '' },
   ])
-    await assert.rejects(api.getRecommendations(bad), /조건/);
+    await assert.rejects(recommend(bad), /조건/);
+  assert.equal(query.searchParams.get('latitude'), '37.5');
+  assert.equal(query.searchParams.get('longitude'), '127');
+  for (const options of [
+    undefined,
+    {},
+    { latitude: 37.5 },
+    { longitude: 127 },
+    { latitude: 91, longitude: 0 },
+    { latitude: 0, longitude: -181 },
+    { latitude: '37.5', longitude: 127 },
+    { latitude: NaN, longitude: 127 },
+  ])
+    await assert.rejects(() => api.getRecommendations(options), /조건/);
+  response = {
+    ...original,
+    recommendation_type: 'rule',
+    model_version: null,
+    user_state: 'new_no_interest',
+  };
+  assert.equal(
+    (await recommend({ latitude: 0, longitude: 0 })).model_version,
+    null,
+  );
+  for (const patch of [
+    { recommendation_type: 'other' },
+    { user_state: {} },
+    { user_state: 'other' },
+    { model_version: undefined },
+    { recommendation_type: 'rule', model_version: 'model' },
+  ]) {
+    response = { ...original, ...patch };
+    await assert.rejects(recommend(), /응답/);
+  }
   for (const patch of [
     { listing_id: 101 },
     { price: '10000' },
@@ -102,29 +139,29 @@ new Function(
     { score: '0.95' },
   ]) {
     response = { ...original, items: [{ ...item, ...patch }] };
-    await assert.rejects(api.getRecommendations(), /응답/);
+    await assert.rejects(recommend(), /응답/);
   }
   response = { ...original, user_state: [] };
-  await assert.rejects(api.getRecommendations(), /응답/);
+  await assert.rejects(recommend(), /응답/);
   response = structuredClone(original);
-  await assert.rejects(api.getRecommendations({ market_id: 'other' }), /응답/);
-  for (const status of [401, 404, 500]) {
+  await assert.rejects(recommend({ market_id: 4 }), /응답/);
+  for (const status of [400, 401, 404, 500]) {
     failure = new ApiError(status);
     await assert.rejects(
-      api.getRecommendations(),
+      recommend(),
       (e) => e instanceof ApiError && e.status === status,
     );
   }
   failure = null;
   const count = calls.length;
   session = null;
-  await assert.rejects(api.getRecommendations(), (e) => e.status === 401);
+  await assert.rejects(recommend(), (e) => e.status === 401);
   assert.equal(calls.length, count);
   session = { access_token: 'expired', expiresAt: 0 };
-  await assert.rejects(api.getRecommendations(), (e) => e.status === 401);
+  await assert.rejects(recommend(), (e) => e.status === 401);
   session = { access_token: 'current-user', expiresAt: Date.now() + 60000 };
   changeAccount = true;
-  await assert.rejects(api.getRecommendations(), /계정이 변경/);
+  await assert.rejects(recommend(), /계정이 변경/);
   const mock = {};
   new Function(
     'require',
@@ -137,7 +174,7 @@ new Function(
     await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
   ).access_token;
   const preview = await mock.mockRequest(
-    '/recommendations?top_n=3',
+    '/recommendations?latitude=37.5&longitude=127&top_n=3',
     'GET',
     undefined,
     token,

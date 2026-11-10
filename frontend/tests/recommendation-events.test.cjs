@@ -18,6 +18,7 @@ let now = Date.now(),
   calls = [],
   fail = null,
   badResponse = false,
+  viewEventType = 'detail_view',
   timerId = 0;
 const timers = new Map();
 const clockSetTimeout = (fn, delay) => {
@@ -65,7 +66,7 @@ new Function(
               : {
                   event_id: body.event_id,
                   listing_id: body.listing_id,
-                  event_type: 'VIEW',
+                  event_type: viewEventType,
                   recorded_at: new Date(now).toISOString(),
                   message: 'saved',
                 };
@@ -89,6 +90,13 @@ async function advance(ms) {
   }
 }
 (async () => {
+  const generated = new Set();
+  for (let i = 0; i < 10000; i++) {
+    const id = api.newRecommendationEventId(i % 2 ? 'imp' : 'view');
+    assert.ok(id.length <= 36);
+    assert.equal(generated.has(id), false);
+    generated.add(id);
+  }
   const event = {
     event_id: 'imp_contract',
     listing_id: 'listing_1',
@@ -111,6 +119,9 @@ async function advance(ms) {
   await api.postRecommendationView(view);
   assert.equal(calls.at(-1).status, 201);
   assert.deepEqual(calls.at(-1).body, view);
+  viewEventType = 'VIEW';
+  await assert.rejects(api.postRecommendationView(view), /결과/);
+  viewEventType = 'detail_view';
   await assert.rejects(
     api.postRecommendationImpressions('rec_contract', [
       { ...event, position: 0 },
@@ -121,6 +132,21 @@ async function advance(ms) {
     api.postRecommendationImpressions('rec_contract', [event, event]),
     /형식/,
   );
+  const beforeLengthGuard = calls.length;
+  await assert.rejects(
+    api.postRecommendationImpressions('rec_contract', [
+      { ...event, event_id: 'x'.repeat(37) },
+    ]),
+    /형식/,
+  );
+  await assert.rejects(
+    api.postRecommendationView({ ...view, event_id: 'x'.repeat(37) }),
+    /형식/,
+  );
+  assert.equal(calls.length, beforeLengthGuard);
+  await api.postRecommendationImpressions('rec_contract', [
+    { ...event, event_id: 'x'.repeat(36) },
+  ]);
   badResponse = true;
   await assert.rejects(api.postRecommendationView(view), /결과/);
   badResponse = false;
@@ -207,6 +233,21 @@ async function advance(ms) {
   assert.equal(calls.at(-1).token, 'other');
   assert.equal(calls.at(-1).body.request_id, 'rec_2');
   assert.equal(timers.size, 0);
+  api.registerRecommendationRequest('rec_retry_imp', 'other');
+  fail = new ApiError(500);
+  api.trackRecommendationImpressions(
+    'rec_retry_imp',
+    [{ listingId: 'retry_listing', position: 1 }],
+    'other',
+  );
+  await advance(100);
+  const impressionRetry = calls.at(-1);
+  assert.ok(impressionRetry.body.events[0].event_id.length <= 36);
+  await advance(1000);
+  assert.deepEqual(calls.at(-1), impressionRetry);
+  fail = null;
+  await advance(3000);
+  assert.deepEqual(calls.at(-1), impressionRetry);
   // Test mode implements server-side duplicate/conflict/ownership semantics as well.
   const mock = {};
   new Function(
@@ -220,7 +261,7 @@ async function advance(ms) {
     await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
   ).access_token;
   const recommendations = await mock.mockRequest(
-    '/recommendations?top_n=2',
+    '/recommendations?latitude=37.5&longitude=127&top_n=2',
     'GET',
     undefined,
     token,
@@ -251,6 +292,7 @@ async function advance(ms) {
     occurred_at: event.occurred_at,
   };
   const first = await post('/recommendations/events/views', mockView);
+  assert.equal(first.event_type, 'detail_view');
   assert.deepEqual(
     await post('/recommendations/events/views', mockView),
     first,
@@ -261,6 +303,27 @@ async function advance(ms) {
       listing_id: recommendations.items[1].listing_id,
     }),
     (error) => error.status === 409,
+  );
+  await assert.rejects(
+    post(url, {
+      ...body,
+      events: [
+        {
+          ...body.events[0],
+          event_id: 'not-recommended',
+          listing_id: 'not-in-request',
+        },
+      ],
+    }),
+    (error) => error.status === 404,
+  );
+  await assert.rejects(
+    post('/recommendations/events/views', {
+      ...mockView,
+      event_id: 'not-recommended-view',
+      listing_id: 'not-in-request',
+    }),
+    (error) => error.status === 404,
   );
   const other = (
     await mock.mockRequest('/auth/login', 'POST', { phone: '01000000001' })
