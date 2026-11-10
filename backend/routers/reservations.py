@@ -23,6 +23,7 @@ from models import (
     ReservationEvent,
     RecommendationRequest,
     RecommendationItem,
+    Notification,
 )
 from schemas import (
     ReservationCreateRequest,
@@ -248,6 +249,20 @@ def create_reservation(
         )
 
         db.add(reservation_event)
+
+        # 10. 고객에게 예약 완료 알림 생성
+        notification = Notification(
+            user_id=current_user.user_id,
+            type="RESERVATION",
+            title="픽업 예약 완료",
+            content=f"{product.product_name} 픽업 예약이 완료되었습니다.",
+            related_id=reservation.reservation_id,
+            is_read=False,
+        )
+
+        db.add(notification)
+
+        # 예약과 알림을 함께 저장
         db.commit()
         db.refresh(reservation)
 
@@ -593,6 +608,16 @@ def verify_pickup(
     reservation.picked_up_at = now
     reservation.qr_token_hash = None
     reservation.qr_code_expires_at = None
+    # 고객에게 픽업 완료 알림
+    notification = Notification(
+        user_id=reservation.user_id,
+        type="RESERVATION",
+        title="픽업 완료",
+        content=f"{product.product_name} 픽업이 완료되었습니다.",
+        related_id=reservation.reservation_id,
+        is_read=False,
+    )
+    db.add(notification)
 
     try:
         db.commit()
@@ -705,6 +730,16 @@ def update_reservation_status(
             reservation.qr_code_expires_at = expires_at
 
             message = "상품 준비가 완료되었습니다. 고객에게 픽업 QR이 발급되었습니다."
+                        # 고객에게 상품 준비 완료 알림
+            notification = Notification(
+                user_id=reservation.user_id,
+                type="RESERVATION",
+                title="상품 준비 완료",
+                content="예약하신 상품이 준비되었습니다. 픽업 QR을 확인해 주세요.",
+                related_id=reservation.reservation_id,
+                is_read=False,
+            )
+            db.add(notification)
 
         else:
             message = "예약 상태가 변경되었습니다."

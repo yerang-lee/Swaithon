@@ -26,6 +26,7 @@ from routers.products import router as products_router
 from routers.favorites import router as favorites_router
 from routers.recommendations import router as recommendations_router
 from routers.reservations import router as reservations_router
+from routers.notifications import router as notifications_router
 
 # 음성 AI 모듈
 from routers.voice import create_voice_router
@@ -93,7 +94,7 @@ app.include_router(products_router)
 app.include_router(favorites_router)
 app.include_router(recommendations_router)
 app.include_router(reservations_router)
-
+app.include_router(notifications_router)
 # 음성 AI API 등록
 app.include_router(voice_router)
 

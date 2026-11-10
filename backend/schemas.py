@@ -544,3 +544,46 @@ class MerchantListingListResponse(BaseModel):
     total_count: int
     page: int
     size: int
+
+# =========================================================
+# 알림 목록 조회
+# =========================================================
+
+NotificationType = Literal[
+    "RESERVATION",
+    "SALE",
+    "PRODUCT",
+    "SYSTEM",
+]
+
+
+class NotificationListItem(BaseModel):
+    notification_id: int
+    type: NotificationType
+    title: str
+    content: str
+    related_id: int | None = None
+    is_read: bool
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class NotificationListResponse(BaseModel):
+    notifications: list[NotificationListItem]
+    unread_count: int
+    total_count: int
+    page: int
+    size: int
+
+# =========================================================
+# 알림 읽음 처리
+# =========================================================
+
+class NotificationReadResponse(BaseModel):
+    notification_id: int
+    is_read: bool
+    read_at: datetime
+    message: str

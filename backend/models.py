@@ -86,6 +86,44 @@ class RefreshToken(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+# =========================================================
+# 알림
+# =========================================================
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    notification_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )
+    title: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+    content: Mapped[str] = mapped_column(
+        Text, nullable=False
+    )
+    related_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    is_read: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
 
 # =========================================================
 # 전통시장
@@ -733,6 +771,13 @@ class RecommendationItem(Base):
 
     score: Mapped[float] = mapped_column(
         Float, nullable=False
+    )
+
+    # 추천 당시 학습 특성 스냅샷
+    feature_snapshot: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
     )
 
     created_at: Mapped[datetime] = mapped_column(

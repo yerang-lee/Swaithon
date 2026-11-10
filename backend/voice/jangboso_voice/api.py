@@ -71,6 +71,9 @@ def build_router(service_factory, merchant_dependency, stt=None):
                         "가격만 수정합니다. 변경 내용을 확인해 주세요."
                     )
 
+            print("FINAL RESPONSE:", result)
+            print("FINAL RESPONSE TYPE:", type(result))
+
             return result
 
         except VoiceError as e:
