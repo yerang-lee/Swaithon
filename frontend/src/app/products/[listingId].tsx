@@ -126,6 +126,8 @@ export default function ProductDetail() {
     : demo!.price;
   const imageUrl = data?.image_url?.replace(/^<|>$/g, '');
   const soldOut = data?.is_sold_out ?? false;
+  const discounted =
+    !!data && data.sale_price !== null && data.sale_price < data.price;
   async function confirm(date: Date, quantity: number, note: string) {
     if (lock.current) return;
     if (!data || preview === 'true') {
@@ -200,13 +202,20 @@ export default function ProductDetail() {
               </Text>
             </>
           )}
+          {soldOut && (
+            <View style={styles.soldOutOverlay}>
+              <Text style={styles.soldOutBadge}>품절</Text>
+            </View>
+          )}
         </View>
         <View style={styles.details}>
           <View style={styles.productRow}>
             <Text style={styles.name}>
               {name} {demo?.quantity ?? ''}
             </Text>
-            <Text style={styles.price}>{price}</Text>
+            <Text style={[styles.price, discounted && styles.salePrice]}>
+              {price}
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -240,6 +249,7 @@ export default function ProductDetail() {
           )}
           <Text style={styles.heading}>가격 변동</Text>
           <PriceHistoryChart
+            saleActive={discounted}
             key={`${id}-${catalogRevision}`}
             listingId={id}
             preview={!!demo || preview === 'true'}
@@ -352,6 +362,27 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#181725',
+  },
+  salePrice: {
+    color: '#EF4929',
+  },
+  soldOutOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: '#FFFFFF99',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldOutBadge: {
+    color: '#FFFFFF',
+    backgroundColor: '#777777',
+    fontSize: 14,
+    fontWeight: '700',
+    borderRadius: 4,
+    padding: 5,
   },
   price: {
     fontSize: 22,

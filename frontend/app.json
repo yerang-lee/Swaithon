@@ -23,9 +23,17 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "상품 사진을 등록하기 위해 앨범의 사진을 선택합니다.",
+          "cameraPermission": "상품 사진 촬영과 고객의 픽업 QR 코드 스캔을 위해 카메라를 사용합니다.",
+          "microphonePermission": "음성으로 상품을 등록하고 수정하기 위해 마이크를 사용합니다."
+        }
+      ],
+      [
         "expo-camera",
         {
-          "cameraPermission": "고객의 픽업 QR 코드를 스캔하기 위해 카메라를 사용합니다.",
+          "cameraPermission": "상품 사진 촬영과 고객의 픽업 QR 코드 스캔을 위해 카메라를 사용합니다.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }

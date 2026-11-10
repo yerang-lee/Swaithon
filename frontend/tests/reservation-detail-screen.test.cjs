@@ -110,7 +110,16 @@ const modules = {
   './ReservationPickupQr': { ReservationPickupQr: 'ReservationPickupQr' },
 };
 const api = {};
-new Function('require', 'exports', source)((name) => modules[name] ?? {}, api);
+const timers = new Set();
+new Function('require', 'exports', 'setInterval', 'clearInterval', source)(
+  (name) => modules[name] ?? {},
+  api,
+  (fn) => {
+    timers.add(fn);
+    return fn;
+  },
+  (fn) => timers.delete(fn),
+);
 function render() {
   stateCursor = refCursor = callbackCursor = effectCursor = 0;
   pending = [];
@@ -148,7 +157,7 @@ const item = {
   unit_price: 5000,
   total_price: 5000,
   pickup_at: '2026-11-03T14:30:00',
-  status: 'READY',
+  status: 'CONFIRMED',
   created_at: '2026-11-03T13:00:00+09:00',
 };
 const response = {
@@ -172,7 +181,7 @@ const panel = (tree) =>
   lists.shift().resolve({ reservations: [item], total_count: 1 });
   await tick();
   let tree = render();
-  assert.ok(text(tree).includes('픽업 준비 완료'));
+  assert.ok(text(tree).includes('픽업 예정'));
   walk(tree)
     .find(
       (node) =>
@@ -187,9 +196,40 @@ const panel = (tree) =>
   await tick();
   tree = render();
   assert.equal(panel(tree).detail.qr_code_data, response.qr_code_data);
+  assert.equal(panel(tree).detail.status, 'READY');
   assert.equal(panel(tree).testMode, true);
   assert.ok(text(tree).includes('상세 사과'));
   assert.ok(text(tree).includes('10,000원'));
+  timers.forEach((fn) => fn());
+  assert.equal(details.length, 1);
+  assert.equal(panel(render()).loading, false);
+  timers.forEach((fn) => fn());
+  assert.equal(details.length, 1, 'polls must not overlap');
+  details.shift().resolve({
+    ...response,
+    status: 'COMPLETED',
+    qr_code_data: null,
+    qr_code_expires_at: null,
+  });
+  await tick();
+  tree = render();
+  assert.ok(text(tree).includes('픽업이 완료되었어요'));
+  assert.equal(panel(tree), undefined, 'completed pickup must hide QR');
+  assert.ok(
+    walk(tree).some(
+      (node) =>
+        node.type === 'PrimaryButton' && node.props.title === '예약 목록으로',
+    ),
+  );
+  timers.forEach((fn) => fn());
+  assert.equal(details.length, 0, 'completed pickup stops polling');
+  listeners.forEach((fn) => fn('background'));
+  timers.forEach((fn) => fn());
+  assert.equal(details.length, 0);
+  listeners.forEach((fn) => fn('active'));
+  details.shift().resolve(response);
+  await tick();
+  tree = render();
   walk(tree)
     .find((node) => node.type === 'Pressable' && text(node) === '예약 취소하기')
     .props.onPress();
@@ -222,14 +262,12 @@ const panel = (tree) =>
   assert.equal(panel(render()).detail, null);
   panel(render()).onRefresh();
   render();
-  details
-    .shift()
-    .resolve({
-      ...response,
-      status: 'CANCELLED',
-      qr_code_data: null,
-      qr_code_expires_at: null,
-    });
+  details.shift().resolve({
+    ...response,
+    status: 'CANCELLED',
+    qr_code_data: null,
+    qr_code_expires_at: null,
+  });
   await tick();
   assert.equal(panel(render()).detail.qr_code_data, null);
   session = { access_token: 'different' };

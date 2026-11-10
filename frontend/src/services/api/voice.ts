@@ -2,7 +2,7 @@ import { postMultipart } from './multipart';
 import { productCategories } from '../../constants/productCategories';
 import { Platform } from 'react-native';
 import { getAuthSession } from './auth';
-import { ApiError, deleteJson, postJson } from './client';
+import { ApiError, deleteJson } from './client';
 import { isMockMode } from '../devMock';
 
 export const voiceActions = {
@@ -332,12 +332,11 @@ export async function applyVoiceAnalysis(
         category_name: fields?.category_name ?? analysis.categoryName,
         message: '상품 처리가 완료되었습니다.',
       };
-    } else
-      d = await postJson(
-        `/voice/analysis/${encodeURIComponent(analysis.analysisId)}/apply`,
-        fields ? { confirmed_fields: fields } : {},
-        token,
+    } else {
+      throw new Error(
+        '이전 분석 결과로는 등록할 수 없어요. 다시 녹음해 command_id 기반으로 확인해주세요.',
       );
+    }
     const result = d as AppliedAnalysis | null;
     if (
       !result ||

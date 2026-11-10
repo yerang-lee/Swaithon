@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   salePrice: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FF3B20',
+    color: '#EF4929',
   },
   heart: {
     position: 'absolute',

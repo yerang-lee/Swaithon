@@ -46,15 +46,6 @@ import {
   type VoiceCommand,
 } from '../../services/api/voiceCommands';
 
-const intents: Record<string, string> = {
-  PRODUCT_CREATE: '상품 등록',
-  PRODUCT_UPDATE: '상품 정보 수정',
-  SALE_CREATE: '할인 등록',
-  PRODUCT_DELETE: '상품 삭제',
-  SOLD_OUT: '품절 처리',
-  SALE_DELETE: '할인 종료',
-  PRODUCT_DETAIL: '상품 조회',
-};
 export function CommandVoiceScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
@@ -141,6 +132,7 @@ export function CommandVoiceScreen() {
     try {
       session();
       const value = await task();
+      session();
       if (!alive.current) return null;
       setCommand(value);
       setText('');
@@ -164,7 +156,7 @@ export function CommandVoiceScreen() {
           (!(e instanceof CommandError) || e.status === 0 || e.status >= 500)
         )
           setUncertain(true);
-        if (e instanceof CommandError && e.status === 409) {
+        if (e instanceof CommandError && [409, 410].includes(e.status)) {
           setBlocked(!!command);
           setUncertain(false);
         }
@@ -290,7 +282,7 @@ export function CommandVoiceScreen() {
   }
   if (
     command &&
-    (command.status === 'NEEDS_CONFIRMATION' || command.status === 'SUCCEEDED')
+    ['READY', 'NEEDS_CONFIRMATION', 'SUCCEEDED'].includes(command.status)
   )
     return (
       <CommandResultScreen
@@ -305,9 +297,69 @@ export function CommandVoiceScreen() {
         onBack={() => void exit()}
       />
     );
+  const micSize = Math.min(width * 0.58, 240);
+  const microphone = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={recording ? '녹음 완료 및 분석' : '음성 녹음 시작'}
+      accessibilityState={{
+        selected: recording,
+        disabled: busy || expired || blocked || uncertain,
+      }}
+      disabled={busy || expired || blocked || uncertain}
+      onPress={() => void (recording ? stop() : start())}
+      style={({ pressed }) => [
+        recordingStyles.micRing,
+        { width: micSize, height: micSize, borderRadius: micSize / 2 },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      {recording &&
+        [0, 1].map((index) => {
+          const phase = Animated.modulo(Animated.add(ripple, index * 0.5), 1);
+          return (
+            <Animated.View
+              key={index}
+              pointerEvents="none"
+              accessible={false}
+              style={[
+                recordingStyles.ripple,
+                command && { borderColor: theme.colors.primary },
+                {
+                  borderRadius: micSize / 2,
+                  opacity: phase.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 0],
+                  }),
+                  transform: [
+                    {
+                      scale: phase.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.28],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          );
+        })}
+      <View style={recordingStyles.micCircle}>
+        <Svg width={64} height={76} viewBox="0 0 64 76">
+          <Rect x={23} y={8} width={18} height={38} rx={9} fill="#176735" />
+          <Path
+            d="M14 37a18 18 0 0 0 36 0M32 56v12"
+            stroke="#176735"
+            strokeWidth={6}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+      </View>
+    </Pressable>
+  );
   if (!command) {
     const seconds = Math.floor(state.durationMillis / 1000);
-    const micSize = Math.min(width * 0.58, 240);
     return (
       <SafeAreaView style={recordingStyles.safe} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
@@ -323,76 +375,7 @@ export function CommandVoiceScreen() {
           contentContainerStyle={recordingStyles.body}
         >
           <View style={recordingStyles.center}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                recording ? '녹음 완료 및 분석' : '음성 녹음 시작'
-              }
-              accessibilityState={{ selected: recording, disabled: busy }}
-              disabled={busy}
-              onPress={() => void (recording ? stop() : start())}
-              style={({ pressed }) => [
-                recordingStyles.micRing,
-                { width: micSize, height: micSize, borderRadius: micSize / 2 },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              {recording &&
-                [0, 1].map((index) => {
-                  const phase = Animated.modulo(
-                    Animated.add(ripple, index * 0.5),
-                    1,
-                  );
-                  return (
-                    <Animated.View
-                      key={index}
-                      pointerEvents="none"
-                      accessible={false}
-                      style={[
-                        recordingStyles.ripple,
-                        {
-                          borderRadius: micSize / 2,
-                          opacity: phase.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.5, 0],
-                          }),
-                          transform: [
-                            {
-                              scale: phase.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [1, 1.28],
-                              }),
-                            },
-                          ],
-                        },
-                      ]}
-                    />
-                  );
-                })}
-              <View style={recordingStyles.micCircle}>
-                {busy ? (
-                  <ActivityIndicator size="large" color="#176735" />
-                ) : (
-                  <Svg width={64} height={76} viewBox="0 0 64 76">
-                    <Rect
-                      x={23}
-                      y={8}
-                      width={18}
-                      height={38}
-                      rx={9}
-                      fill="#176735"
-                    />
-                    <Path
-                      d="M14 37a18 18 0 0 0 36 0M32 56v12"
-                      stroke="#176735"
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                  </Svg>
-                )}
-              </View>
-            </Pressable>
+            {microphone}
             <View style={recordingStyles.instructions}>
               <Text accessibilityRole="header" style={recordingStyles.heading}>
                 {recording
@@ -456,18 +439,17 @@ export function CommandVoiceScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.body}
         >
+          {command && (
+            <Text style={styles.message}>
+              {command.question ?? command.message}
+            </Text>
+          )}
           {!!command?.transcript && (
             <View style={styles.card}>
               <Text style={styles.label}>인식한 내용</Text>
               <Text style={styles.value}>{command.transcript}</Text>
             </View>
           )}
-          <Text accessibilityRole="header" style={styles.title}>
-            {command
-              ? (intents[command.intent ?? ''] ?? '상품 정보 확인')
-              : '상품 정보를 말해주세요'}
-          </Text>
-          {command && <Text style={styles.message}>{command.message}</Text>}
           {expired && !terminal && (
             <Text style={styles.error}>
               명령이 만료됐어요. 취소 후 새로 시작해주세요.
@@ -500,7 +482,7 @@ export function CommandVoiceScreen() {
             <Text style={styles.message}>상품 변경 없이 취소했어요.</Text>
           )}
           {(!command || waiting) && (
-            <View style={!command ? styles.recordingArea : undefined}>
+            <View style={!command ? styles.recordingArea : styles.answerArea}>
               {!command && (
                 <Text style={styles.hint}>
                   등록, 수정, 할인, 품절 처리를 음성으로 말해주세요. 예: “사과
@@ -508,58 +490,11 @@ export function CommandVoiceScreen() {
                   품절 처리해 줘”
                 </Text>
               )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  recording ? '녹음 종료 및 분석' : '녹음 시작'
-                }
-                disabled={busy || expired || blocked}
-                onPress={() => void (recording ? stop() : start())}
-                style={styles.mic}
-              >
-                <Text style={styles.micText}>{recording ? '■' : ''}</Text>
-                {!recording && (
-                  <Svg width={58} height={68} viewBox="0 0 64 76">
-                    <Rect
-                      x={23}
-                      y={8}
-                      width={18}
-                      height={38}
-                      rx={9}
-                      fill="#176735"
-                    />
-                    <Path
-                      d="M14 37a18 18 0 0 0 36 0M32 56v12"
-                      stroke="#176735"
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                  </Svg>
-                )}
-              </Pressable>
-              <Text style={styles.hint}>
-                {recording
-                  ? `${Math.floor(state.durationMillis / 1000)}초 / 최대 30초`
-                  : '최대 30초 · 10MB'}
-              </Text>
+              {microphone}
               {recording && (
-                <View style={styles.wave}>
-                  {Array.from({ length: 13 }, (_, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        width: 5,
-                        borderRadius: 3,
-                        backgroundColor: '#53B175',
-                        height: Math.max(
-                          4,
-                          ((state.metering ?? -60) + 60) * (0.3 + (i % 4) / 5),
-                        ),
-                      }}
-                    />
-                  ))}
-                </View>
+                <Text style={styles.hint}>
+                  {Math.floor(state.durationMillis / 1000)}초
+                </Text>
               )}
               {recording ? (
                 <Pressable
@@ -609,16 +544,18 @@ export function CommandVoiceScreen() {
           {terminal && (
             <PrimaryButton title="새 작업 시작" onPress={() => void reset()} />
           )}
-          {command && !terminal && command.status !== 'NEEDS_CONFIRMATION' && (
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy || recording}
-              style={styles.secondary}
-              onPress={() => void reset()}
-            >
-              <Text style={styles.value}>현재 명령 취소</Text>
-            </Pressable>
-          )}
+          {command &&
+            !terminal &&
+            !['READY', 'NEEDS_CONFIRMATION'].includes(command.status) && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy || recording}
+                style={[styles.secondary, styles.cancelCommand]}
+                onPress={() => void reset()}
+              >
+                <Text style={styles.value}>현재 명령 취소</Text>
+              </Pressable>
+            )}
           {uncertain && (
             <Pressable
               accessibilityRole="button"
@@ -647,11 +584,6 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     alignSelf: 'center',
     paddingBottom: 40,
-  },
-  title: {
-    fontSize: 27,
-    fontWeight: '700',
-    color: '#181725',
   },
   message: {
     fontSize: 18,
@@ -693,24 +625,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#181725',
   },
+  answerArea: {
+    gap: 16,
+  },
+  cancelCommand: {
+    marginTop: -8,
+  },
   recordingArea: {
     flex: 1,
     justifyContent: 'center',
     gap: 18,
     paddingVertical: 24,
-  },
-  mic: {
-    width: 216,
-    height: 216,
-    borderRadius: 108,
-    backgroundColor: '#E5F3EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
-  micText: {
-    fontSize: 55,
-    color: '#176735',
   },
   hint: {
     fontSize: 14,
@@ -727,13 +652,6 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 44,
     alignItems: 'center',
-  },
-  wave: {
-    height: 44,
-    flexDirection: 'row',
-    gap: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 
@@ -785,21 +703,21 @@ const recordingStyles = StyleSheet.create({
   },
   heading: {
     color: '#FFFFFF',
-    fontSize: 36,
-    lineHeight: 45,
+    fontSize: 37,
+    lineHeight: 48,
     fontWeight: '700',
     textAlign: 'center',
   },
   example: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     lineHeight: 27,
     marginTop: 14,
     textAlign: 'center',
   },
   timer: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
     marginTop: 6,
@@ -821,13 +739,13 @@ const recordingStyles = StyleSheet.create({
   },
   cancelLabel: {
     color: theme.colors.primary,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
   },
   error: {
     color: '#FFFFFF',
     backgroundColor: '#176735',
-    fontSize: 15,
+    fontSize: 17,
     lineHeight: 23,
     padding: 14,
     borderRadius: 12,

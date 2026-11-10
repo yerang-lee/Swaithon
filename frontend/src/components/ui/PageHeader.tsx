@@ -7,6 +7,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { router } from 'expo-router';
+import { BrandText } from './BrandText';
 import { AppIcon } from './AppIcon';
 import type { ReactNode } from 'react';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -17,6 +18,7 @@ export function PageHeader({
   rightAction,
   color = '#181725',
   titleStyle,
+  brandTitle = false,
 }: {
   title: string;
   onBack?: () => void;
@@ -24,7 +26,9 @@ export function PageHeader({
   rightAction?: ReactNode;
   color?: string;
   titleStyle?: StyleProp<TextStyle>;
+  brandTitle?: boolean;
 }) {
+  const TitleText = brandTitle ? BrandText : Text;
   const unreadCount = useUnreadNotifications(rightAction == null);
   return (
     <View style={styles.header}>
@@ -39,7 +43,7 @@ export function PageHeader({
           <AppIcon name="arrow-back" size={20} color={color} />
         </Pressable>
       )}
-      <Text
+      <TitleText
         style={[
           styles.title,
           !onBack && styles.rootTitle,
@@ -48,7 +52,7 @@ export function PageHeader({
         ]}
       >
         {title}
-      </Text>
+      </TitleText>
       {rightAction ?? (
         <>
           <Pressable
