@@ -165,7 +165,10 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
         </View>
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            !loading && !error && !visible.length && styles.emptyContent,
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           {!loading &&
@@ -394,7 +397,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   emptyMessage: {
+    fontSize: 18,
+    lineHeight: 27,
     textAlign: 'center',
   },
   status: {

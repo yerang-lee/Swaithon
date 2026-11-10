@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   AppState,
   Linking,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -101,7 +102,7 @@ export default function PickupScan() {
           <Text style={styles.note}>상인 계정에서 이용할 수 있어요.</Text>
         ) : (
           <>
-            {testMode && (
+            {testMode && !result && (
               <Text style={styles.note}>
                 테스트 모드 · 실제 예약은 변경되지 않아요.
               </Text>
@@ -110,12 +111,15 @@ export default function PickupScan() {
               <View style={styles.card}>
                 <Text style={styles.title}>픽업이 완료되었어요!</Text>
                 <Text style={styles.name}>{result.product_name}</Text>
-                <Text style={styles.note}>{result.store_name}</Text>
                 <Text style={styles.note}>
                   예약 번호 {result.reservation_id}
                 </Text>
                 <Text style={styles.note}>
-                  {new Date(result.completed_at).toLocaleString('ko-KR', {
+                  {new Date(result.completed_at).toLocaleDateString('ko-KR', {
+                    timeZone: 'Asia/Seoul',
+                  })}
+                  {'\n'}
+                  {new Date(result.completed_at).toLocaleTimeString('ko-KR', {
                     timeZone: 'Asia/Seoul',
                   })}
                 </Text>
@@ -183,6 +187,17 @@ export default function PickupScan() {
               setError('');
             }}
           />
+          {result && (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.listLink}
+              onPress={() =>
+                router.replace({ pathname: '/home', params: { tab: '예약' } })
+              }
+            >
+              <Text style={styles.listLinkText}>예약 목록으로</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -227,6 +242,16 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     textAlign: 'center',
     color: '#666666',
+  },
+  listLink: {
+    minHeight: 44,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listLinkText: {
+    fontSize: 18,
+    color: '#424743',
   },
   footer: {
     paddingHorizontal: 24,

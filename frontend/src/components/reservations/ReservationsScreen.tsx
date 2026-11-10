@@ -134,19 +134,32 @@ export function ReservationsScreen({
         return;
       }
       let focused = true;
-      function load() {
+      let foreground =
+        AppState.currentState !== 'background' &&
+        AppState.currentState !== 'inactive';
+      let pending = false;
+      let latestStatus: ReservationStatus | undefined;
+      function load(quiet = false) {
+        if (pending || !foreground || lock.current) return;
+        pending = true;
         const generation = ++detailGeneration.current;
         const current = () =>
           focused &&
+          foreground &&
           detailGeneration.current === generation &&
           getAuthSession()?.access_token === token;
-        setDetailState(null);
-        setDetailLoading(true);
-        setDetailError('');
+        if (!quiet) {
+          setDetailState(null);
+          setDetailLoading(true);
+          setDetailError('');
+        }
         void getReservationDetail(selected!)
           .then((data) => {
             if (current()) {
+              latestStatus = data.status;
+              setDetailError('');
               setDetailState({ token, data });
+              if (data.status === 'COMPLETED') setConfirm(false);
               setItems((previous) =>
                 previous.map((item) =>
                   item.reservation_id === data.reservation_id
@@ -158,7 +171,7 @@ export function ReservationsScreen({
           })
           .catch((error) => {
             logAppError('reservations/detail', error);
-            if (current())
+            if (current() && !quiet)
               setDetailError(
                 error instanceof Error
                   ? error.message
@@ -166,11 +179,16 @@ export function ReservationsScreen({
               );
           })
           .finally(() => {
+            pending = false;
             if (current()) setDetailLoading(false);
           });
       }
       load();
+      const timer = setInterval(() => {
+        if (!latestStatus || upcoming(latestStatus)) load(true);
+      }, 3000);
       const listener = AppState.addEventListener('change', (state) => {
+        foreground = state === 'active';
         if (state === 'active' && !lock.current) load();
         else if (state !== 'active') {
           detailGeneration.current++;
@@ -181,6 +199,7 @@ export function ReservationsScreen({
       return () => {
         focused = false;
         detailGeneration.current++;
+        clearInterval(timer);
         listener.remove();
       };
     }, [selected, detailRetry, token]),
@@ -311,7 +330,29 @@ export function ReservationsScreen({
       ) : (
         <PageHeader title="예약" />
       )}
-      {active ? (
+      {active &&
+      detail?.status === 'COMPLETED' &&
+      !detailLoading &&
+      !detailError ? (
+        <View style={styles.completion}>
+          <Text accessibilityRole="header" style={styles.completionTitle}>
+            픽업이 완료됐습니다
+          </Text>
+          <Text style={styles.completionProduct}>
+            {detail.product_name} {detail.quantity}개
+          </Text>
+          <Text style={styles.completionText}>{detail.store_name}</Text>
+          <PrimaryButton
+            title="예약 목록으로"
+            onPress={() => {
+              setSelected(null);
+              setCancelError('');
+              setPage(1);
+              setRetry((value) => value + 1);
+            }}
+          />
+        </View>
+      ) : active ? (
         <>
           <ScrollView contentContainerStyle={styles.detailBody}>
             <Text style={styles.date}>{dateLabel(active.pickup_at)}</Text>
@@ -430,7 +471,12 @@ export function ReservationsScreen({
               ))}
             </View>
           </View>
-          <ScrollView contentContainerStyle={styles.list}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.list,
+              !loading && !error && visible.length === 0 && styles.emptyContent,
+            ]}
+          >
             {[...groups].map(([date, reservations]) => (
               <View key={date} style={styles.group}>
                 <Text style={styles.date}>{date}</Text>
@@ -717,6 +763,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#181725',
   },
+  completion: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    gap: 24,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+  },
+  completionTitle: {
+    fontSize: 28,
+    lineHeight: 38,
+    fontWeight: '700',
+    color: '#23864C',
+    textAlign: 'center',
+  },
+  completionProduct: {
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '600',
+    color: '#181725',
+    textAlign: 'center',
+  },
+  completionText: {
+    fontSize: 18,
+    lineHeight: 27,
+    color: '#666666',
+    textAlign: 'center',
+  },
   detailBody: {
     paddingHorizontal: 24,
     paddingTop: 24,
@@ -799,6 +875,10 @@ const styles = StyleSheet.create({
     color: '#53B175',
     padding: 8,
   },
+  emptyContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   empty: {
     width: '100%',
     alignSelf: 'center',
@@ -806,8 +886,8 @@ const styles = StyleSheet.create({
     color: '#858585',
     paddingHorizontal: 24,
     paddingVertical: 20,
-    fontSize: 15,
-    lineHeight: 23,
+    fontSize: 18,
+    lineHeight: 27,
   },
   overlay: {
     flex: 1,

@@ -46,16 +46,6 @@ import {
   type VoiceCommand,
 } from '../../services/api/voiceCommands';
 
-const intents: Record<string, string> = {
-  PRODUCT_CREATE: '상품 등록',
-  PRODUCT_UPDATE: '상품 정보 수정',
-  SALE_CREATE: '할인 등록',
-  SALE_UPDATE: '할인 수정',
-  PRODUCT_DELETE: '상품 삭제',
-  SOLD_OUT: '품절 처리',
-  SALE_DELETE: '할인 종료',
-  PRODUCT_DETAIL: '상품 조회',
-};
 export function CommandVoiceScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
@@ -457,21 +447,16 @@ export function CommandVoiceScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.body}
         >
+          {command && (
+            <Text style={styles.message}>
+              {command.question ?? command.message}
+            </Text>
+          )}
           {!!command?.transcript && (
             <View style={styles.card}>
               <Text style={styles.label}>인식한 내용</Text>
               <Text style={styles.value}>{command.transcript}</Text>
             </View>
-          )}
-          <Text accessibilityRole="header" style={styles.title}>
-            {command
-              ? (intents[command.intent ?? ''] ?? '상품 정보 확인')
-              : '상품 정보를 말해주세요'}
-          </Text>
-          {command && (
-            <Text style={styles.message}>
-              {command.question ?? command.message}
-            </Text>
           )}
           {expired && !terminal && (
             <Text style={styles.error}>
@@ -505,7 +490,7 @@ export function CommandVoiceScreen() {
             <Text style={styles.message}>상품 변경 없이 취소했어요.</Text>
           )}
           {(!command || waiting) && (
-            <View style={!command ? styles.recordingArea : undefined}>
+            <View style={!command ? styles.recordingArea : styles.answerArea}>
               {!command && (
                 <Text style={styles.hint}>
                   등록, 수정, 할인, 품절 처리를 음성으로 말해주세요. 예: “사과
@@ -522,7 +507,7 @@ export function CommandVoiceScreen() {
                 onPress={() => void (recording ? stop() : start())}
                 style={styles.mic}
               >
-                <Text style={styles.micText}>{recording ? '■' : ''}</Text>
+                {recording && <Text style={styles.micText}>■</Text>}
                 {!recording && (
                   <Svg width={58} height={68} viewBox="0 0 64 76">
                     <Rect
@@ -543,11 +528,11 @@ export function CommandVoiceScreen() {
                   </Svg>
                 )}
               </Pressable>
-              <Text style={styles.hint}>
-                {recording
-                  ? `${Math.floor(state.durationMillis / 1000)}초 / 최대 30초`
-                  : '최대 30초 · 10MB'}
-              </Text>
+              {recording && (
+                <Text style={styles.hint}>
+                  {Math.floor(state.durationMillis / 1000)}초
+                </Text>
+              )}
               {recording && (
                 <View style={styles.wave}>
                   {Array.from({ length: 13 }, (_, i) => (
@@ -620,7 +605,7 @@ export function CommandVoiceScreen() {
               <Pressable
                 accessibilityRole="button"
                 disabled={busy || recording}
-                style={styles.secondary}
+                style={[styles.secondary, styles.cancelCommand]}
                 onPress={() => void reset()}
               >
                 <Text style={styles.value}>현재 명령 취소</Text>
@@ -654,11 +639,6 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     alignSelf: 'center',
     paddingBottom: 40,
-  },
-  title: {
-    fontSize: 27,
-    fontWeight: '700',
-    color: '#181725',
   },
   message: {
     fontSize: 18,
@@ -699,6 +679,12 @@ const styles = StyleSheet.create({
     minHeight: 80,
     fontSize: 18,
     color: '#181725',
+  },
+  answerArea: {
+    gap: 16,
+  },
+  cancelCommand: {
+    marginTop: -8,
   },
   recordingArea: {
     flex: 1,
@@ -792,21 +778,21 @@ const recordingStyles = StyleSheet.create({
   },
   heading: {
     color: '#FFFFFF',
-    fontSize: 36,
-    lineHeight: 45,
+    fontSize: 37,
+    lineHeight: 48,
     fontWeight: '700',
     textAlign: 'center',
   },
   example: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     lineHeight: 27,
     marginTop: 14,
     textAlign: 'center',
   },
   timer: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
     marginTop: 6,
@@ -828,13 +814,13 @@ const recordingStyles = StyleSheet.create({
   },
   cancelLabel: {
     color: theme.colors.primary,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
   },
   error: {
     color: '#FFFFFF',
     backgroundColor: '#176735',
-    fontSize: 15,
+    fontSize: 17,
     lineHeight: 23,
     padding: 14,
     borderRadius: 12,

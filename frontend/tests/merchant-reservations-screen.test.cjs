@@ -139,13 +139,7 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
 function card(id) {
   return nodes(render()).find(
     (node) =>
-      node.type === 'View' &&
-      [node.props?.children]
-        .flat()
-        .some(
-          (child) =>
-            child?.type === 'Text' && child.props.children === '상품' + id,
-        ),
+      node.type === 'View' && node.props.accessibilityLabel === `예약 #${id}`,
   );
 }
 (async () => {

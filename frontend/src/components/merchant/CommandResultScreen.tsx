@@ -10,7 +10,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+import type * as ImagePicker from 'expo-image-picker';
+import {
+  chooseProductPhotoSource,
+  selectProductPhoto,
+  type ProductPhotoSource,
+} from '../../utils/productPhoto';
 import { PageHeader } from '../ui/PageHeader';
 import { commandProductPresentation } from '../../utils/voiceCommandPresentation';
 import { theme } from '../../constants/theme';
@@ -99,23 +104,23 @@ export function CommandResultScreen({
   const canPhoto =
     command.intent === 'PRODUCT_CREATE' || command.intent === 'PRODUCT_UPDATE';
   const complete = done && (!photo || uploaded);
-  async function pickPhoto() {
+  async function pickPhoto(source: ProductPhotoSource) {
     if (locked || uncertain) return;
     setPhotoBusy(true);
     setPhotoError('');
     try {
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: false,
-        quality: 0.85,
-      });
-      if (!picked.canceled && picked.assets[0]) {
-        setPhoto(picked.assets[0]);
+      const selected = await selectProductPhoto(source);
+      if (selected) {
+        setPhoto(selected);
         setUploaded(false);
       }
     } catch (e) {
       logAppError('voice/result/photo', e);
-      setPhotoError('사진을 선택하지 못했어요. 다시 시도해주세요.');
+      setPhotoError(
+        e instanceof Error
+          ? e.message
+          : '사진을 선택하지 못했어요. 다시 시도해주세요.',
+      );
     } finally {
       setPhotoBusy(false);
     }
@@ -290,7 +295,10 @@ export function CommandResultScreen({
               {canPhoto &&
                 button(
                   '사진도 함께 등록하기',
-                  () => void pickPhoto(),
+                  () =>
+                    chooseProductPhotoSource(
+                      (source) => void pickPhoto(source),
+                    ),
                   false,
                   disabled || uncertain || done || executionMissing,
                 )}
@@ -336,14 +344,14 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   title: {
-    fontSize: 36,
+    fontSize: 37,
     lineHeight: 48,
     fontWeight: '700',
     color: 'white',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 19,
     lineHeight: 22,
     color: 'white',
     textAlign: 'center',
@@ -366,13 +374,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   label: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
-    color: '#181725',
+    color: '#101C15',
     marginBottom: 8,
   },
   value: {
-    fontSize: 24,
+    fontSize: 26,
     lineHeight: 29,
     fontWeight: '700',
     color: '#101C15',
@@ -397,7 +405,7 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     color: 'white',
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     textAlign: 'center',
   },

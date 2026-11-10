@@ -35,17 +35,30 @@ const filters: Array<{ value: ReservationStatus | 'ALL'; label: string }> = [
 ];
 const statusLabel = (value: ReservationStatus) =>
   filters.find((filter) => filter.value === value)!.label;
+function pickupDate(value: string) {
+  return new Date(/(Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}+09:00`);
+}
+function pickupDay(value: string) {
+  return pickupDate(value).toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
 function dateLabel(value: string) {
-  const date = new Date(
-    /(Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}+09:00`,
-  );
-  return date.toLocaleString('ko-KR', {
+  const date = pickupDate(value);
+  const day = date.toLocaleDateString('ko-KR', {
     timeZone: 'Asia/Seoul',
     month: 'numeric',
     day: 'numeric',
+  });
+  const time = date.toLocaleTimeString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     hour: 'numeric',
     minute: '2-digit',
   });
+  return `${day} ${time}`;
 }
 export function MerchantReservationsScreen({
   onTab,
@@ -230,7 +243,7 @@ export function MerchantReservationsScreen({
       />
       {merchant ? (
         <>
-          <View>
+          <View style={styles.filterArea}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -239,7 +252,7 @@ export function MerchantReservationsScreen({
               {filters.map((option) => (
                 <Pressable
                   key={option.value}
-                  accessibilityRole="button"
+                  accessibilityRole="tab"
                   accessibilityState={{ selected: filter === option.value }}
                   disabled={disabled}
                   onPress={() => setFilter(option.value)}
@@ -302,63 +315,77 @@ export function MerchantReservationsScreen({
                   : '해당 상태의 예약이 없어요.'}
               </Text>
             ) : (
-              visible.map((item) => (
-                <View key={item.reservation_id} style={styles.card}>
-                  <View style={styles.row}>
-                    <Text style={styles.note}>
-                      예약 #{item.reservation_id} · 고객 #{item.customer_id}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.status,
-                        item.status === 'CANCELLED' && styles.cancelled,
-                      ]}
-                    >
-                      {statusLabel(item.status)}
-                    </Text>
+              visible.map((item, index) => (
+                <View key={item.reservation_id}>
+                  {index > 0 &&
+                    pickupDay(visible[index - 1].pickup_at) !==
+                      pickupDay(item.pickup_at) && (
+                      <View style={styles.dateDivider} />
+                    )}
+                  <View
+                    style={styles.card}
+                    accessibilityLabel={`예약 #${item.reservation_id}`}
+                  >
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.headerText}>
+                        {dateLabel(item.pickup_at)} 픽업 예정
+                      </Text>
+                    </View>
+                    <View style={styles.cardBody}>
+                      <View
+                        style={styles.photo}
+                        accessibilityLabel="예약 상품 사진 영역"
+                      />
+                      <View style={styles.cardText}>
+                        <Text
+                          style={[
+                            styles.status,
+                            item.status === 'CANCELLED' && styles.cancelled,
+                          ]}
+                        >
+                          {statusLabel(item.status)}
+                        </Text>
+                        <Text style={styles.product}>{item.product_name}</Text>
+                        <Text style={styles.detail}>
+                          수량 {item.quantity} · 단가{' '}
+                          {item.unit_price.toLocaleString('ko-KR')}원
+                        </Text>
+                        <Text style={styles.price}>
+                          총 {item.total_price.toLocaleString('ko-KR')}원
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.cardFooter}>
+                      {!!item.request_note && (
+                        <Text style={styles.detail}>
+                          요청사항: {item.request_note}
+                        </Text>
+                      )}
+                      {item.status === 'PENDING' && (
+                        <PrimaryButton
+                          title="예약 확인"
+                          disabled={disabled}
+                          loading={changing === item.reservation_id}
+                          onPress={() => confirm(item, 'CONFIRMED')}
+                        />
+                      )}
+                      {item.status === 'CONFIRMED' && (
+                        <PrimaryButton
+                          title="픽업 준비 완료"
+                          disabled={disabled}
+                          loading={changing === item.reservation_id}
+                          onPress={() => confirm(item, 'READY')}
+                        />
+                      )}
+                      {item.status === 'READY' && (
+                        <PrimaryButton
+                          title="픽업 QR 스캔"
+                          disabled={disabled}
+                          onPress={() => router.push('/pickup-scan')}
+                        />
+                      )}
+                    </View>
                   </View>
-                  <Text style={styles.product}>{item.product_name}</Text>
-                  <Text style={styles.detail}>
-                    수량 {item.quantity} · 단가{' '}
-                    {item.unit_price.toLocaleString('ko-KR')}원
-                  </Text>
-                  <Text style={styles.price}>
-                    총 {item.total_price.toLocaleString('ko-KR')}원
-                  </Text>
-                  <Text style={styles.detail}>
-                    픽업 예정: {dateLabel(item.pickup_at)}
-                  </Text>
-                  <Text style={styles.note}>
-                    예약 신청: {dateLabel(item.created_at)}
-                  </Text>
-                  {!!item.request_note && (
-                    <Text style={styles.detail}>
-                      요청사항: {item.request_note}
-                    </Text>
-                  )}
-                  {item.status === 'PENDING' && (
-                    <PrimaryButton
-                      title="예약 확인"
-                      disabled={disabled}
-                      loading={changing === item.reservation_id}
-                      onPress={() => confirm(item, 'CONFIRMED')}
-                    />
-                  )}
-                  {item.status === 'CONFIRMED' && (
-                    <PrimaryButton
-                      title="픽업 준비 완료"
-                      disabled={disabled}
-                      loading={changing === item.reservation_id}
-                      onPress={() => confirm(item, 'READY')}
-                    />
-                  )}
-                  {item.status === 'READY' && (
-                    <PrimaryButton
-                      title="픽업 QR 스캔"
-                      disabled={disabled}
-                      onPress={() => router.push('/pickup-scan')}
-                    />
-                  )}
                 </View>
               ))
             )}
@@ -396,31 +423,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  filters: {
+  filterArea: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    gap: 10,
+  },
+  filters: {
+    flexDirection: 'row',
+    gap: 24,
+    borderBottomWidth: 1,
+    borderColor: '#EAEAEA',
   },
   filter: {
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#F3F3F3',
+    minWidth: 40,
+    minHeight: 46,
+    paddingHorizontal: 2,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selected: {
-    backgroundColor: '#E3F3E9',
+    borderBottomColor: '#181725',
   },
   filterText: {
-    fontSize: 17,
-    color: '#666666',
+    fontSize: 16,
+    color: '#777777',
   },
   selectedText: {
-    color: '#23864C',
+    color: '#181725',
     fontWeight: '700',
   },
   summary: {
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
@@ -442,31 +479,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 17,
-    lineHeight: 26,
+    fontSize: 18,
+    lineHeight: 28,
     color: '#7C7C7C',
     textAlign: 'center',
   },
+  dateDivider: {
+    height: 7,
+    backgroundColor: '#F3F3F3',
+    marginHorizontal: -24,
+    marginBottom: 16,
+  },
   card: {
-    padding: 18,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#DADADA',
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderColor: '#EEEEEE',
+    gap: 6,
+  },
+  headerText: {
+    fontSize: 19,
+    fontWeight: '500',
+    lineHeight: 28,
+    color: '#181725',
+  },
+  cardBody: {
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'stretch',
+  },
+  photo: {
+    width: '34%',
+    minHeight: 130,
+    borderRadius: 8,
+    backgroundColor: '#E3E3E3',
+  },
+  cardText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  cardFooter: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
     gap: 12,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
   note: {
-    fontSize: 14,
+    fontSize: 17,
     lineHeight: 22,
     color: '#7C7C7C',
   },
   status: {
-    fontSize: 15,
+    fontSize: 19,
     color: '#23864C',
     fontWeight: '600',
   },
@@ -474,35 +548,35 @@ const styles = StyleSheet.create({
     color: '#D33E3E',
   },
   product: {
-    fontSize: 21,
+    fontSize: 24,
     fontWeight: '700',
     color: '#181725',
   },
   price: {
-    fontSize: 19,
+    fontSize: 24,
     fontWeight: '700',
     color: '#181725',
   },
   detail: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 19,
+    lineHeight: 28,
     color: '#424743',
   },
   refresh: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#23864C',
     paddingVertical: 4,
   },
   error: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 28,
     color: '#C43D3D',
     textAlign: 'center',
   },
   actionError: {
     paddingHorizontal: 24,
     paddingBottom: 12,
-    fontSize: 16,
+    fontSize: 18,
     color: '#C43D3D',
   },
 });
