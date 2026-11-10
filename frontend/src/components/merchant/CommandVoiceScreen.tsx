@@ -50,6 +50,7 @@ const intents: Record<string, string> = {
   PRODUCT_CREATE: '상품 등록',
   PRODUCT_UPDATE: '상품 정보 수정',
   SALE_CREATE: '할인 등록',
+  SALE_UPDATE: '할인 수정',
   PRODUCT_DELETE: '상품 삭제',
   SOLD_OUT: '품절 처리',
   SALE_DELETE: '할인 종료',
@@ -164,7 +165,7 @@ export function CommandVoiceScreen() {
           (!(e instanceof CommandError) || e.status === 0 || e.status >= 500)
         )
           setUncertain(true);
-        if (e instanceof CommandError && e.status === 409) {
+        if (e instanceof CommandError && [409, 410].includes(e.status)) {
           setBlocked(!!command);
           setUncertain(false);
         }
@@ -290,7 +291,7 @@ export function CommandVoiceScreen() {
   }
   if (
     command &&
-    (command.status === 'NEEDS_CONFIRMATION' || command.status === 'SUCCEEDED')
+    ['READY', 'NEEDS_CONFIRMATION', 'SUCCEEDED'].includes(command.status)
   )
     return (
       <CommandResultScreen
@@ -467,7 +468,11 @@ export function CommandVoiceScreen() {
               ? (intents[command.intent ?? ''] ?? '상품 정보 확인')
               : '상품 정보를 말해주세요'}
           </Text>
-          {command && <Text style={styles.message}>{command.message}</Text>}
+          {command && (
+            <Text style={styles.message}>
+              {command.question ?? command.message}
+            </Text>
+          )}
           {expired && !terminal && (
             <Text style={styles.error}>
               명령이 만료됐어요. 취소 후 새로 시작해주세요.
@@ -609,16 +614,18 @@ export function CommandVoiceScreen() {
           {terminal && (
             <PrimaryButton title="새 작업 시작" onPress={() => void reset()} />
           )}
-          {command && !terminal && command.status !== 'NEEDS_CONFIRMATION' && (
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy || recording}
-              style={styles.secondary}
-              onPress={() => void reset()}
-            >
-              <Text style={styles.value}>현재 명령 취소</Text>
-            </Pressable>
-          )}
+          {command &&
+            !terminal &&
+            !['READY', 'NEEDS_CONFIRMATION'].includes(command.status) && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy || recording}
+                style={styles.secondary}
+                onPress={() => void reset()}
+              >
+                <Text style={styles.value}>현재 명령 취소</Text>
+              </Pressable>
+            )}
           {uncertain && (
             <Pressable
               accessibilityRole="button"

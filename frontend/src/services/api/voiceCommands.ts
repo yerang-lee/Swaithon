@@ -14,6 +14,7 @@ export const executionPaths = [
   '/voice/sale-delete',
 ] as const;
 export type CommandStatus =
+  | 'READY'
   | 'NEEDS_INPUT'
   | 'NEEDS_SELECTION'
   | 'NEEDS_CONFIRMATION'
@@ -32,6 +33,10 @@ export type VoiceCommand = {
   intent?: string;
   message: string;
   transcript?: string;
+  analysis_result?: Record<string, unknown>;
+  missing_fields?: string[];
+  needs_confirmation?: boolean;
+  question?: string;
   execution_endpoint: string | null;
   candidates: Candidate[];
   preview: {
@@ -56,6 +61,7 @@ export class CommandError extends Error {
   }
 }
 const statuses: CommandStatus[] = [
+  'READY',
   'NEEDS_INPUT',
   'NEEDS_SELECTION',
   'NEEDS_CONFIRMATION',
@@ -91,12 +97,49 @@ export function parseCommand(
   )
     throw new Error('음성 명령 응답을 확인하지 못했어요.');
   const state = data.status as CommandStatus;
+  const modern = state === 'READY' || data.analysis_result !== undefined;
+  const confirmable = state === 'READY' || state === 'NEEDS_CONFIRMATION';
   if (
-    state === 'NEEDS_CONFIRMATION' &&
+    modern &&
+    (!object(data.analysis_result) ||
+      !Array.isArray(data.missing_fields) ||
+      !data.missing_fields.every((value) => typeof value === 'string') ||
+      typeof data.needs_confirmation !== 'boolean' ||
+      (state === 'READY' &&
+        (!data.needs_confirmation || data.missing_fields.length !== 0)) ||
+      (state === 'NEEDS_INPUT' &&
+        (data.needs_confirmation ||
+          !data.missing_fields.length ||
+          typeof data.question !== 'string' ||
+          !data.question.trim())) ||
+      (data.question !== undefined && typeof data.question !== 'string') ||
+      (data.transcript !== undefined && typeof data.transcript !== 'string'))
+  )
+    throw new Error('음성 분석 결과와 추가 질문을 확인할 수 없어요.');
+  if (modern && object(data.analysis_result)) {
+    const result = data.analysis_result;
+    if (
+      ['product_name', 'unit', 'category', 'category_name'].some(
+        (key) =>
+          result[key] !== undefined &&
+          result[key] !== null &&
+          typeof result[key] !== 'string',
+      ) ||
+      (result.price !== undefined &&
+        result.price !== null &&
+        (typeof result.price !== 'number' ||
+          !Number.isFinite(result.price) ||
+          result.price < 0))
+    )
+      throw new Error('상품 분석 정보의 형식을 확인할 수 없어요.');
+  }
+  if (
+    confirmable &&
     ![
       'PRODUCT_CREATE',
       'PRODUCT_UPDATE',
       'SALE_CREATE',
+      'SALE_UPDATE',
       'PRODUCT_DELETE',
       'SOLD_OUT',
       'SALE_DELETE',
@@ -105,12 +148,11 @@ export function parseCommand(
     throw new Error('최종 작업 유형을 확인할 수 없어요.');
   const endpoint = data.execution_endpoint ?? null;
   if (
-    (state === 'NEEDS_CONFIRMATION' &&
-      (typeof endpoint !== 'string' ||
-        !executionPaths.includes(
-          endpoint as (typeof executionPaths)[number],
-        ))) ||
-    (state !== 'NEEDS_CONFIRMATION' && endpoint !== null)
+    (state === 'NEEDS_CONFIRMATION' && endpoint === null) ||
+    (endpoint !== null &&
+      (!confirmable ||
+        typeof endpoint !== 'string' ||
+        !executionPaths.includes(endpoint as (typeof executionPaths)[number])))
   )
     throw new Error(
       '서버의 실행 경로를 확인할 수 없어요. 실행하지 않았습니다.',
@@ -136,7 +178,8 @@ export function parseCommand(
     (state === 'NEEDS_SELECTION' && !candidates.length)
   )
     throw new Error('선택할 상품 정보를 확인할 수 없어요.');
-  const preview = data.preview ?? {};
+  const preview =
+    data.preview ?? (modern ? { after: data.analysis_result } : {});
   if (
     !object(preview) ||
     !(preview.before == null || object(preview.before)) ||
@@ -152,9 +195,17 @@ export function parseCommand(
     throw new Error('변경 전후 정보를 확인할 수 없어 실행하지 않았어요.');
   const serverExpiry =
     typeof data.expires_at === 'string' ? Date.parse(data.expires_at) : NaN;
+  if (
+    modern &&
+    !Number.isFinite(serverExpiry) &&
+    !deadlines.has(data.command_id)
+  )
+    throw new Error('명령의 유효 시간을 확인할 수 없어요. 다시 분석해주세요.');
   const expiresAt = Math.min(
-    deadlines.get(data.command_id) ?? startedAt + 10 * 60 * 1000,
-    Number.isFinite(serverExpiry) ? serverExpiry : Infinity,
+    deadlines.get(data.command_id) ?? Infinity,
+    Number.isFinite(serverExpiry)
+      ? serverExpiry
+      : (deadlines.get(data.command_id) ?? startedAt + 10 * 60 * 1000),
   );
   deadlines.set(data.command_id, expiresAt);
   return {
@@ -167,6 +218,17 @@ export function parseCommand(
         : '분석 결과를 확인해주세요.',
     transcript:
       typeof data.transcript === 'string' ? data.transcript : undefined,
+    analysis_result: object(data.analysis_result)
+      ? data.analysis_result
+      : undefined,
+    missing_fields: Array.isArray(data.missing_fields)
+      ? (data.missing_fields as string[])
+      : undefined,
+    needs_confirmation:
+      typeof data.needs_confirmation === 'boolean'
+        ? data.needs_confirmation
+        : undefined,
+    question: typeof data.question === 'string' ? data.question : undefined,
     execution_endpoint: endpoint as string | null,
     candidates: candidates as Candidate[],
     preview: {
@@ -191,7 +253,9 @@ function failure(status: number, detail: unknown): CommandError {
     401: '로그인이 만료됐어요. 다시 로그인해주세요.',
     403: '해당 가게나 상품을 관리할 권한이 없어요.',
     404: '명령 또는 상품에 접근할 수 없어요.',
-    409: '명령이 만료되었거나 상품이 변경됐어요. 다시 분석해주세요.',
+    409: '이미 완료·취소되었거나 상품이 변경된 명령이에요. 다시 분석해주세요.',
+    410: '명령이 만료됐어요. 새로 분석해주세요.',
+    500: '서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
     413: '녹음 파일이 10MB를 초과했어요.',
     422: '입력값이나 선택한 상품, 음성을 확인해주세요.',
     503: '음성 분석 서비스를 사용할 수 없어요. 잠시 후 다시 시도하거나 텍스트를 입력해주세요.',
@@ -239,7 +303,7 @@ async function audioBody(audio: RecordedAudio) {
     };
     const ext = types[blob.type.split(';')[0]];
     if (!ext) throw new Error('지원하지 않는 녹음 형식이에요.');
-    form.append('file', blob, `voice.${ext}`);
+    form.append('audio_file', blob, `voice.${ext}`);
   } else {
     const ext = audio.uri.split('?')[0].split('.').pop()?.toLowerCase();
     const types: Record<string, string> = {
@@ -259,7 +323,7 @@ async function audioBody(audio: RecordedAudio) {
     )
       throw new Error('빈 파일이 아닌 10MB 이내 녹음이 필요해요.');
     // postMultipart uses native XHR for RN's URI-based file parts.
-    form.append('file', {
+    form.append('audio_file', {
       uri: audio.uri,
       name: `voice.${ext}`,
       type: types[ext],
@@ -308,6 +372,18 @@ async function request(
     }
     if (!response.ok)
       throw failure(response.status, object(data) ? data.detail : undefined);
+    if (response.status !== 200)
+      throw new Error('음성 명령 응답 상태가 명세와 달라요.');
+    const analysisOnly =
+      path === '/voice/analyze' ||
+      path === '/voice/analyze-audio' ||
+      /\/commands\/[^/]+\/answer(?:-audio)?$/.test(path);
+    if (
+      analysisOnly &&
+      object(data) &&
+      ['SUCCEEDED', 'CANCELLED'].includes(String(data.status))
+    )
+      throw new Error('분석 응답을 상품 반영 완료로 처리할 수 없어요.');
     if (getAuthSession()?.access_token !== access)
       throw new Error('로그인 계정이 변경됐어요.');
     return parseCommand(data, previousId, start);
@@ -324,10 +400,11 @@ function waiting(command: VoiceCommand) {
   if (!['NEEDS_INPUT', 'NEEDS_SELECTION'].includes(command.status))
     throw new Error('현재 명령은 추가 답변을 받을 수 없어요.');
   if (command.expiresAt <= Date.now())
-    throw new CommandError(409, 'EXPIRED', '명령이 만료됐어요.');
+    throw new CommandError(410, 'EXPIRED', '명령이 만료됐어요.');
 }
 export async function analyzeText(text: string) {
-  if (!text.trim()) throw new Error('상품 정보를 입력해주세요.');
+  if (typeof text !== 'string' || !text.trim())
+    throw new Error('상품 정보를 입력해주세요.');
   return request('/voice/analyze', { text: text.trim() });
 }
 export async function analyzeAudio(audio: RecordedAudio) {
@@ -338,7 +415,7 @@ export async function answerText(command: VoiceCommand, text: string) {
   if (!text.trim()) throw new Error('답변을 입력해주세요.');
   return request(
     `/voice/commands/${encodeURIComponent(command.command_id)}/answer`,
-    { text: text.trim() },
+    { answer: text.trim() },
     command.command_id,
   );
 }
@@ -375,13 +452,13 @@ export async function cancelCommand(command: VoiceCommand) {
 }
 export async function executeCommand(command: VoiceCommand, retry = false) {
   if (
-    command.status !== 'NEEDS_CONFIRMATION' ||
+    !['READY', 'NEEDS_CONFIRMATION'].includes(command.status) ||
     !command.execution_endpoint ||
     !executionPaths.includes(
       command.execution_endpoint as (typeof executionPaths)[number],
     )
   )
-    throw new Error('확인이 필요한 명령만 실행할 수 있어요.');
+    throw new Error('최종 반영 정보를 확인할 수 없어 실행하지 않았어요.');
   if (!retry && command.expiresAt <= Date.now())
     throw new CommandError(409, 'EXPIRED', '명령이 만료됐어요.');
   return request(
@@ -406,30 +483,32 @@ function mockRequest(
       body instanceof FormData
         ? '사과 3개 5천 원 등록해 줘'
         : String(body?.text ?? '');
+    if (text.includes('조회') || text.trim() === '취소')
+      throw new CommandError(
+        422,
+        'ANALYSIS_FAILED',
+        '상품 등록·수정 등 처리할 내용을 말해주세요.',
+      );
     const status: CommandStatus = text.includes('질문')
       ? 'NEEDS_INPUT'
       : text.includes('후보')
         ? 'NEEDS_SELECTION'
-        : text.includes('조회')
-          ? 'SUCCEEDED'
-          : text.includes('취소')
-            ? 'CANCELLED'
-            : 'NEEDS_CONFIRMATION';
+        : 'READY';
     const deleting = text.includes('삭제');
-    const intent =
-      status === 'SUCCEEDED'
-        ? 'PRODUCT_DETAIL'
-        : deleting
-          ? 'PRODUCT_DELETE'
-          : text.includes('품절')
-            ? 'SOLD_OUT'
-            : text.includes('할인')
-              ? text.includes('종료')
-                ? 'SALE_DELETE'
-                : 'SALE_CREATE'
-              : text.includes('등록')
-                ? 'PRODUCT_CREATE'
-                : 'PRODUCT_UPDATE';
+    const intent = deleting
+      ? 'PRODUCT_DELETE'
+      : text.includes('품절')
+        ? 'SOLD_OUT'
+        : text.includes('할인')
+          ? text.includes('종료')
+            ? 'SALE_DELETE'
+            : text.includes('수정')
+              ? 'SALE_UPDATE'
+              : 'SALE_CREATE'
+          : text.includes('등록')
+            ? 'PRODUCT_CREATE'
+            : 'PRODUCT_UPDATE';
+    const saleIntent = intent === 'SALE_CREATE' || intent === 'SALE_UPDATE';
     const endpoint: Record<string, string> = {
       PRODUCT_CREATE: '/voice/product-registration',
       PRODUCT_UPDATE: '/voice/product-update',
@@ -450,7 +529,7 @@ function mockRequest(
             : '처리할 내용을 확인해주세요.',
       transcript: text,
       execution_endpoint:
-        status === 'NEEDS_CONFIRMATION' ? endpoint[intent] : null,
+        status === 'READY' ? (endpoint[intent] ?? null) : null,
       candidates:
         status === 'NEEDS_SELECTION'
           ? [
@@ -483,23 +562,27 @@ function mockRequest(
           : {
               product_name: '사과',
               price: 6000,
-              effective_price: intent === 'SALE_CREATE' ? 4800 : 6000,
-              sale_active: intent === 'SALE_CREATE',
+              effective_price: saleIntent ? 4800 : 6000,
+              sale_active: saleIntent,
               sale_quantity: 3,
               sale_unit: '개',
               stock_quantity: 8,
             },
       },
-      result:
-        status === 'SUCCEEDED'
-          ? {
-              product_name: '사과',
-              price: 5000,
-              effective_price: 5000,
-              sale_active: false,
-              stock_quantity: 8,
-            }
-          : null,
+      result: null,
+      analysis_result: {
+        product_name: '사과',
+        price: status === 'NEEDS_INPUT' ? null : 6000,
+        effective_price:
+          status === 'NEEDS_INPUT' ? null : saleIntent ? 4800 : 6000,
+        sale_active: saleIntent,
+        unit: '한 봉지',
+        category: 'FRUIT',
+        category_name: '과일',
+      },
+      missing_fields: status === 'NEEDS_INPUT' ? ['price'] : [],
+      needs_confirmation: status === 'READY',
+      question: status === 'NEEDS_INPUT' ? '가격을 얼마로 할까요?' : undefined,
       expiresAt: Date.now() + 600000,
     };
     drafts.set(value.command_id, { owner, value });
@@ -526,7 +609,7 @@ function mockRequest(
   if (executing) {
     if (
       path !== value.execution_endpoint ||
-      value.status !== 'NEEDS_CONFIRMATION'
+      !['READY', 'NEEDS_CONFIRMATION'].includes(value.status)
     )
       throw new CommandError(409, 'WRONG_ENDPOINT', '새로 분석해주세요.');
     value.status = 'SUCCEEDED';
@@ -542,9 +625,20 @@ function mockRequest(
   }
   waiting(value);
   value.transcript =
-    body instanceof FormData ? '6천 원' : String(body?.text ?? '상품 선택');
-  value.status = 'NEEDS_CONFIRMATION';
-  value.execution_endpoint = '/voice/product-update';
+    body instanceof FormData ? '6천 원' : String(body?.answer ?? '상품 선택');
+  value.status = 'READY';
+  value.execution_endpoint =
+    value.intent === 'PRODUCT_CREATE'
+      ? '/voice/product-registration'
+      : '/voice/product-update';
+  value.analysis_result = {
+    ...value.analysis_result,
+    price: 6000,
+    effective_price: 6000,
+  };
+  value.missing_fields = [];
+  value.needs_confirmation = true;
+  value.question = undefined;
   value.candidates = [];
   value.message = '변경할 내용을 확인해주세요.';
   return clone(value);

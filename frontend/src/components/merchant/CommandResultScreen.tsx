@@ -28,6 +28,7 @@ const intentLabels: Record<string, string> = {
   PRODUCT_CREATE: '신규 등록',
   PRODUCT_UPDATE: '상품 수정',
   SALE_CREATE: '할인 등록',
+  SALE_UPDATE: '할인 수정',
   PRODUCT_DELETE: '상품 삭제',
   SOLD_OUT: '품절 처리',
   SALE_DELETE: '할인 종료',
@@ -37,6 +38,7 @@ const doneLabels: Record<string, string> = {
   PRODUCT_CREATE: '상품이 등록되었어요!',
   PRODUCT_UPDATE: '상품이 수정되었어요!',
   SALE_CREATE: '할인이 등록되었어요!',
+  SALE_UPDATE: '할인이 수정되었어요!',
   PRODUCT_DELETE: '상품이 삭제되었어요!',
   SOLD_OUT: '품절 처리되었어요!',
   SALE_DELETE: '할인이 종료되었어요!',
@@ -72,16 +74,27 @@ export function CommandResultScreen({
   const data = {
     ...command.preview.before,
     ...command.preview.after,
+    ...(!done ? command.analysis_result : null),
     ...(done ? command.result : null),
   };
   const name =
     typeof data.product_name === 'string'
       ? data.product_name
       : '상품명 정보 없음';
+  const quantitySource =
+    !done && command.analysis_result ? command.analysis_result : data;
   const quantity =
-    typeof data.sale_quantity === 'number' ? data.sale_quantity : '';
-  const unit = typeof data.sale_unit === 'string' ? data.sale_unit : '';
+    typeof quantitySource.sale_quantity === 'number'
+      ? quantitySource.sale_quantity
+      : '';
+  const unit =
+    typeof data.unit === 'string'
+      ? data.unit
+      : typeof data.sale_unit === 'string'
+        ? data.sale_unit
+        : '';
   const { price, saleActive } = commandProductPresentation(command);
+  const executionMissing = !done && !command.execution_endpoint;
   const locked = busy || photoBusy;
   const canPhoto =
     command.intent === 'PRODUCT_CREATE' || command.intent === 'PRODUCT_UPDATE';
@@ -217,7 +230,11 @@ export function CommandResultScreen({
               <Text style={styles.label}>상품명</Text>
               <Text style={styles.value}>
                 {name}
-                {quantity !== '' ? ` ${quantity}${unit}` : ''}
+                {quantity !== ''
+                  ? ` ${quantity}${unit}`
+                  : unit
+                    ? ` ${unit}`
+                    : ''}
               </Text>
             </View>
             <View style={styles.row}>
@@ -249,6 +266,11 @@ export function CommandResultScreen({
               {photoError || error}
             </Text>
           )}
+          {executionMissing && (
+            <Text style={styles.message}>
+              분석 결과를 확인했어요. 최종 반영 기능은 아직 연결되지 않았어요.
+            </Text>
+          )}
           {uncertain && (
             <Text style={styles.message}>
               처리 결과를 확인하지 못했어요. 아래 버튼을 누르면 같은 요청으로
@@ -270,7 +292,7 @@ export function CommandResultScreen({
                   '사진도 함께 등록하기',
                   () => void pickPhoto(),
                   false,
-                  disabled || uncertain || done,
+                  disabled || uncertain || done || executionMissing,
                 )}
               {button(
                 locked
@@ -284,7 +306,7 @@ export function CommandResultScreen({
                         : '이대로 반영하기',
                 () => void finish(),
                 false,
-                disabled && !done,
+                (disabled || executionMissing) && !done,
               )}
               {button('다시 등록하기', () => void onAgain(), true, uncertain)}
             </>

@@ -128,7 +128,7 @@ async function main() {
   response = state('NEEDS_INPUT');
   const next = await api.answerText(initial, '6천 원');
   assert.ok(calls.at(-1).url.includes('/commands/cmd-1/answer'));
-  assert.deepEqual(JSON.parse(calls.at(-1).body), { text: '6천 원' });
+  assert.deepEqual(JSON.parse(calls.at(-1).body), { answer: '6천 원' });
   assert.equal(next.expiresAt, initial.expiresAt);
   response = state('NEEDS_CONFIRMATION', {
     parsed: { intent: 'PRODUCT_CREATE' },
@@ -140,7 +140,7 @@ async function main() {
     fileSize: 1024,
   });
   assert.ok(calls.at(-1).url.endsWith('/commands/cmd-1/answer-audio'));
-  assert.equal(calls.at(-1).body.fields[0][0], 'file');
+  assert.equal(calls.at(-1).body.fields[0][0], 'audio_file');
   assert.equal(calls.at(-1).headers['Content-Type'], undefined);
   assert.equal(confirmed.intent, 'PRODUCT_UPDATE');
   assert.equal(confirmed.expiresAt, initial.expiresAt);
@@ -313,6 +313,206 @@ async function main() {
     command_id: saleDeleteCommand.command_id,
     confirmed: true,
   });
+  const deadline = new Date(Date.now() + 15 * 60000).toISOString();
+  response = {
+    command_id: 'modern-command',
+    intent: 'PRODUCT_CREATE',
+    status: 'NEEDS_INPUT',
+    transcript: '사과 등록해 줘.',
+    analysis_result: {
+      product_name: '사과',
+      price: null,
+      unit: null,
+      category: 'FRUIT',
+      category_name: '과일',
+    },
+    missing_fields: ['price', 'unit'],
+    needs_confirmation: false,
+    question: '가격과 판매 단위를 알려주세요.',
+    expires_at: deadline,
+    message: '추가 입력 필요',
+  };
+  const modernInitial = await api.analyzeAudio({
+    uri: 'file:///voice.m4a',
+    durationMillis: 1000,
+    fileSize: 4,
+  });
+  assert.deepEqual(
+    calls.at(-1).body.fields.map(([key]) => key),
+    ['audio_file'],
+  );
+  assert.equal(modernInitial.question, response.question);
+  assert.equal(modernInitial.expiresAt, Date.parse(deadline));
+  response = {
+    command_id: 'modern-command',
+    intent: 'PRODUCT_CREATE',
+    status: 'READY',
+    transcript: '한 봉지에 만 원이에요.',
+    analysis_result: {
+      product_name: '사과',
+      price: 10000,
+      unit: '한 봉지',
+      category: 'FRUIT',
+      category_name: '과일',
+    },
+    missing_fields: [],
+    needs_confirmation: true,
+    message: '추가 정보 반영 완료',
+  };
+  const beforeModernAnswer = calls.length;
+  const modernReady = await api.answerText(
+    modernInitial,
+    '한 봉지에 만 원이에요.',
+  );
+  assert.deepEqual(JSON.parse(calls.at(-1).body), {
+    answer: '한 봉지에 만 원이에요.',
+  });
+  assert.equal(calls.length, beforeModernAnswer + 1);
+  assert.equal(modernReady.status, 'READY');
+  assert.equal(modernReady.execution_endpoint, null);
+  assert.equal(modernReady.analysis_result.price, 10000);
+  assert.equal(modernReady.expiresAt, modernInitial.expiresAt);
+  const countBeforeExecute = calls.length;
+  await assert.rejects(() => api.executeCommand(modernReady));
+  assert.equal(calls.length, countBeforeExecute);
+  const audioReady = await api.answerAudio(modernInitial, {
+    uri: 'file:///voice.m4a',
+    durationMillis: 1000,
+    fileSize: 4,
+  });
+  assert.equal(audioReady.command_id, modernInitial.command_id);
+  assert.equal(audioReady.expiresAt, modernInitial.expiresAt);
+  assert.deepEqual(
+    calls.at(-1).body.fields.map(([key]) => key),
+    ['audio_file'],
+  );
+  for (const change of [
+    { needs_confirmation: false },
+    { missing_fields: ['price'] },
+    { analysis_result: null },
+    { command_id: 'wrong-command' },
+  ]) {
+    assert.throws(() =>
+      api.parseCommand({ ...response, ...change }, modernInitial.command_id),
+    );
+  }
+  response = { ...response, execution_endpoint: '/voice/product-registration' };
+  const serverExecutable = api.parseCommand(response, modernInitial.command_id);
+  response = state('SUCCEEDED', {
+    command_id: 'modern-command',
+    intent: 'PRODUCT_CREATE',
+    result: { product_id: 1 },
+  });
+  await api.executeCommand(serverExecutable);
+  assert.deepEqual(JSON.parse(calls.at(-1).body), {
+    command_id: 'modern-command',
+    confirmed: true,
+  });
+  for (const failureStatus of [400, 401, 403, 404, 409, 410, 413, 422, 500]) {
+    status = failureStatus;
+    response = { detail: 'private audio content' };
+    const beforeFailure = calls.length;
+    await assert.rejects(
+      () =>
+        api.answerAudio(modernInitial, {
+          uri: 'file:///voice.m4a',
+          durationMillis: 1000,
+          fileSize: 4,
+        }),
+      (error) =>
+        error.status === failureStatus && !error.message.includes('private'),
+    );
+    assert.equal(calls.length, beforeFailure + 1);
+  }
+  status = 200;
+  response = state('SUCCEEDED', { result: { product_id: 1 } });
+  await assert.rejects(
+    () =>
+      api.analyzeAudio({
+        uri: 'file:///voice.m4a',
+        durationMillis: 1000,
+        fileSize: 4,
+      }),
+    /분석 응답/,
+  );
+  const textAnalysisResponse = {
+    command_id: 'text-command',
+    intent: 'PRODUCT_CREATE',
+    status: 'READY',
+    transcript: '사과 한 봉지에 만 원으로 등록해 줘.',
+    analysis_result: {
+      product_name: '사과',
+      price: 10000,
+      unit: '한 봉지',
+      category: 'FRUIT',
+      category_name: '과일',
+    },
+    missing_fields: [],
+    needs_confirmation: true,
+    expires_at: new Date(Date.now() + 15 * 60000).toISOString(),
+    message: '분석 완료',
+  };
+  response = textAnalysisResponse;
+  const beforeText = calls.length;
+  const readyText = await api.analyzeText(
+    ' 사과 한 봉지에 만 원으로 등록해 줘. ',
+  );
+  assert.equal(calls.length, beforeText + 1);
+  assert.ok(calls.at(-1).url.endsWith('/voice/analyze'));
+  assert.equal(calls.at(-1).headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(calls.at(-1).body), {
+    text: '사과 한 봉지에 만 원으로 등록해 줘.',
+  });
+  assert.equal(readyText.status, 'READY');
+  assert.equal(readyText.execution_endpoint, null);
+  assert.deepEqual(
+    readyText.analysis_result,
+    textAnalysisResponse.analysis_result,
+  );
+  response = {
+    ...textAnalysisResponse,
+    command_id: 'text-needs-input',
+    status: 'NEEDS_INPUT',
+    analysis_result: {
+      product_name: '사과',
+      price: null,
+      unit: null,
+      category: 'FRUIT',
+      category_name: '과일',
+    },
+    missing_fields: ['price', 'unit'],
+    needs_confirmation: false,
+    question: '가격과 단위를 알려주세요.',
+  };
+  const needsText = await api.analyzeText('사과 등록해 줘.');
+  assert.equal(needsText.question, '가격과 단위를 알려주세요.');
+  assert.deepEqual(needsText.missing_fields, ['price', 'unit']);
+  response = {
+    ...textAnalysisResponse,
+    command_id: 'text-sale-update',
+    intent: 'SALE_UPDATE',
+    analysis_result: { product_id: 1, discount_price: 8000 },
+  };
+  assert.equal(
+    (await api.analyzeText('사과 할인가 수정')).intent,
+    'SALE_UPDATE',
+  );
+  response = { ...response, execution_endpoint: '/voice/sale-update' };
+  await assert.rejects(() => api.analyzeText('사과 할인가 수정'), /실행 경로/);
+  response = state('SUCCEEDED', { result: { product_id: 1 } });
+  await assert.rejects(() => api.analyzeText('사과 등록'), /분석 응답/);
+  for (const code of [400, 401, 403, 422, 500]) {
+    status = code;
+    response = { detail: 'private input' };
+    await assert.rejects(
+      () => api.analyzeText('사과 등록'),
+      (error) => error.status === code && !error.message.includes('private'),
+    );
+  }
+  status = 200;
+  const beforeEmptyText = calls.length;
+  await assert.rejects(() => api.analyzeText('   '));
+  assert.equal(calls.length, beforeEmptyText);
   mock = true;
   let draft = await api.analyzeText('질문');
   assert.equal(draft.status, 'NEEDS_INPUT');
@@ -345,9 +545,14 @@ async function main() {
     assert.equal(saved.result.product_id, 101);
     assert.equal(saved.result.store_id, 101);
   }
-  draft = await api.analyzeText('조회');
-  assert.equal(draft.intent, 'PRODUCT_DETAIL');
-  assert.equal(draft.status, 'SUCCEEDED');
+  await assert.rejects(
+    () => api.analyzeText('조회'),
+    (error) => error.status === 422,
+  );
+  const saleUpdate = await api.analyzeText('사과 할인 수정');
+  assert.equal(saleUpdate.intent, 'SALE_UPDATE');
+  assert.equal(saleUpdate.status, 'READY');
+  assert.equal(saleUpdate.execution_endpoint, null);
   draft = await api.analyzeText('사과');
   session = { ...session, access_token: 'other-account' };
   await assert.rejects(

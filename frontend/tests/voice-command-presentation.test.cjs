@@ -66,6 +66,23 @@ command.status = 'NEEDS_CONFIRMATION';
 const view = api.commandProductPresentation(command);
 assert.deepEqual(Object.keys(view), ['price', 'saleActive']);
 assert.equal(command.preview.after.ends_at, '2099-01-01T00:00:00Z');
+const ready = {
+  ...command,
+  status: 'READY',
+  analysis_result: { product_name: '사과', price: 10000, unit: '한 봉지' },
+};
+assert.deepEqual(api.commandProductPresentation(ready), {
+  price: 10000,
+  saleActive: null,
+});
+ready.analysis_result.price = 0;
+assert.equal(api.commandProductPresentation(ready).price, 0);
+ready.status = 'SUCCEEDED';
+ready.result = { effective_price: 8000, sale_active: true };
+assert.deepEqual(api.commandProductPresentation(ready), {
+  price: 8000,
+  saleActive: true,
+});
 console.log(
   'PASS: server effective price including zero, sale flag regardless of dates, no stale preview fallback, hidden time fields preserved',
 );
