@@ -138,7 +138,6 @@ export function parseCommand(
         (!data.needs_confirmation || data.missing_fields.length !== 0)) ||
       (state === 'NEEDS_INPUT' &&
         (data.needs_confirmation ||
-          !data.missing_fields.length ||
           typeof data.question !== 'string' ||
           !data.question.trim())) ||
       (data.question != null && typeof data.question !== 'string') ||

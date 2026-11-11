@@ -365,6 +365,36 @@ async function main() {
   assert.equal(readyWithNullQuestion.status, 'READY');
   assert.equal(readyWithNullQuestion.question, undefined);
   assert.deepEqual(readyWithNullQuestion.preview, response.preview);
+  // Intent/target clarification can require an answer without a missing field.
+  for (const [intent, question] of [
+    ['UNKNOWN', '어떤 상품을 어떻게 처리할지 말씀해 주세요.'],
+    ['MULTIPLE', '한 상품씩 한 작업을 말씀해 주세요.'],
+    ['PRODUCT_DELETE', '상품명과 판매 단위를 확인해 주세요.'],
+  ]) {
+    response = {
+      ...audioReadyResponse, command_id: `clarify-${intent}`, intent,
+      status: 'NEEDS_INPUT', missing_fields: [], needs_confirmation: false,
+      question, execution_endpoint: null, preview: null,
+      analysis_result: { intent },
+    };
+    const clarification = await api.analyzeAudio({
+      uri: 'file:///voice.m4a', durationMillis: 1000, fileSize: 4,
+    });
+    assert.equal(clarification.status, 'NEEDS_INPUT');
+    assert.equal(clarification.question, question);
+    assert.deepEqual(clarification.missing_fields, []);
+    const beforeExecution = calls.length;
+    await assert.rejects(api.executeCommand(clarification));
+    assert.equal(calls.length, beforeExecution);
+    for (const invalid of [
+      { question: null }, { question: '' }, { question: ' ' },
+      { needs_confirmation: true }, { missing_fields: null },
+      { missing_fields: ['price', 1] },
+    ]) {
+      assert.throws(() => api.parseCommand({ ...response, ...invalid }),
+        /음성 분석 결과와 추가 질문/);
+    }
+  }
   for (const question of [null, undefined, '', ' ', 42]) {
     assert.throws(() => api.parseCommand({
       ...audioReadyResponse, status: 'NEEDS_INPUT',
