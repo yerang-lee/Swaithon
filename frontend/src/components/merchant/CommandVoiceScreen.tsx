@@ -46,6 +46,48 @@ import {
   type VoiceCommand,
 } from '../../services/api/voiceCommands';
 
+function AnalysisDots({ size, color }: { size: number; color: string }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="음성 분석 중"
+      accessibilityState={{ busy: true }}
+      style={{ width: size, height: size, flexDirection: 'row', gap: 16,
+        alignItems: 'center', justifyContent: 'center' }}
+    >
+      {[0, 1, 2].map((index) => (
+        <Animated.View
+          key={index}
+          style={{
+            width: 18, height: 18, borderRadius: 9, backgroundColor: color,
+            opacity: progress.interpolate({
+              inputRange: [0, 0.2 + index * 0.15, 0.4 + index * 0.15, 1],
+              outputRange: [0.3, 1, 0.3, 0.3],
+            }),
+            transform: [{ translateY: progress.interpolate({
+              inputRange: [0, 0.2 + index * 0.15, 0.4 + index * 0.15, 1],
+              outputRange: [0, -10, 0, 0],
+            }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function CommandVoiceScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
@@ -60,6 +102,7 @@ export function CommandVoiceScreen() {
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const analyzing = busy && !recording && !preparing;
   const ripple = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!recording) {
@@ -375,7 +418,7 @@ export function CommandVoiceScreen() {
           contentContainerStyle={recordingStyles.body}
         >
           <View style={recordingStyles.center}>
-            {microphone}
+            {analyzing ? <AnalysisDots size={micSize} color="#FFFFFF" /> : microphone}
             <View style={recordingStyles.instructions}>
               <Text accessibilityRole="header" style={recordingStyles.heading}>
                 {recording
@@ -383,9 +426,14 @@ export function CommandVoiceScreen() {
                   : busy
                     ? preparing
                       ? '마이크를 준비하고 있어요...'
-                      : '상품 정보를\n분석하고 있어요...'
+                      : '음성을 분석 중이에요'
                     : '상품 정보를\n음성으로 말해주세요'}
               </Text>
+              {analyzing && (
+                <Text style={recordingStyles.example}>
+                  상품명과 가격을 확인하고 있어요.{'\n'}잠시만 기다려주세요.
+                </Text>
+              )}
               {recording ? (
                 <Text style={recordingStyles.timer}>
                   {String(Math.floor(seconds / 60)).padStart(2, '0')}:
@@ -490,7 +538,14 @@ export function CommandVoiceScreen() {
                   품절 처리해 줘”
                 </Text>
               )}
-              {microphone}
+              {analyzing ? (
+                <View style={{ alignItems: 'center' }}>
+                  <AnalysisDots size={micSize} color={theme.colors.primary} />
+                  <Text accessibilityLiveRegion="polite" style={styles.message}>
+                    추가 정보를 분석 중이에요. 잠시만 기다려주세요.
+                  </Text>
+                </View>
+              ) : microphone}
               {recording && (
                 <Text style={styles.hint}>
                   {Math.floor(state.durationMillis / 1000)}초
@@ -535,7 +590,7 @@ export function CommandVoiceScreen() {
               )}
             </View>
           )}
-          {busy && <ActivityIndicator color="#53B175" />}
+          {busy && !analyzing && <ActivityIndicator color="#53B175" />}
           {!!error && (
             <Text accessibilityRole="alert" style={styles.error}>
               {error}
