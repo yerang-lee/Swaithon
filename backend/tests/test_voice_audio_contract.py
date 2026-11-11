@@ -7,6 +7,8 @@ from unittest.mock import patch
 from fastapi import UploadFile
 
 from backend.voice.jangboso_voice.api import Merchant, build_router
+from backend.voice.jangboso_voice.engine import VoiceService
+from backend.voice.jangboso_voice.schema import Command
 
 
 class AudioContractTest(unittest.TestCase):
@@ -73,6 +75,25 @@ class AudioContractTest(unittest.TestCase):
         self.assertEqual(self.audio()["question"], "구체적인 추가 질문")
         self.result.update(question=" ", message=" ")
         self.assertTrue(self.audio()["question"].strip())
+
+    def test_engine_clarification_without_missing_fields(self):
+        service = VoiceService.__new__(VoiceService)
+        for intent in ("UNKNOWN", "MULTIPLE", "PRODUCT_DELETE"):
+            with self.subTest(intent=intent):
+                command = {
+                    "command_id": "clarification-test", "store_id": "store",
+                    "expires_at": "2099-01-01T00:00:00+00:00",
+                    "parsed": Command(intent=intent, product_name="사과").model_dump(),
+                }
+                service._plan({"products": {}}, command)
+                self.result = command
+                data = self.audio()
+                self.assertEqual(data["status"], "NEEDS_INPUT")
+                self.assertEqual(data["missing_fields"], [])
+                self.assertEqual(data["question"], command["message"])
+                self.assertTrue(data["question"].strip())
+                self.assertFalse(data["needs_confirmation"])
+                self.assertIsNone(data["execution_endpoint"])
 
     def test_selection_preserves_candidates(self):
         self.result.update(status="NEEDS_SELECTION", preview=None,
