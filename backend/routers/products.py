@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Listing, Product, Store, Market, PriceHistory
+from models import Listing, Product, Store, Market, ListingPriceHistory
 from schemas import ProductDetailResponse, ProductListResponse, ProductListItem
 
 router = APIRouter(prefix="/products", tags=["Products"])
@@ -158,9 +158,9 @@ def get_price_history(
     )
 
     histories = (
-        db.query(PriceHistory)
-        .filter(PriceHistory.listing_id == listing_id)
-        .order_by(PriceHistory.recorded_at.asc())
+        db.query(ListingPriceHistory)
+        .filter(ListingPriceHistory.listing_id == listing_id)
+        .order_by(ListingPriceHistory.recorded_at.asc(), ListingPriceHistory.history_id.asc())
         .all()
     )
 
