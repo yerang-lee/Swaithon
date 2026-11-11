@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   },
   smallMuted: {
     color: theme.colors.muted,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
   },
   green: {

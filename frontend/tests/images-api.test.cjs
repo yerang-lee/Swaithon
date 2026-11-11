@@ -90,8 +90,34 @@ const photo = {
   assert.equal((await api.uploadProductImage(photo, 101)).image_url,
     'https://example.test/uploads/images/apple.png');
   status = 201;
+  assert.equal((await api.uploadProductImage(photo, 101)).listing_id, 101);
+  result.listing_id = 99;
+  await assert.rejects(api.uploadProductImage(photo, 101), /업로드 결과/);
+  result.listing_id = 101;
+  status = 202;
   await assert.rejects(api.uploadProductImage(photo, 101), /업로드 결과/);
   status = 200;
+  const validResponse = { ...result };
+  const diagnostics = [];
+  const previousLogger = globalThis.__jangbosoLogError;
+  globalThis.__jangbosoLogError = (scope, error) => diagnostics.push({ scope, message: error.message });
+  for (const [change, code] of [
+    [{ image_id: 'private-response' }, 'image_id/invalid'],
+    [{ listing_id: null }, 'listing_id/invalid'],
+    [{ listing_id: 102 }, 'listing_id/mismatch'],
+    [{ uploaded_at: 'private-response' }, 'uploaded_at/invalid'],
+    [{ file_name: { private: 'private-response' } }, 'file_name/not_string'],
+    [{ message: null }, 'message/not_string'],
+    [{ image_url: null }, 'image_url/invalid'],
+  ]) {
+    Object.assign(result, validResponse, change);
+    await assert.rejects(api.uploadProductImage(photo, 101),
+      (error) => error.message.includes(`IMAGE_RESPONSE:${code}`));
+  }
+  assert.equal(JSON.stringify(diagnostics).includes('private-response'), false);
+  assert.equal(diagnostics.every((entry) => entry.scope === 'services/api/images.ts'), true);
+  globalThis.__jangbosoLogError = previousLogger;
+  Object.assign(result, validResponse);
   result.listing_id = null;
   assert.equal((await api.uploadProductImage(photo)).listing_id, null);
   assert.equal(upload[1].parts.length, 1);

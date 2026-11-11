@@ -92,22 +92,31 @@ export async function uploadProductImage(
         errors[response.status] ?? '사진 업로드에 실패했어요.',
       );
     const data = await response.json();
-    if (
-      response.status !== 200 ||
-      !data ||
-      !validId(data.image_id) ||
-      (listingId !== undefined
-        ? data.listing_id !== listingId
-        : data.listing_id !== null) ||
-      typeof data.file_name !== 'string' ||
-      typeof data.uploaded_at !== 'string' ||
-      !Number.isFinite(Date.parse(data.uploaded_at)) ||
-      typeof data.message !== 'string' ||
-      typeof data.image_url !== 'string' ||
-      !data.image_url
-    )
+    // Fixed diagnostic codes only: never include response values, names or URLs.
+    const invalid: string[] = [];
+    if (response.status !== 200 && response.status !== 201)
+      invalid.push('status/unsupported');
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      invalid.push('body/not_object');
+    } else {
+      if (!validId(data.image_id)) invalid.push('image_id/invalid');
+      if (listingId !== undefined) {
+        if (!validId(data.listing_id)) invalid.push('listing_id/invalid');
+        else if (data.listing_id !== listingId) invalid.push('listing_id/mismatch');
+      } else if (data.listing_id !== null) {
+        invalid.push('listing_id/expected_null');
+      }
+      if (typeof data.file_name !== 'string') invalid.push('file_name/not_string');
+      if (typeof data.uploaded_at !== 'string' ||
+        !Number.isFinite(Date.parse(data.uploaded_at)))
+        invalid.push('uploaded_at/invalid');
+      if (typeof data.message !== 'string') invalid.push('message/not_string');
+      if (typeof data.image_url !== 'string' || !data.image_url)
+        invalid.push('image_url/invalid');
+    }
+    if (invalid.length)
       throw new Error(
-        '업로드 결과를 확인할 수 없어요. 상품 사진을 확인해주세요.',
+        `업로드 결과를 확인할 수 없어요. 상품 사진을 확인해주세요. [IMAGE_RESPONSE:${invalid.join(',')}]`,
       );
     return {
       ...data,
