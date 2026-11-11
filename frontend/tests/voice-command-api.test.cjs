@@ -345,6 +345,47 @@ async function main() {
   );
   assert.equal(modernInitial.question, response.question);
   assert.equal(modernInitial.expiresAt, Date.parse(deadline));
+  // Actual audio endpoint shape: optional question is explicitly null.
+  const originalModernResponse = response;
+  const audioReadyResponse = {
+    ...response,
+    command_id: 'audio-null-question',
+    status: 'READY',
+    missing_fields: [],
+    needs_confirmation: true,
+    question: null,
+    execution_endpoint: '/voice/product-registration/confirm',
+    candidates: [],
+    preview: { before: null, after: { product_name: '사과', price: 5000 } },
+  };
+  response = audioReadyResponse;
+  const readyWithNullQuestion = await api.analyzeAudio({
+    uri: 'file:///voice.m4a', durationMillis: 1000, fileSize: 4,
+  });
+  assert.equal(readyWithNullQuestion.status, 'READY');
+  assert.equal(readyWithNullQuestion.question, undefined);
+  assert.deepEqual(readyWithNullQuestion.preview, response.preview);
+  for (const question of [null, undefined, '', ' ', 42]) {
+    assert.throws(() => api.parseCommand({
+      ...audioReadyResponse, status: 'NEEDS_INPUT',
+      missing_fields: ['price'], needs_confirmation: false,
+      execution_endpoint: null, question,
+    }), /음성 분석 결과와 추가 질문/);
+  }
+  assert.throws(() => api.parseCommand({
+    ...audioReadyResponse, question: 42,
+  }), /음성 분석 결과와 추가 질문/);
+  const audioSelection = api.parseCommand({
+    ...audioReadyResponse, status: 'NEEDS_SELECTION',
+    needs_confirmation: false, execution_endpoint: null,
+    candidates: [{ listing_id: 'listing-1', product_name: '사과' }],
+  });
+  assert.equal(audioSelection.candidates[0].listing_id, 'listing-1');
+  assert.throws(() => api.parseCommand({
+    ...audioReadyResponse, status: 'NEEDS_SELECTION',
+    needs_confirmation: false, execution_endpoint: null, candidates: [],
+  }), /후보/);
+  response = originalModernResponse;
   const modernResponse = response;
   response = {
     analysis_id: '2ae36978-02d7-4552-a542-57b356fc5021',

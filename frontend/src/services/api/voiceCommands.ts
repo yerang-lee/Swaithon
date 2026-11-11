@@ -141,7 +141,7 @@ export function parseCommand(
           !data.missing_fields.length ||
           typeof data.question !== 'string' ||
           !data.question.trim())) ||
-      (data.question !== undefined && typeof data.question !== 'string') ||
+      (data.question != null && typeof data.question !== 'string') ||
       (data.transcript !== undefined && typeof data.transcript !== 'string'))
   )
     throw new Error('음성 분석 결과와 추가 질문을 확인할 수 없어요.');
