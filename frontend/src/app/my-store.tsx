@@ -287,6 +287,8 @@ const styles = StyleSheet.create({
   actionArea: {
     width: '100%', maxWidth: 600, alignSelf: 'center',
     paddingHorizontal: 24, paddingTop: 16, flexShrink: 0,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
   },
   merchantButton: {
     backgroundColor: '#53B175', borderRadius: 11, minHeight: 176,
