@@ -335,3 +335,64 @@ export async function cancelReservation(id: number): Promise<void> {
     reservationError(e);
   }
 }
+export type ReservationStatusUpdate = {
+  reservation_id: number;
+  status: ReservationStatus;
+  updated_at: string;
+  message: string;
+};
+export async function changeReservationStatus(
+  id: number,
+  status: ReservationStatus,
+): Promise<ReservationStatusUpdate> {
+  try {
+    if (!Number.isSafeInteger(id) || id <= 0 || !statuses.includes(status))
+      throw new Error('예약 번호와 변경할 상태를 확인해주세요.');
+    const session = getAuthSession();
+    if (!session || session.expiresAt <= Date.now())
+      throw new ApiError(401, '다시 로그인해주세요.');
+    if (session.role !== 'MERCHANT')
+      throw new ApiError(403, '상인 계정에서 이용할 수 있어요.');
+    const result = (await patchJson(
+      `/reservations/${id}/status`,
+      { status },
+      session.access_token,
+      200,
+    )) as ReservationStatusUpdate;
+    if (getAuthSession()?.access_token !== session.access_token)
+      throw new Error(
+        '로그인 계정이 변경됐어요. 예약 상태를 다시 확인해주세요.',
+      );
+    if (
+      !result ||
+      result.reservation_id !== id ||
+      result.status !== status ||
+      typeof result.updated_at !== 'string' ||
+      !Number.isFinite(Date.parse(result.updated_at)) ||
+      typeof result.message !== 'string'
+    )
+      throw new Error(
+        '변경 결과를 확인하지 못했어요. 예약 상태를 확인한 후 다시 진행해주세요.',
+      );
+    return result;
+  } catch (error) {
+    const code =
+      error instanceof ApiError
+        ? error.status
+        : (error as { status?: number })?.status;
+    globalThis.__jangbosoLogError?.(
+      'services/api/reservations.ts/status',
+      new Error(`예약 상태 변경 실패${code ? ` (HTTP ${code})` : ''}`),
+    );
+    const messages: Record<number, string> = {
+      400: '예약 번호와 변경할 상태를 확인해주세요.',
+      401: '로그인이 만료됐어요. 다시 로그인해주세요.',
+      403: '해당 예약 가게의 상인만 상태를 변경할 수 있어요.',
+      404: '예약을 찾을 수 없어요.',
+      409: '현재 예약 상태에서는 이 변경을 할 수 없어요. 예약 상태를 다시 확인해주세요.',
+      500: '서버 오류가 발생했어요. 예약 상태를 확인한 후 다시 진행해주세요.',
+    };
+    if (code && messages[code]) throw new ApiError(code, messages[code]);
+    throw error;
+  }
+}

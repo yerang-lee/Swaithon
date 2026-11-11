@@ -303,13 +303,21 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
             />
             {!signup && (
               <View style={styles.signupLink}>
-                <Text style={styles.smallMuted}>아직 계정이 없으신가요? </Text>
+                <Text style={[styles.smallMuted, styles.signupLinkText]}>
+                  아직 계정이 없으신가요?{' '}
+                </Text>
                 <Pressable
                   accessibilityRole="link"
                   onPress={() => router.push('/signup')}
                   hitSlop={8}
                 >
-                  <Text style={[styles.smallMuted, styles.green]}>
+                  <Text
+                    style={[
+                      styles.smallMuted,
+                      styles.signupLinkText,
+                      styles.green,
+                    ]}
+                  >
                     회원가입
                   </Text>
                 </Pressable>
@@ -422,8 +430,8 @@ const styles = StyleSheet.create({
   },
   smallMuted: {
     color: theme.colors.muted,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
   },
   green: {
     color: theme.colors.primary,
@@ -438,9 +446,14 @@ const styles = StyleSheet.create({
   },
   signupLink: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     marginTop: 30,
     flexWrap: 'wrap',
+  },
+  signupLinkText: {
+    lineHeight: 22,
+    includeFontPadding: false,
   },
   signupPolicy: {
     marginTop: 4,

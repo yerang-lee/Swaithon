@@ -68,6 +68,12 @@ const modules = {
     useLocalSearchParams: () => ({}),
     useFocusEffect: (fn) => focus.push(fn),
   },
+  '../components/reservations/MerchantReservationsScreen': {
+    MerchantReservationsScreen: 'MerchantReservationsScreen',
+  },
+  '../components/reservations/ReservationsScreen': {
+    ReservationsScreen: 'ReservationsScreen',
+  },
   '../services/api/auth': { getAuthSession: () => session },
   '../services/locationChanges': { useLocationRevision: () => 0 },
   '../utils/marketDistance': helpers,
@@ -84,6 +90,15 @@ const modules = {
       longitude: 127,
       name: '선택위치',
       radius: 3,
+    }),
+  },
+  '../services/api/products': {
+    getProduct: async (listingId) => ({
+      listing_id: listingId,
+      price: 12000,
+      sale_price: listingId === 'listing_101' ? 10000 : null,
+      image_url: null,
+      is_sold_out: false,
     }),
   },
   '../services/api/recommendations': {
@@ -212,6 +227,11 @@ const result = {
   assert.deepEqual(requests[0].options, { latitude: 35.1, longitude: 129.1 });
   requests.shift().resolve({ request_id: 'new-location', items: [] });
   await tick();
+  slots[0] = '예약';
+  session = { ...session, role: 'MERCHANT' };
+  assert.equal(render().type, 'MerchantReservationsScreen');
+  session = { ...session, role: 'CUSTOMER' };
+  assert.equal(render().type, 'ReservationsScreen');
   console.log(
     'PASS: home server recommendations, exact market-name matching, request ID detail/favorite propagation, pending hearts, stale responses and error/empty states',
   );

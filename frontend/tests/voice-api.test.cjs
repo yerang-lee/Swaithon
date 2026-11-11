@@ -277,28 +277,23 @@ async function main() {
     category_name: '과일',
     message: '등록 완료',
   };
+  const beforeLegacyApply = requests.length;
+  await assert.rejects(
+    api.applyVoiceAnalysis(analysis, confirmed),
+    /command_id 기반/,
+  );
   assert.equal(
-    (await api.applyVoiceAnalysis(analysis, confirmed)).product_id,
-    101,
+    requests.length,
+    beforeLegacyApply,
+    'deprecated apply endpoint must never be called',
   );
-  assert.deepEqual(requests.at(-1).body, { confirmed_fields: confirmed });
-  assert.ok(requests.at(-1).url.endsWith('/apply'));
-  const count = requests.length;
   await assert.rejects(
-    () =>
-      api.applyVoiceAnalysis(
-        { ...analysis, expiresAt: '2000-01-01T00:00:00Z' },
-        confirmed,
-      ),
-    (e) => e.status === 409,
+    api.applyVoiceAnalysis(
+      { ...analysis, expiresAt: '2000-01-01T00:00:00Z' },
+      confirmed,
+    ),
+    /만료/,
   );
-  assert.equal(requests.length, count);
-  postFailure = new ApiError(409, '이미 반영됨');
-  await assert.rejects(
-    () => api.applyVoiceAnalysis(analysis, confirmed),
-    (e) => e.status === 409,
-  );
-  postFailure = undefined;
   payload = {
     analysis_id: analysis.analysisId,
     status: 'CANCELLED',

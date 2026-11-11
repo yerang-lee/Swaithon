@@ -171,7 +171,7 @@ const options = {
   );
   status = 201;
   text =
-    '{"image_id":1,"product_id":101,"image_url":"https://example.com/photo.jpg"}';
+    '{"image_id":1,"product_id":101,"image_url":"https://example.com/photo.jpg","file_name":"photo.jpg","uploaded_at":"2026-11-10T10:00:00+09:00","message":"이미지가 업로드되었습니다."}';
   await images.uploadProductImage(
     { uri: 'file:///photo.jpg', fileName: 'photo.jpg', mimeType: 'image/jpeg' },
     101,

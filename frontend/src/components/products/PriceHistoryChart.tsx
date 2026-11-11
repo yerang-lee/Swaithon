@@ -29,9 +29,11 @@ const date = (s: string) =>
 export function PriceHistoryChart({
   listingId,
   preview = false,
+  saleActive = false,
 }: {
   listingId: string;
   preview?: boolean;
+  saleActive?: boolean;
 }) {
   const [result, setResult] = useState<{
     id: string;
@@ -225,7 +227,7 @@ export function PriceHistoryChart({
       <Text style={styles.muted}>
         {chosen ? `${date(chosen.recorded_at)} 선택 가격` : '현재 판매 가격'}
       </Text>
-      <Text style={styles.price}>
+      <Text style={[styles.price, !chosen && saleActive && styles.salePrice]}>
         {won(chosen?.price ?? data.current_price)}
       </Text>
     </View>
@@ -256,6 +258,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7C7C7C',
     textAlign: 'center',
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   price: {
     fontSize: 24,
