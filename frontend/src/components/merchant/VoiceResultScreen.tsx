@@ -592,10 +592,10 @@ const styles = StyleSheet.create({
   },
   message: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
     marginTop: 16,
-    lineHeight: 21,
+    lineHeight: 24,
   },
   actions: {
     gap: 10,
@@ -627,8 +627,8 @@ const styles = StyleSheet.create({
   completionNote: {
     color: 'white',
     textAlign: 'center',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 24,
   },
   photoArea: {
     alignItems: 'center',
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   photoNotice: {
     color: 'white',
     textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
   },
 });

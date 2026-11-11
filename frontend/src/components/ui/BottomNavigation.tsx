@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   label: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: '#181725',
   },

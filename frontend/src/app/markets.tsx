@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   message: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#858585',
     paddingVertical: 14,
   },

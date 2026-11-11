@@ -142,6 +142,9 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
 }));
 (async () => {
   assert.equal(render().type, 'SafeAreaView');
+  nodes(render()).find((node) => node.type === 'Pressable' &&
+    node.props.accessibilityLabel === '상품 등록/수정하기').props.onPress();
+  assert.equal(routes.pop(), '/voice');
   lists.shift().resolve({ listings: rows, total_count: 11, page: 1, size: 10 });
   await tick();
   let tree = render();

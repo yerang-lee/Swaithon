@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   imageNote: {
     color: '#999',
-    fontSize: 12,
+    fontSize: 16,
     marginBottom: 14,
   },
   details: {

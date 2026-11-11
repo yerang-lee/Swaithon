@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: theme.colors.text,
   },
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
   },
   demo: {
-    fontSize: 13,
+    fontSize: 16,
     color: theme.colors.muted,
     marginTop: 26,
     textAlign: 'center',
@@ -1037,9 +1037,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F9F3',
   },
   sheetNote: {
-    fontSize: 14,
+    fontSize: 16,
     color: theme.colors.muted,
-    lineHeight: 19,
+    lineHeight: 24,
     marginBottom: 20,
   },
 });

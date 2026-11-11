@@ -17,7 +17,7 @@ export function MockModeBanner() {
         gap: 12,
       }}
     >
-      <Text style={{ flex: 1, fontSize: 12, color: '#674900' }}>
+      <Text style={{ flex: 1, fontSize: 16, color: '#674900' }}>
         서버 없는 테스트 · 예시 데이터 · AI 분석/업로드 모의 처리
       </Text>
       <Pressable

@@ -853,8 +853,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   error: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#C23D3D',
   },
   link: {

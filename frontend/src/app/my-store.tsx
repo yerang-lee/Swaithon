@@ -124,7 +124,23 @@ export default function MyStoreScreen() {
   );
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <PageHeader title="내 가게" onBack={() => router.back()} />
+      <PageHeader title="내 상품 보기" onBack={() => router.back()} />
+      {getAuthSession()?.role === 'MERCHANT' && (
+        <View style={styles.actionArea}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="상품 등록/수정하기"
+            onPress={() => router.push('/voice')}
+            style={({ pressed }) => [styles.merchantButton, pressed && { opacity: 0.85 }]}
+          >
+            <View style={styles.merchantPlusCircle}>
+              <View style={styles.merchantPlusHorizontal} />
+              <View style={styles.merchantPlusVertical} />
+            </View>
+            <Text style={styles.merchantButtonLabel}>상품 등록/수정하기</Text>
+          </Pressable>
+        </View>
+      )}
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -267,6 +283,30 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
+  },
+  actionArea: {
+    width: '100%', maxWidth: 600, alignSelf: 'center',
+    paddingHorizontal: 24, paddingTop: 16, flexShrink: 0,
+  },
+  merchantButton: {
+    backgroundColor: '#53B175', borderRadius: 11, minHeight: 176,
+    paddingHorizontal: 16, paddingVertical: 32,
+    alignItems: 'center', justifyContent: 'center', gap: 16,
+  },
+  merchantPlusCircle: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  merchantPlusHorizontal: {
+    position: 'absolute', width: 22, height: 5, borderRadius: 3,
+    backgroundColor: '#53B175',
+  },
+  merchantPlusVertical: {
+    position: 'absolute', width: 5, height: 22, borderRadius: 3,
+    backgroundColor: '#53B175',
+  },
+  merchantButtonLabel: {
+    color: '#FFFFFF', fontSize: 28, fontWeight: '600', textAlign: 'center',
   },
   center: {
     justifyContent: 'center',
