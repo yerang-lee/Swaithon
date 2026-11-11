@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Listing, Product, Store, Market
+from models import Listing, Product, Store, Market, PriceHistory
 from schemas import ProductDetailResponse, ProductListResponse, ProductListItem
 
 router = APIRouter(prefix="/products", tags=["Products"])
@@ -123,3 +123,60 @@ def get_product_detail(
         market_id=market.market_id,
         market_name=market.market_name,
     )
+
+
+# 상품 가격 변동 이력 조회
+@router.get("/{listing_id}/price-history")
+def get_price_history(
+    listing_id: int,
+    db: Session = Depends(get_db),
+):
+    result = (
+        db.query(Listing, Product, Store)
+        .join(Product, Listing.product_id == Product.product_id)
+        .join(Store, Listing.store_id == Store.store_id)
+        .filter(
+            Listing.listing_id == listing_id,
+            Listing.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="판매 게시물을 찾을 수 없습니다.",
+        )
+
+    listing, product, store = result
+
+    current_price = (
+        listing.sale_price
+        if listing.sale_price is not None
+        and listing.sale_price < listing.price
+        else listing.price
+    )
+
+    histories = (
+        db.query(PriceHistory)
+        .filter(PriceHistory.listing_id == listing_id)
+        .order_by(PriceHistory.recorded_at.asc())
+        .all()
+    )
+
+    return {
+        "listing_id": listing.listing_id,
+        "product_id": product.product_id,
+        "product_name": product.product_name,
+        "store_id": store.store_id,
+        "store_name": store.store_name,
+        "current_price": current_price,
+        "price_history": [
+            {
+                "price": history.price,
+                "recorded_at": history.recorded_at,
+            }
+            for history in histories
+        ],
+    }
+
