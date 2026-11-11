@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: theme.colors.muted,
-    fontSize: 18,
+    color: '#333333',
+    fontSize: 20,
     fontWeight: '600',
     marginBottom: 10,
   },

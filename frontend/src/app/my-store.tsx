@@ -212,11 +212,6 @@ export default function MyStoreScreen() {
                             원
                           </Text>
                         </View>
-                        <Text style={styles.stock}>
-                          {item.stock_quantity === null
-                            ? '재고 정보 없음'
-                            : `재고 ${item.stock_quantity}개`}
-                        </Text>
                       </View>
                     </Pressable>
                   );
@@ -348,10 +343,6 @@ const styles = StyleSheet.create({
   },
   salePrice: {
     color: '#EF4929',
-  },
-  stock: {
-    fontSize: 18,
-    color: '#7C7C7C',
   },
   imageOverlay: {
     position: 'absolute',

@@ -156,7 +156,8 @@ function card(id) {
   assert.ok(find('BottomNavigation'));
   find('PrimaryButton', '픽업 QR 스캔').props.onPress();
   assert.deepEqual(routes, ['/pickup-scan']);
-  find('PrimaryButton', '더 보기').props.onPress();
+  nodes(render()).find((node) => node.type === 'Pressable' &&
+    node.props.accessibilityLabel === '더 보기').props.onPress();
   assert.equal(lists[0].options.page, 2);
   lists.shift().resolve({
     reservations: [

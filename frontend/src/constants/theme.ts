@@ -3,7 +3,7 @@ export const theme = {
     primary: '#53B175',
     brandText: '#176735',
     text: '#181725',
-    muted: '#858585',
+    muted: '#6B6B6B',
     border: '#E2E2E2',
     background: '#FFFFFF',
     error: '#C23D3D',

@@ -28,14 +28,14 @@ const styles = StyleSheet.create({
   },
   name: {
     color: theme.colors.brandText,
-    fontSize: 46,
+    fontSize: 48,
     fontWeight: '800',
-    lineHeight: 58,
+    lineHeight: 60,
     letterSpacing: -2,
   },
   tagline: {
     color: theme.colors.brandText,
-    fontSize: 20,
+    fontSize: 22,
     marginTop: 10,
   },
 });

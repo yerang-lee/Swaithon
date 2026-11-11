@@ -426,12 +426,18 @@ export function MerchantReservationsScreen({
               !error &&
               visible.length > 0 &&
               visible.length < total && (
-                <PrimaryButton
-                  title={moreError ? '다시 불러오기' : '더 보기'}
-                  disabled={changing !== null}
-                  loading={moreLoading}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={moreError ? '다시 불러오기' : '더 보기'}
+                  accessibilityState={{ busy: moreLoading, disabled: changing !== null || moreLoading }}
+                  disabled={changing !== null || moreLoading}
                   onPress={() => void more()}
-                />
+                  style={styles.moreLink}
+                >
+                  <Text style={styles.moreLinkText}>
+                    {moreLoading ? '불러오는 중...' : moreError ? '다시 불러오기' : '더 보기'}
+                  </Text>
+                </Pressable>
               )}
           </ScrollView>
         </>
@@ -452,6 +458,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   filterArea: {
+    flexShrink: 0,
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
@@ -485,9 +492,22 @@ const styles = StyleSheet.create({
   },
   list: {
     flexGrow: 1,
+    paddingTop: 24,
     paddingHorizontal: 24,
     paddingBottom: 24,
     gap: 16,
+  },
+  moreLink: {
+    alignSelf: 'center',
+    minHeight: 44,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  moreLinkText: {
+    color: '#53B175',
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   center: {
     flexGrow: 1,

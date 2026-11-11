@@ -145,6 +145,7 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
   lists.shift().resolve({ listings: rows, total_count: 11, page: 1, size: 10 });
   await tick();
   let tree = render();
+  assert.ok(!text(tree).includes('재고'));
   assert.equal(nodes(tree).find((node) => node.type === 'ListingImage').props.uri,
     'https://api.test/uploads/images/apple.jpg');
   assert.ok(text(tree).includes('상품1'));

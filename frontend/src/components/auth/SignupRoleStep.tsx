@@ -168,7 +168,7 @@ export function SignupRoleStep({
           {role === 'merchant' && (
             <View style={styles.store}>
               <AuthField
-                labelColor="#000000"
+                labelColor="#333333"
                 label="가게 이름"
                 value={storeName}
                 onChangeText={setStoreName}
@@ -275,7 +275,7 @@ export function SignupRoleStep({
                 ))
               )}
               <AuthField
-                labelColor="#000000"
+                labelColor="#333333"
                 label="가게 설명 (선택)"
                 value={description}
                 onChangeText={setDescription}
@@ -376,9 +376,9 @@ const styles = StyleSheet.create({
     marginTop: 36,
   },
   label: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#000000',
+    color: '#333333',
     marginBottom: 14,
   },
   location: {

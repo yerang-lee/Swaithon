@@ -1,4 +1,5 @@
 import { PriceHistoryChart } from '../../components/products/PriceHistoryChart';
+import { ProductImageViewer } from '../../components/products/ProductImageViewer';
 import { useRecommendationView } from '../../hooks/useRecommendationTracking';
 import { logAppError } from '../../utils/appDiagnostics';
 import { useCatalogRevision } from '../../services/catalogChanges';
@@ -50,6 +51,7 @@ export default function ProductDetail() {
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
   const { favorites, pendingFavorites, toggleFavorite } = useFavorites();
   const [sheet, setSheet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +61,7 @@ export default function ProductDetail() {
     setData(null);
     setError('');
     setImageError(false);
+    setImageOpen(false);
     if (demo) {
       setLoading(false);
       return;
@@ -181,11 +184,13 @@ export default function ProductDetail() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           {imageUrl && /^https?:\/\//.test(imageUrl) && !imageError ? (
+            <Pressable style={styles.heroPhoto} accessibilityRole="button"
+              accessibilityLabel={`${name} 사진 크게 보기`} onPress={() => setImageOpen(true)}>
             <Image
               source={{ uri: imageUrl }}
               accessibilityLabel={name}
-              resizeMode="contain"
-              style={{ width: '100%', height: 240 }}
+              resizeMode="cover"
+              style={styles.heroImage}
               onError={(event) => {
                 logAppError(
                   'product/image',
@@ -194,6 +199,7 @@ export default function ProductDetail() {
                 setImageError(true);
               }}
             />
+            </Pressable>
           ) : (
             <>
               <Text style={styles.emoji}>{demo?.emoji ?? '🛍️'}</Text>
@@ -203,7 +209,7 @@ export default function ProductDetail() {
             </>
           )}
           {soldOut && (
-            <View style={styles.soldOutOverlay}>
+            <View style={styles.soldOutOverlay} pointerEvents="none">
               <Text style={styles.soldOutBadge}>품절</Text>
             </View>
           )}
@@ -291,6 +297,10 @@ export default function ProductDetail() {
           />
         </View>
       </View>
+      {!!imageUrl && imageOpen && (
+        <ProductImageViewer visible uri={imageUrl} label={name}
+          onClose={() => setImageOpen(false)} />
+      )}
       {sheet && (
         <PickupTimeSheet
           favorite={favorite}
@@ -326,7 +336,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  heroPhoto: { width: '100%', height: 310 },
+  heroImage: { width: '100%', height: '100%' },
   header: {
     paddingHorizontal: 16,
     paddingTop: 0,
