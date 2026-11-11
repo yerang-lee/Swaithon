@@ -23,7 +23,7 @@ router = APIRouter(prefix="/images", tags=["Images"])
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads" / "images"
 
-MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 IMAGE_SIGNATURES = {
     "jpeg": lambda data: data.startswith(b"\xff\xd8\xff"),
@@ -99,7 +99,7 @@ async def upload_image(
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="이미지 파일은 5MB 이하만 업로드할 수 있습니다.",
+            detail="이미지 파일은 10MB 이하만 업로드할 수 있습니다.",
         )
 
     # 5. 실제 이미지 형식 확인

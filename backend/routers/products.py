@@ -170,6 +170,7 @@ def get_price_history(
         "product_name": product.product_name,
         "store_id": store.store_id,
         "store_name": store.store_name,
+        "image_url": listing.image_url,
         "current_price": current_price,
         "price_history": [
             {
