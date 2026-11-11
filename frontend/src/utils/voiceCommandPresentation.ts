@@ -1,5 +1,15 @@
 import type { VoiceCommand } from '../services/api/voiceCommands';
 
+export function confirmedProductId(command: VoiceCommand): number | null {
+  const productId = command.result?.product_id;
+  return command.status === 'SUCCEEDED' &&
+    typeof productId === 'number' &&
+    Number.isSafeInteger(productId) &&
+    productId > 0
+    ? productId
+    : null;
+}
+
 // Only the latest server snapshot decides price/status. Time fields stay in the command.
 export function commandProductPresentation(command: VoiceCommand) {
   const snapshot =
