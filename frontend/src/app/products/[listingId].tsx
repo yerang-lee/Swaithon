@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   soldOutBadge: {
     color: '#FFFFFF',
     backgroundColor: '#777777',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     borderRadius: 4,
     padding: 5,
@@ -412,24 +412,24 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   storeName: {
-    fontSize: 20,
+    fontSize: 22,
     lineHeight: 28,
     fontWeight: '700',
   },
   distance: {
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 24,
     color: '#858585',
   },
   heading: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     marginTop: 22,
     marginBottom: 16,
   },
   note: {
     color: '#999',
-    fontSize: 12,
+    fontSize: 16,
     paddingVertical: 14,
     textAlign: 'center',
   },
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   favoriteLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#777',
   },
 });

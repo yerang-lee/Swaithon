@@ -95,7 +95,7 @@ export default function MarketsScreen() {
     if (market.market_id === null) {
       Alert.alert(
         market.market_name,
-        '아직 서비스에 등록되지 않은 시장이에요. 시장 등록은 상인 회원가입 시 소속 시장을 선택하고 가게 정보를 등록하면 진행돼요.',
+        '아직 서비스에 등록되지 않은 시장이에요.',
       );
       return;
     }

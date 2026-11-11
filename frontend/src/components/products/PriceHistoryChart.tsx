@@ -244,7 +244,7 @@ export function PriceHistoryChart({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
+    marginTop: 5,
     gap: 10,
   },
   message: {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   muted: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#7C7C7C',
     textAlign: 'center',
   },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#888888',
   },
   activeText: {

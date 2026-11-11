@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: '#858585',
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 20,
   },
   notice: {
