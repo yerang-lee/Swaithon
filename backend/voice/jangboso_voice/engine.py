@@ -317,9 +317,9 @@ class VoiceService:
 
                 if sale_action == "create" and has_active_sale:
                     raise VoiceError(
-                        400,
                         "SALE_ALREADY_EXISTS",
                         "이미 진행 중인 할인이 있습니다. 할인 수정을 이용해 주세요.",
+                        400,
                     )
 
                 if sale_action == "update" and not has_active_sale:
@@ -521,12 +521,6 @@ class VoiceService:
                 missing.append("discount")
 
             if (
-                data["discount_rate"] is None
-                and discount_price is None
-            ):
-                missing.append("discount")
-
-            if (
                 data["sale_ends_at"] is None
                 and data.get("sale_end_expression")
             ):
@@ -610,6 +604,7 @@ class VoiceService:
             "sale_quantity": "몇 개인지도 알려주세요.",
             "sale_unit": "판매 단위도 알려주세요.",
             "discount": "할인율 또는 할인 가격을 알려주세요.",
+            "category": "상품 카테고리를 알려주세요."
         }
 
         command["missing_fields"] = missing
