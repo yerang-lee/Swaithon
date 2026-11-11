@@ -109,7 +109,7 @@ class PostgreSQLStore:
             ):
                 sale = {
                     "rate": listing.sale_rate,
-                    "price": listing.sale_price,
+                    "price": listing.sale_price if listing.sale_rate is None else None,
                     "starts_at": (
                         listing.sale_starts_at.isoformat()
                         if listing.sale_starts_at else None
@@ -241,7 +241,8 @@ class PostgreSQLStore:
                 product_id=product.product_id,
                 store_id=int(data["store_id"]),
                 price=data["price"],
-                sale_price=sale.get("price"),
+                sale_price=(get_effective_price(data["price"], None, sale["rate"], None)
+                            if sale.get("rate") is not None else sale.get("price")),
                 sale_quantity=data.get("sale_quantity"),
                 sale_unit=data.get("sale_unit"),
                 stock_quantity=data.get("stock_quantity"),
@@ -332,7 +333,10 @@ class PostgreSQLStore:
 
             if sale:
                 listing.sale_rate = sale.get("rate")
-                listing.sale_price = sale.get("price")
+                listing.sale_price = (
+                    get_effective_price(listing.price, None, listing.sale_rate, None)
+                    if listing.sale_rate is not None else sale.get("price")
+                )
                 listing.sale_starts_at = to_datetime(
                     sale.get("starts_at")
                 )

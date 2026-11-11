@@ -150,6 +150,8 @@ class Market(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
     kakao_place_id: Mapped[str | None] = mapped_column(
         String(50), unique=True, nullable=True
     )

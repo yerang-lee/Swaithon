@@ -1,3 +1,4 @@
+import { resolveImageUrl } from '../utils/imageUrl';
 import { useLocationRevision } from '../services/locationChanges';
 import { logAppError } from '../utils/appDiagnostics';
 import {
@@ -624,7 +625,7 @@ type PlaceCard = {
 };
 function PlaceImage({ uri }: { uri: string | null }) {
   const [failed, setFailed] = useState(false);
-  const url = uri?.trim().replace(/^<|>$/g, '');
+  const url = resolveImageUrl(uri);
   useEffect(() => setFailed(false), [url]);
   return url && /^https?:\/\//.test(url) && !failed ? (
     <Image

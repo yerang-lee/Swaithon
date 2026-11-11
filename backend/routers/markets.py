@@ -2,7 +2,7 @@
 import os
 import httpx
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from math import radians, sin, cos, sqrt, atan2
@@ -197,6 +197,7 @@ def get_markets(
 # 주변 시장 조회 (카카오 Local API)
 @router.get("/nearby")
 async def get_nearby_markets(
+    request: Request,
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
     radius: float = Query(5000, gt=0, le=20000),
@@ -297,6 +298,24 @@ async def get_nearby_markets(
             )
 
         # 요청한 개수만큼 반환
+        market_images = {market.kakao_place_id: market.image_url for market in registered_markets}
+        named_images = {
+            market.market_name.replace(" ", ""): market.image_url
+            for market in db.query(Market).filter(Market.image_url.isnot(None)).all()
+        }
+        for document in documents:
+            image = market_images.get(document["place_id"]) or named_images.get(
+                document["market_name"].replace(" ", "")
+            )
+            image_path = image or "/uploads/markets/default-market.jpg"
+            # Mobile clients need a complete URL; resolve using this request's
+            # server host, never localhost or a baked-in development address.
+            document["image_url"] = (
+                str(request.url_for("uploads", path=image_path.removeprefix("/uploads/")))
+                if image_path.startswith("/uploads/") else image_path
+            )
+            document["image_is_placeholder"] = not bool(image)
+
         documents = documents[:limit]
 
         return {

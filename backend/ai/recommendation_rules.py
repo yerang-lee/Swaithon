@@ -648,7 +648,6 @@ def build_recommendation_inputs(payload):
 # ============================================================
 # 8. 백엔드가 호출할 최종 함수
 # ============================================================
-
 def recommend_from_payload(payload, top_n=20):
     user, candidates, as_of = build_recommendation_inputs(
         payload
@@ -672,8 +671,20 @@ def recommend_from_payload(payload, top_n=20):
         listing_id = str(row["listing_id"])
         listing_info = listing_lookup[listing_id]
 
+        feature_snapshot = {
+            "interest_match": float(row["interest_match"]),
+            "category_preference": float(row["category_preference"]),
+            "store_preference": float(row["store_preference"]),
+            "distance_km": float(row["distance_km"]),
+            "hours_since_created": float(row["hours_since_created"]),
+            "rule_score": float(row["score"]),
+            "user_state": result["state"],
+            "feature_definition_version": "v1",
+            "category_id": listing_info["category_id"],
+        }
+
         items.append({
-            "listing_id": listing_id,
+            "listing_id": listing_info["listing_id"],
             "product_id": listing_info["product_id"],
             "name": listing_info["name"],
             "category_id": listing_info["category_id"],
@@ -682,11 +693,13 @@ def recommend_from_payload(payload, top_n=20):
             "created_at": listing_info["created_at"],
             "rank": int(row["rank"]),
             "score": float(row["score"]),
+            "feature_snapshot": feature_snapshot,
         })
-        return {
-            "request_id": normalize_id(payload["request_id"]),
-            "generated_at": as_of.isoformat(),
-            "rule_version": RULE_VERSION,
-            "user_state": result["state"],
-            "items": items,
-        }
+
+    return {
+        "request_id": normalize_id(payload["request_id"]),
+        "generated_at": as_of.isoformat(),
+        "rule_version": RULE_VERSION,
+        "user_state": result["state"],
+        "items": items,
+    }

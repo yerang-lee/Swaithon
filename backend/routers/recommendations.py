@@ -1,7 +1,8 @@
 import math
 import uuid
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from sqlalchemy.dialects.postgresql import insert
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
@@ -24,6 +25,7 @@ from models import (
     RecommendationRequest,
     RecommendationItem,
     RecommendationImpression,
+    Reservation,
 )
 
 router = APIRouter(
@@ -128,6 +130,7 @@ def build_recommendation_payload(
     user_id: int,
     latitude: float,
     longitude: float,
+    db: Session | None = None,
 ):
     as_of = datetime.now(timezone.utc)
 
@@ -158,13 +161,50 @@ def build_recommendation_payload(
             "created_at": listing.created_at.isoformat(),
         })
 
+    events = []
+    if db is not None:
+        cutoff = as_of - timedelta(days=30)
+        def add_event(key, row, kind, at, **extra):
+            events.append({"event_id": key, "product_id": str(row.product_id),
+                           "store_id": str(row.store_id), "event_type": kind,
+                           "occurred_at": at.isoformat(), **extra})
+        for row in db.query(ProductViewEvent).filter(
+            ProductViewEvent.user_id == user_id,
+            ProductViewEvent.occurred_at.between(cutoff, as_of),
+        ).all():
+            add_event(f"view:{row.event_id}", row, "detail_view", row.occurred_at)
+        latest = {}
+        for row in db.query(FavoriteEvent).filter(
+            FavoriteEvent.user_id == user_id, FavoriteEvent.occurred_at <= as_of,
+        ).order_by(FavoriteEvent.occurred_at, FavoriteEvent.event_id).all():
+            latest[row.listing_id] = row
+        for row in latest.values():
+            if row.event_type == "FAVORITE" and row.occurred_at >= cutoff:
+                add_event(f"favorite:{row.event_id}", row, "favorite", row.occurred_at)
+        for row in db.query(Reservation).filter(
+            Reservation.user_id == user_id, Reservation.created_at <= as_of,
+        ).all():
+            valid = (row.cancelled_at is None or row.cancelled_at > as_of)
+            if row.status == "CANCELLED" and row.cancelled_at is None:
+                valid = False
+            if valid and row.created_at >= cutoff:
+                add_event(f"reserve:{row.reservation_id}", row, "reserve",
+                          row.created_at, is_valid_reservation=True)
+        event_products = {int(event["product_id"]) for event in events}
+        if event_products:
+            for product in db.query(Product).filter(Product.product_id.in_(event_products)).all():
+                if product.category_id is not None:
+                    products[str(product.product_id)] = {
+                        "product_id": str(product.product_id), "category_id": str(product.category_id)}
+        events = [event for event in events if event["product_id"] in products]
+
     return {
         "as_of": as_of.isoformat(),
         "request_id": f"rec_{as_of.strftime('%Y%m%d')}_{uuid.uuid4().hex[:8]}",
         "user": {
             "user_id": str(user_id),
             "interest_product_ids": [],
-            "events": [],
+            "events": events,
         },
         "products": list(products.values()),
         "listings": listings,
@@ -217,6 +257,21 @@ def save_recommendation_result(
             if candidate is None:
                 continue
 
+            snapshot = item.get("feature_snapshot")
+
+            fields = ("interest_match", "category_preference", "store_preference",
+                      "distance_km", "hours_since_created")
+            valid = isinstance(snapshot, dict) and all(
+                isinstance(snapshot.get(key), (int, float))
+                and not isinstance(snapshot.get(key), bool)
+                and math.isfinite(snapshot[key]) for key in fields)
+            if not valid or snapshot["interest_match"] not in (0, 1) or not (
+                0 <= snapshot["category_preference"] <= 1
+                and 0 <= snapshot["store_preference"] <= 1
+                and snapshot["distance_km"] >= 0
+                and snapshot["hours_since_created"] >= 0
+            ):
+                raise ValueError("Invalid recommendation feature snapshot")
             recommendation_item = RecommendationItem(
                 request_id=result["request_id"],
                 listing_id=candidate["listing"].listing_id,
@@ -224,6 +279,7 @@ def save_recommendation_result(
                 store_id=candidate["store"].store_id,
                 rank=item["rank"],
                 score=item["score"],
+                feature_snapshot=dict(item.get("feature_snapshot") or {}),
             )
 
             db.add(recommendation_item)
@@ -277,6 +333,7 @@ def get_recommendations(
         user_id=current_user.user_id,
         latitude=latitude,
         longitude=longitude,
+        db=db,
     )
 
     # 규칙 기반 추천 실행
@@ -284,6 +341,8 @@ def get_recommendations(
         payload=payload,
         top_n=top_n,
     )
+
+    # 추천 결과에 상품 상세 정보 추가
 
     # 추천 결과에 상품 상세 정보 추가
     candidate_map = {
@@ -304,6 +363,13 @@ def get_recommendations(
         store = candidate["store"]
         market = candidate["market"]
 
+        feature_snapshot = item.get("feature_snapshot")
+
+        if not feature_snapshot:
+            raise ValueError(
+                f"추천 스냅샷이 없습니다. listing_id={item['listing_id']}"
+            )
+
         response_items.append({
             "rank": item["rank"],
             "score": item["score"],
@@ -317,9 +383,11 @@ def get_recommendations(
             "price": listing.sale_price if listing.sale_price is not None else listing.price,
             "distance_km": candidate["distance_km"],
             "created_at": listing.created_at.isoformat(),
+            "feature_snapshot": feature_snapshot,
         })
 
     result["items"] = response_items
+
 
     # 추천 요청 및 추천 상품 순위 DB 저장
     save_recommendation_result(
@@ -442,19 +510,23 @@ def record_recommendation_impressions(
                 continue
 
             # 6. 노출 이벤트 저장
-            impression = RecommendationImpression(
-                event_id=event.event_id,
-                request_id=body.request_id,
-                user_id=current_user.user_id,
-                listing_id=listing_id,
-                position=event.position,
-                occurred_at=event.occurred_at,
+            statement = insert(RecommendationImpression).values(
+                event_id=event.event_id, request_id=body.request_id,
+                user_id=current_user.user_id, listing_id=listing_id,
+                position=event.position, occurred_at=event.occurred_at,
             )
-
-            db.add(impression)
-            db.flush()
-
-            recorded_count += 1
+            statement = statement.on_conflict_do_update(
+                constraint="uq_impression_request_listing",
+                set_={"event_id": statement.excluded.event_id,
+                      "occurred_at": statement.excluded.occurred_at,
+                      "position": statement.excluded.position},
+                where=statement.excluded.occurred_at < RecommendationImpression.occurred_at,
+            )
+            outcome = db.execute(statement.returning(RecommendationImpression.event_id))
+            if outcome.scalar_one_or_none() is not None:
+                recorded_count += 1
+            else:
+                duplicate_count += 1
 
         db.commit()
 

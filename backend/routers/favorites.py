@@ -10,6 +10,7 @@ from schemas import (
     FavoriteListResponse,
     FavoriteDeleteResponse,
 )
+from models import RecommendationRequest, RecommendationItem
 from security import get_current_user
 
 
@@ -41,6 +42,18 @@ def create_favorite(
         )
 
     # 2. 기존 찜하기 조회
+    if request.request_id is not None:
+        owned_item = db.query(RecommendationItem).join(
+            RecommendationRequest,
+            RecommendationRequest.request_id == RecommendationItem.request_id,
+        ).filter(
+            RecommendationItem.request_id == request.request_id,
+            RecommendationItem.listing_id == listing.listing_id,
+            RecommendationRequest.user_id == current_user.user_id,
+        ).first()
+        if owned_item is None:
+            raise HTTPException(status_code=400, detail="Invalid recommendation request")
+
     favorite = (
         db.query(Favorite)
         .filter(
@@ -275,7 +288,7 @@ def delete_favorite(
                 FavoriteEvent.listing_id == favorite.listing_id,
                 FavoriteEvent.event_type == "FAVORITE",
             )
-            .order_by(FavoriteEvent.occurred_at.desc())
+            .order_by(FavoriteEvent.occurred_at.desc(), FavoriteEvent.event_id.desc())
             .first()
         )
 

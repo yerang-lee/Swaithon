@@ -92,6 +92,7 @@ class DeleteAccountResponse(BaseModel):
 
 # 시장 상세 조회 응답
 class MarketResponse(BaseModel):
+    image_url: str | None = None
     market_id: int
     market_name: str
     address: str
