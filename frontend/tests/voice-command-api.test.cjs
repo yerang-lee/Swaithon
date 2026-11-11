@@ -204,11 +204,9 @@ async function main() {
       }),
     ),
   );
-  assert.throws(() =>
-    api.parseCommand(
-      state('NEEDS_INPUT', { execution_endpoint: '/voice/product-update' }),
-    ),
-  );
+  assert.equal(api.parseCommand(
+    state('NEEDS_INPUT', { execution_endpoint: '/voice/product-update' }),
+  ).execution_endpoint, null, 'clarification must never expose an execution endpoint');
   assert.throws(() =>
     api.parseCommand(state('NEEDS_INPUT', { command_id: 'other' }), 'cmd-1'),
   );
@@ -391,16 +389,21 @@ async function main() {
       { needs_confirmation: true }, { missing_fields: null },
       { missing_fields: ['price', 1] },
     ]) {
-      assert.throws(() => api.parseCommand({ ...response, ...invalid }),
-        /음성 분석 결과와 추가 질문/);
+      const recovered = api.parseCommand({ ...response, ...invalid });
+      assert.equal(recovered.status, 'NEEDS_INPUT');
+      assert.ok(recovered.question.trim());
+      assert.equal(recovered.needs_confirmation, false);
+      assert.equal(recovered.execution_endpoint, null);
     }
   }
   for (const question of [null, undefined, '', ' ', 42]) {
-    assert.throws(() => api.parseCommand({
+    const recovered = api.parseCommand({
       ...audioReadyResponse, status: 'NEEDS_INPUT',
       missing_fields: ['price'], needs_confirmation: false,
       execution_endpoint: null, question,
-    }), /음성 분석 결과와 추가 질문/);
+    });
+    assert.equal(recovered.status, 'NEEDS_INPUT');
+    assert.ok(recovered.question.trim());
   }
   assert.throws(() => api.parseCommand({
     ...audioReadyResponse, question: 42,

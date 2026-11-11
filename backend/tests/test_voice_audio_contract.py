@@ -78,18 +78,22 @@ class AudioContractTest(unittest.TestCase):
 
     def test_engine_clarification_without_missing_fields(self):
         service = VoiceService.__new__(VoiceService)
-        for intent in ("UNKNOWN", "MULTIPLE", "PRODUCT_DELETE"):
+        for intent in ("UNKNOWN", "MULTIPLE", "PRODUCT_DELETE", "PRODUCT_CREATE"):
             with self.subTest(intent=intent):
                 command = {
                     "command_id": "clarification-test", "store_id": "store",
                     "expires_at": "2099-01-01T00:00:00+00:00",
-                    "parsed": Command(intent=intent, product_name="사과").model_dump(),
+                    "parsed": Command(intent=intent, product_name=None if intent == "PRODUCT_CREATE" else "사과",
+                                      price=5000 if intent == "PRODUCT_CREATE" else None).model_dump(),
                 }
                 service._plan({"products": {}}, command)
                 self.result = command
                 data = self.audio()
                 self.assertEqual(data["status"], "NEEDS_INPUT")
-                self.assertEqual(data["missing_fields"], [])
+                if intent == "PRODUCT_CREATE":
+                    self.assertIn("product_name", data["missing_fields"])
+                else:
+                    self.assertEqual(data["missing_fields"], [])
                 self.assertEqual(data["question"], command["message"])
                 self.assertTrue(data["question"].strip())
                 self.assertFalse(data["needs_confirmation"])

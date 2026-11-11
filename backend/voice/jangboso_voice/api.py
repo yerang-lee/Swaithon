@@ -50,6 +50,14 @@ def build_router(service_factory, merchant_dependency, stt=None):
 
             if isinstance(result, dict) and "command_id" in result:
 
+                if result.get("status") == "NEEDS_INPUT":
+                    prompt = result.get("question") or result.get("message")
+                    if not isinstance(prompt, str) or not prompt.strip():
+                        prompt = "상품명과 가격을 다시 알려주세요."
+                    result["question"] = prompt
+                    result["needs_confirmation"] = False
+                    result["missing_fields"] = list(result.get("missing_fields") or [])
+
                 result["execution_endpoint"] = (
                     EXECUTION_ENDPOINTS.get(result["intent"])
                     if result["status"] == "NEEDS_CONFIRMATION"
