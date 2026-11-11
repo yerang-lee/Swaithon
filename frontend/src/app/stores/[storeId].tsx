@@ -273,28 +273,24 @@ export default function StoreScreen() {
                   >
                     {product.name}
                   </Text>
-                  {!ownStore && marketDistance !== null && (
-                    <Text style={styles.meta}>
-                      {formatMarketDistance(marketDistance)}
-                    </Text>
-                  )}
                   {discounted && (
                     <Text style={styles.oldPrice}>
                       {product.price.toLocaleString('ko-KR')}원
                     </Text>
                   )}
-                  <Text style={[styles.price, unavailable && styles.muted]}>
+                  <Text
+                    style={[
+                      styles.price,
+                      unavailable && styles.muted,
+                      discounted && styles.salePrice,
+                    ]}
+                  >
                     {(discounted
                       ? product.salePrice!
                       : product.price
                     ).toLocaleString('ko-KR')}
                     원
                   </Text>
-                  {unavailable && (
-                    <Text style={styles.meta}>
-                      {product.status === 'soldOut' ? '품절' : '판매 종료'}
-                    </Text>
-                  )}
                 </View>
               </Pressable>
               {!ownStore && (
@@ -413,10 +409,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   notice: {
-    color: '#858585',
-    fontSize: 13,
+    color: '#176735',
+    fontSize: 16,
+    fontWeight: '500',
     lineHeight: 20,
     marginVertical: 14,
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   row: {
     flexDirection: 'row',
@@ -474,6 +473,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#181725',
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   oldPrice: {
     fontSize: 14,

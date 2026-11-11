@@ -165,7 +165,10 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
         </View>
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            !loading && !error && !visible.length && styles.emptyContent,
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           {!loading &&
@@ -205,7 +208,14 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
                     }
                     style={styles.product}
                   >
-                    <FavoriteImage item={item} />
+                    <View style={styles.imageWrap}>
+                      <FavoriteImage item={item} />
+                      {item.is_sold_out && (
+                        <View style={styles.soldOutOverlay}>
+                          <Text style={styles.soldOutBadge}>품절</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.details}>
                       <Text
                         style={[styles.name, item.is_sold_out && styles.muted]}
@@ -223,6 +233,7 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
                           style={[
                             styles.price,
                             item.is_sold_out && styles.muted,
+                            discounted && styles.salePrice,
                           ]}
                         >
                           {(discounted
@@ -232,9 +243,6 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
                           원
                         </Text>
                       </View>
-                      {item.is_sold_out && (
-                        <Text style={styles.meta}>품절</Text>
-                      )}
                     </View>
                   </Pressable>
                   <Pressable
@@ -385,6 +393,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#181725',
   },
+  salePrice: {
+    color: '#EF4929',
+  },
+  imageWrap: {
+    width: 82,
+    height: 82,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  soldOutOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: '#FFFFFF99',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldOutBadge: {
+    color: '#FFFFFF',
+    backgroundColor: '#777777',
+    fontSize: 14,
+    fontWeight: '700',
+    borderRadius: 4,
+    padding: 5,
+  },
   muted: {
     color: '#999999',
   },
@@ -394,7 +429,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   emptyMessage: {
+    fontSize: 18,
+    lineHeight: 27,
     textAlign: 'center',
   },
   status: {

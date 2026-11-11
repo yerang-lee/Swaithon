@@ -381,9 +381,16 @@ export default function MarketScreen() {
                       }
                       style={styles.product}
                     >
-                      <Thumbnail
-                        uri={product.image_url?.replace(/^<|>$/g, '')}
-                      />
+                      <View style={styles.imageWrap}>
+                        <Thumbnail
+                          uri={product.image_url?.replace(/^<|>$/g, '')}
+                        />
+                        {product.is_sold_out && (
+                          <View style={styles.soldOutOverlay}>
+                            <Text style={styles.soldOutBadge}>품절</Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={styles.details}>
                         <Text
                           style={[
@@ -405,6 +412,7 @@ export default function MarketScreen() {
                             style={[
                               styles.price,
                               product.is_sold_out && { color: '#999999' },
+                              discounted && styles.salePrice,
                             ]}
                           >
                             {(discounted
@@ -414,9 +422,6 @@ export default function MarketScreen() {
                             원
                           </Text>
                         </View>
-                        {product.is_sold_out && (
-                          <Text style={styles.meta}>품절</Text>
-                        )}
                       </View>
                     </Pressable>
                     <Pressable
@@ -611,6 +616,33 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
 
+  salePrice: {
+    color: '#EF4929',
+  },
+  imageWrap: {
+    width: 82,
+    height: 82,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  soldOutOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: '#FFFFFF99',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldOutBadge: {
+    color: '#FFFFFF',
+    backgroundColor: '#777777',
+    fontSize: 14,
+    fontWeight: '700',
+    borderRadius: 4,
+    padding: 5,
+  },
   image: {
     width: 82,
     height: 82,

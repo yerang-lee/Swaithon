@@ -51,6 +51,7 @@ const modules = {
       },
     },
     Linking: {},
+    Pressable: 'Pressable',
     ScrollView: 'ScrollView',
     StyleSheet: { create: (s) => s, absoluteFill: {} },
     Text: 'Text',
@@ -58,7 +59,7 @@ const modules = {
   },
   'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
   'expo-router': {
-    router: {},
+    router: { replace: (route) => calls.push(route) },
     useFocusEffect: (fn) => {
       focus = fn;
     },
@@ -114,6 +115,23 @@ const settle = () => new Promise((done) => setImmediate(done));
   });
   await settle();
   assert.equal(find('CameraView'), undefined);
+  const listLink = find('Pressable');
+  assert.equal(listLink.props.children.props.children, '예약 목록으로');
+  listLink.props.onPress();
+  assert.deepEqual(calls.pop(), { pathname: '/home', params: { tab: '예약' } });
+  const texts = nodes(render())
+    .filter((node) => node.type === 'Text')
+    .map((node) => [node.props.children].flat().join(''));
+  assert.ok(texts.includes('픽업이 완료되었어요'));
+  assert.ok(
+    !texts.some(
+      (value) =>
+        value.includes('예약 번호') ||
+        value.includes('2026') ||
+        value === '사과',
+    ),
+  );
+  assert.ok(!texts.includes('가게'));
   let button = find('PrimaryButton');
   assert.equal(button.props.title, '다음 QR 스캔하기');
   button.props.onPress();

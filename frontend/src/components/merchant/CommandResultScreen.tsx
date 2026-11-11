@@ -10,24 +10,24 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+import type * as ImagePicker from 'expo-image-picker';
+import {
+  chooseProductPhotoSource,
+  selectProductPhoto,
+  type ProductPhotoSource,
+} from '../../utils/productPhoto';
 import { PageHeader } from '../ui/PageHeader';
 import { commandProductPresentation } from '../../utils/voiceCommandPresentation';
 import { theme } from '../../constants/theme';
 import { logAppError } from '../../utils/appDiagnostics';
 import { uploadProductImage } from '../../services/api/images';
-import {
-  getAuthSession,
-  getMyStoreId,
-  setAuthRole,
-} from '../../services/api/auth';
-import { getProduct } from '../../services/api/products';
 import type { VoiceCommand } from '../../services/api/voiceCommands';
 
 const intentLabels: Record<string, string> = {
   PRODUCT_CREATE: '신규 등록',
   PRODUCT_UPDATE: '상품 수정',
   SALE_CREATE: '할인 등록',
+  SALE_UPDATE: '할인 수정',
   PRODUCT_DELETE: '상품 삭제',
   SOLD_OUT: '품절 처리',
   SALE_DELETE: '할인 종료',
@@ -37,6 +37,7 @@ const doneLabels: Record<string, string> = {
   PRODUCT_CREATE: '상품이 등록되었어요!',
   PRODUCT_UPDATE: '상품이 수정되었어요!',
   SALE_CREATE: '할인이 등록되었어요!',
+  SALE_UPDATE: '할인이 수정되었어요!',
   PRODUCT_DELETE: '상품이 삭제되었어요!',
   SOLD_OUT: '품절 처리되었어요!',
   SALE_DELETE: '할인이 종료되었어요!',
@@ -69,40 +70,51 @@ export function CommandResultScreen({
   const [photoError, setPhotoError] = useState('');
   const [uploaded, setUploaded] = useState(false);
   const done = command.status === 'SUCCEEDED';
+  const intent = command.intent;
   const data = {
     ...command.preview.before,
     ...command.preview.after,
+    ...(!done ? command.analysis_result : null),
     ...(done ? command.result : null),
   };
   const name =
     typeof data.product_name === 'string'
       ? data.product_name
       : '상품명 정보 없음';
+  const quantitySource =
+    !done && command.analysis_result ? command.analysis_result : data;
   const quantity =
-    typeof data.sale_quantity === 'number' ? data.sale_quantity : '';
-  const unit = typeof data.sale_unit === 'string' ? data.sale_unit : '';
+    typeof quantitySource.sale_quantity === 'number'
+      ? quantitySource.sale_quantity
+      : '';
+  const unit =
+    typeof data.unit === 'string'
+      ? data.unit
+      : typeof data.sale_unit === 'string'
+        ? data.sale_unit
+        : '';
   const { price, saleActive } = commandProductPresentation(command);
+  const executionMissing = !done && !command.execution_endpoint;
   const locked = busy || photoBusy;
-  const canPhoto =
-    command.intent === 'PRODUCT_CREATE' || command.intent === 'PRODUCT_UPDATE';
+  const canPhoto = intent === 'PRODUCT_CREATE' || intent === 'PRODUCT_UPDATE';
   const complete = done && (!photo || uploaded);
-  async function pickPhoto() {
+  async function pickPhoto(source: ProductPhotoSource) {
     if (locked || uncertain) return;
     setPhotoBusy(true);
     setPhotoError('');
     try {
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: false,
-        quality: 0.85,
-      });
-      if (!picked.canceled && picked.assets[0]) {
-        setPhoto(picked.assets[0]);
+      const selected = await selectProductPhoto(source);
+      if (selected) {
+        setPhoto(selected);
         setUploaded(false);
       }
     } catch (e) {
       logAppError('voice/result/photo', e);
-      setPhotoError('사진을 선택하지 못했어요. 다시 시도해주세요.');
+      setPhotoError(
+        e instanceof Error
+          ? e.message
+          : '사진을 선택하지 못했어요. 다시 시도해주세요.',
+      );
     } finally {
       setPhotoBusy(false);
     }
@@ -136,40 +148,8 @@ export function CommandResultScreen({
       setPhotoBusy(false);
     }
   }
-  async function showProducts() {
-    if (locked) return;
-    setPhotoBusy(true);
-    setPhotoError('');
-    try {
-      let storeId = command.result?.store_id;
-      const listingId = command.result?.listing_id;
-      if (
-        typeof storeId !== 'number' &&
-        typeof storeId !== 'string' &&
-        (typeof listingId === 'number' || typeof listingId === 'string')
-      )
-        storeId = (await getProduct(String(listingId))).store_id;
-      if (
-        (typeof storeId !== 'number' && typeof storeId !== 'string') ||
-        !String(storeId).trim()
-      )
-        storeId = await getMyStoreId();
-      const session = getAuthSession();
-      const numericStoreId = Number(storeId);
-      if (session?.role === 'MERCHANT')
-        setAuthRole('MERCHANT', session.access_token, numericStoreId);
-      router.push({
-        pathname: '/stores/[storeId]',
-        params: { storeId: String(storeId) },
-      });
-    } catch (e) {
-      logAppError('voice/result/my-products', e);
-      setPhotoError(
-        e instanceof Error ? e.message : '내 상품을 불러오지 못했어요.',
-      );
-    } finally {
-      setPhotoBusy(false);
-    }
+  function showProducts() {
+    if (!locked) router.push('/my-store');
   }
   const button = (
     title: string,
@@ -203,8 +183,7 @@ export function CommandResultScreen({
         <View style={styles.main}>
           <Text accessibilityRole="header" style={styles.title}>
             {done
-              ? (doneLabels[command.intent ?? ''] ??
-                '상품 처리가 완료되었어요!')
+              ? (doneLabels[intent ?? ''] ?? '상품 처리가 완료되었어요!')
               : 'AI 분석 결과'}
           </Text>
           {!done && (
@@ -217,12 +196,18 @@ export function CommandResultScreen({
               <Text style={styles.label}>상품명</Text>
               <Text style={styles.value}>
                 {name}
-                {quantity !== '' ? ` ${quantity}${unit}` : ''}
+                {quantity !== ''
+                  ? ` ${quantity}${unit}`
+                  : unit
+                    ? ` ${unit}`
+                    : ''}
               </Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>판매 가격</Text>
-              <Text style={styles.value}>
+              <Text
+                style={[styles.value, saleActive === true && styles.salePrice]}
+              >
                 {price !== null
                   ? `${price.toLocaleString('ko-KR')}원`
                   : '가격 정보 없음'}
@@ -233,7 +218,7 @@ export function CommandResultScreen({
             </View>
             <View style={styles.lastRow}>
               <Text style={styles.value}>
-                {intentLabels[command.intent ?? ''] ?? '정보 없음'}
+                {intentLabels[intent ?? ''] ?? '정보 없음'}
               </Text>
             </View>
           </View>
@@ -247,6 +232,11 @@ export function CommandResultScreen({
           {!!(error || photoError) && (
             <Text accessibilityRole="alert" style={styles.message}>
               {photoError || error}
+            </Text>
+          )}
+          {executionMissing && (
+            <Text style={styles.message}>
+              분석 결과를 확인했어요. 최종 반영 기능은 아직 연결되지 않았어요.
             </Text>
           )}
           {uncertain && (
@@ -268,23 +258,26 @@ export function CommandResultScreen({
               {canPhoto &&
                 button(
                   '사진도 함께 등록하기',
-                  () => void pickPhoto(),
+                  () =>
+                    chooseProductPhotoSource(
+                      (source) => void pickPhoto(source),
+                    ),
                   false,
-                  disabled || uncertain || done,
+                  disabled || uncertain || done || executionMissing,
                 )}
               {button(
                 locked
                   ? '처리 중...'
                   : done
                     ? '사진 업로드 다시 시도'
-                    : command.intent === 'PRODUCT_CREATE'
+                    : intent === 'PRODUCT_CREATE'
                       ? '이대로 등록하기'
-                      : command.intent === 'PRODUCT_DELETE'
+                      : intent === 'PRODUCT_DELETE'
                         ? '이대로 삭제하기'
                         : '이대로 반영하기',
                 () => void finish(),
                 false,
-                disabled && !done,
+                (disabled || executionMissing) && !done,
               )}
               {button('다시 등록하기', () => void onAgain(), true, uncertain)}
             </>
@@ -314,14 +307,14 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   title: {
-    fontSize: 36,
+    fontSize: 37,
     lineHeight: 48,
     fontWeight: '700',
     color: 'white',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 19,
     lineHeight: 22,
     color: 'white',
     textAlign: 'center',
@@ -344,16 +337,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   label: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
-    color: '#181725',
+    color: '#101C15',
     marginBottom: 8,
   },
   value: {
-    fontSize: 24,
+    fontSize: 26,
     lineHeight: 29,
     fontWeight: '700',
     color: '#101C15',
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   saleLabel: {
     color: '#176735',
@@ -375,7 +371,7 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     color: 'white',
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     textAlign: 'center',
   },

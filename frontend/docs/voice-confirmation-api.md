@@ -1,5 +1,7 @@
 # 음성 분석 → 확인 → 최종 반영
 
+> 과거 analysis_id 방식의 기록입니다. 현재 메인 화면은 command_id와 POST /voice/product-registration/confirm을 사용합니다. 실제 서버의 /voice/analysis/{id}/apply 호출은 제거했습니다. 최신 연동은 voice-stt-api.md를 참고하세요.
+
 사용자가 제공한 최신 상세 명세를 적용했습니다. 각 기능은 api-spec.csv의 경로/메서드를 사용합니다.
 
 | 작업 | 분석 API | intent | 추가 파일 필드 |

@@ -1,6 +1,6 @@
 export function pickupTimes(day: Date, now = new Date()): Date[] {
   const times: Date[] = [];
-  for (let minute = 9 * 60; minute <= 16 * 60; minute += 30) {
+  for (let minute = 9 * 60; minute <= 19 * 60; minute += 30) {
     const time = new Date(day);
     time.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
     if (time.getTime() >= now.getTime()) times.push(time);

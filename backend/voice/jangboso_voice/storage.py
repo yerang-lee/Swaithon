@@ -1,9 +1,9 @@
-
 """PostgreSQL storage adapter for Jangboso voice engine."""
 
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import text
 
@@ -23,6 +23,27 @@ def to_int(value):
     if value is None:
         return None
     return int(value)
+
+def get_effective_price(price, sale_price, sale_rate, sale_ends_at):
+    now = datetime.now(timezone.utc)
+
+    if sale_ends_at is not None and sale_ends_at <= now:
+        return price
+
+    if sale_rate is not None:
+        return int(
+            (
+                Decimal(price) * (100 - sale_rate) / 100
+            ).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
+
+    if sale_price is not None and sale_price < price:
+        return sale_price
+
+    return price
 
 
 class PostgreSQLStore:
@@ -282,6 +303,13 @@ class PostgreSQLStore:
             if listing is None:
                 continue
 
+            # 변경 전 실제 판매 가격
+            old_price = get_effective_price(
+                listing.price,
+                listing.sale_price,
+                listing.sale_rate,
+                listing.sale_ends_at,
+            )
             listing.price = data["price"]
             listing.sale_quantity = data.get("sale_quantity")
             listing.sale_unit = data.get("sale_unit")
@@ -296,7 +324,6 @@ class PostgreSQLStore:
             listing.deleted_at = to_datetime(
                 data.get("deleted_at")
             )
-
             sale = data.get("sale")
 
             if sale:
@@ -313,6 +340,23 @@ class PostgreSQLStore:
                 listing.sale_price = None
                 listing.sale_starts_at = None
                 listing.sale_ends_at = None
+
+            # 변경 후 실제 판매 가격 계산
+            new_price = get_effective_price(
+                listing.price,
+                listing.sale_price,
+                listing.sale_rate,
+                listing.sale_ends_at,
+            )
+
+            # 실제 판매 가격이 변경된 경우에만 이력 저장
+            if old_price != new_price:
+                db.add(
+                    ListingPriceHistory(
+                        listing_id=listing.listing_id,
+                        price=new_price,
+                    )
+                )
 
         # 4. 음성 명령 저장
         for data in state["commands"].values():

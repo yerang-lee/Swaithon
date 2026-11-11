@@ -267,6 +267,10 @@ class Listing(Base):
         Boolean, default=False, nullable=False
     )
 
+    image_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+
     sale_rate: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )
@@ -319,6 +323,32 @@ class ListingPriceHistory(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+class PriceHistory(Base):
+    __tablename__ = "price_histories"
+
+    price_history_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+
+    listing_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("listings.listing_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    price: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+
 
 class Reservation(Base):
     __tablename__ = "reservations"
@@ -905,3 +935,30 @@ class ProductViewEvent(Base):
     )
 
 
+
+class Image(Base):
+    __tablename__ = "images"
+
+    image_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    listing_id: Mapped[int] = mapped_column(
+        ForeignKey("listings.listing_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    image_url: Mapped[str] = mapped_column(
+        String(500), nullable=False
+    )
+    file_name: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+    stored_file_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, unique=True
+    )
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )

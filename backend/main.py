@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from database import test_connection, engine
 from models import (
@@ -27,6 +29,7 @@ from routers.favorites import router as favorites_router
 from routers.recommendations import router as recommendations_router
 from routers.reservations import router as reservations_router
 from routers.notifications import router as notifications_router
+from routers.images import router as images_router
 
 # 음성 AI 모듈
 from routers.voice import create_voice_router
@@ -74,6 +77,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 업로드 이미지 정적 파일 제공
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "uploads"
+
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=UPLOAD_DIR),
+    name="uploads",
+)
+
 
 # CORS 설정
 app.add_middleware(
@@ -97,6 +112,7 @@ app.include_router(reservations_router)
 app.include_router(notifications_router)
 # 음성 AI API 등록
 app.include_router(voice_router)
+app.include_router(images_router)
 
 
 @app.get("/")

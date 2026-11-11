@@ -13,7 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
+import type * as ImagePicker from 'expo-image-picker';
+import {
+  chooseProductPhotoSource,
+  selectProductPhoto,
+  type ProductPhotoSource,
+} from '../../utils/productPhoto';
 import { productCategories } from '../../constants/productCategories';
 import { theme } from '../../constants/theme';
 import {
@@ -174,18 +179,14 @@ export function VoiceResultScreen({
     );
     return () => subscription.remove();
   });
-  async function pickPhoto() {
+  async function pickPhoto(source: ProductPhotoSource) {
     if (lock.current || busy || phase === 'uncertain') return;
     lock.current = true;
     setError('');
     try {
-      const selection = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: false,
-        quality: 0.85,
-      });
-      if (!selection.canceled && selection.assets[0]) {
-        setPhoto(selection.assets[0]);
+      const selected = await selectProductPhoto(source);
+      if (selected) {
+        setPhoto(selected);
         setUploaded(false);
       }
     } catch (e) {
@@ -320,7 +321,7 @@ export function VoiceResultScreen({
                       : '가격 정보 없음'}
                   </Text>
                   {action === 'update' && rate !== '' && (
-                    <Text style={styles.label}>
+                    <Text style={[styles.label, styles.salePrice]}>
                       {rate}% 할인 ·{' '}
                       {Number(discountPrice).toLocaleString('ko-KR')}원
                     </Text>
@@ -448,7 +449,9 @@ export function VoiceResultScreen({
             <Pressable
               accessibilityRole="button"
               disabled={busy || phase === 'uncertain' || (expired && !applied)}
-              onPress={() => void pickPhoto()}
+              onPress={() =>
+                chooseProductPhotoSource((source) => void pickPhoto(source))
+              }
               style={styles.button}
             >
               <Text style={styles.buttonLabel}>
@@ -568,6 +571,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     lineHeight: 29,
+  },
+  salePrice: {
+    color: '#EF4929',
   },
   intent: {
     color: '#101C15',
