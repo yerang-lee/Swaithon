@@ -228,16 +228,21 @@ def build_router(service_factory, merchant_dependency, stt=None):
 
     # 상품 등록 음성 분석
     # 이 단계에서는 실제 상품을 DB에 등록하지 않음
+    
+# 음성 파일 분석(STT)
+# 이 단계에서는 실제 상품 정보를 변경하지 않음
     @router.post("/voice/product-registration")
-    def audio(
+    @router.post("/voice/analyze-audio")
+    def analyze_audio(
         audio_file: UploadFile = File(...),
         actor: Merchant = Depends(merchant_dependency)
     ):
-
+        # 1. 음성 파일을 텍스트로 변환
         text = transcribe_upload(audio_file)
 
         print("AUDIO TRANSCRIPT:", repr(text))
 
+        # 2. 변환된 텍스트를 기존 분석 로직에 전달
         service = get_service(actor)
 
         result = invoke(
@@ -249,7 +254,53 @@ def build_router(service_factory, merchant_dependency, stt=None):
 
         print("ANALYZE RESULT:", repr(result))
 
-        return registration_response(result, text)
+        # 3. 분석 결과 정리
+        parsed = result.get("parsed") or {}
+
+        if not isinstance(parsed, dict):
+            parsed = parsed.model_dump()
+
+        intent = result.get("intent")
+        status = result.get("status")
+
+        missing_fields = list(result.get("missing_fields") or [])
+
+        ready = (
+            status == "NEEDS_CONFIRMATION"
+            and len(missing_fields) == 0
+        )
+
+        response_status = "READY" if ready else (
+            "NEEDS_INPUT" if status == "NEEDS_CONFIRMATION"
+            else status
+        )
+
+        return {
+            "command_id": result["command_id"],
+            "intent": intent,
+            "status": response_status,
+            "transcript": text,
+            "analysis_result": parsed,
+            "missing_fields": missing_fields,
+            "needs_confirmation": ready,
+            "execution_endpoint": (
+                EXECUTION_ENDPOINTS.get(intent) if ready else None
+            ),
+            "expires_at": result.get("expires_at"),
+            "question": (
+                result.get("question")
+                if response_status == "NEEDS_INPUT"
+                else None
+            ),
+            "message": (
+                "음성 인식 및 명령 분석이 완료되었습니다."
+                if ready
+                else "음성 인식은 완료되었으나 추가 정보가 필요합니다."
+                if response_status == "NEEDS_INPUT"
+                else result.get("message", "명령 분석에 실패했습니다.")
+            ),
+        }
+
 
     # 추가 정보 음성 답변
     @router.post("/voice/commands/{command_id}/answer-audio")
