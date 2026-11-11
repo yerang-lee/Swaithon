@@ -70,7 +70,7 @@ def get_products(
                 listing.sale_price is not None
                 and listing.sale_price < listing.price
             ),
-            image_url=product.image_url,
+            image_url=listing.image_url,
             is_sold_out=listing.is_sold_out,
             created_at=listing.created_at,
         )
@@ -114,7 +114,7 @@ def get_product_detail(
         product_name=product.product_name,
         category_id=product.category_id,
         description=product.description,
-        image_url=product.image_url,
+        image_url=listing.image_url,
         price=listing.price,
         sale_price=listing.sale_price,
         is_sold_out=listing.is_sold_out,
@@ -170,6 +170,7 @@ def get_price_history(
         "product_name": product.product_name,
         "store_id": store.store_id,
         "store_name": store.store_name,
+        "image_url": listing.image_url,
         "current_price": current_price,
         "price_history": [
             {

@@ -349,8 +349,18 @@ class PostgreSQLStore:
                 listing.sale_ends_at,
             )
 
+            # 임시 디버깅
+            print(
+                "[PRICE HISTORY DEBUG]",
+                "listing_id:", listing.listing_id,
+                "old_price:", old_price,
+                "new_price:", new_price,
+                "sale:", sale,
+            )
+
             # 실제 판매 가격이 변경된 경우에만 이력 저장
             if old_price != new_price:
+                print("[PRICE HISTORY DEBUG] INSERT 실행")
                 db.add(
                     ListingPriceHistory(
                         listing_id=listing.listing_id,
