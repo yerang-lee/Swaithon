@@ -5,3 +5,4 @@ __pycache__/
 
 # Uploaded image files
 uploads/
+/voice/jangboso_voice/models/jangboso_whisper_small_pilot/
