@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   caption: {
-    fontSize: 15,
+    fontSize: 16,
     color: theme.colors.muted,
     marginBottom: 3,
   },
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     includeFontPadding: false,
     flexShrink: 0,
-    fontSize: 15,
+    fontSize: 16,
     color: theme.colors.muted,
   },
 });

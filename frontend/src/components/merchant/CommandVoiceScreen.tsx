@@ -660,14 +660,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   label: {
-    fontSize: 15,
+    fontSize: 18,
     color: '#777777',
     fontWeight: '600',
     marginBottom: 8,
   },
   value: {
-    fontSize: 17,
-    lineHeight: 25,
+    fontSize: 18,
+    lineHeight: 27,
     color: '#181725',
   },
   comparison: {
@@ -705,14 +705,14 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   hint: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 18,
+    lineHeight: 27,
     color: '#858585',
     textAlign: 'center',
   },
   error: {
-    fontSize: 15,
-    lineHeight: 23,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#C23D3D',
   },
   secondary: {
@@ -771,7 +771,7 @@ const recordingStyles = StyleSheet.create({
   },
   heading: {
     color: '#FFFFFF',
-    fontSize: 37,
+    fontSize: 35,
     lineHeight: 48,
     fontWeight: '700',
     textAlign: 'center',

@@ -439,8 +439,8 @@ const styles = StyleSheet.create({
   },
   policy: {
     color: theme.colors.muted,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
     marginTop: 10,
     marginBottom: 28,
   },
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   },
   error: {
     color: theme.colors.error,
-    fontSize: 15,
+    fontSize: 16,
     marginBottom: 14,
   },
 });

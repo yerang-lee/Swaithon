@@ -343,9 +343,9 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#000000',
-    lineHeight: 23,
+    lineHeight: 24,
     marginTop: 10,
   },
   roles: {
@@ -423,8 +423,8 @@ const styles = StyleSheet.create({
   },
   error: {
     color: '#C23D3D',
-    fontSize: 15,
-    lineHeight: 23,
+    fontSize: 16,
+    lineHeight: 24,
     marginTop: 20,
   },
 });

@@ -424,8 +424,8 @@ const styles = StyleSheet.create({
   },
   message: {
     textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 23,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#858585',
     paddingVertical: 20,
   },

@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   title: {
-    fontSize: 37,
+    fontSize: 35,
     lineHeight: 48,
     fontWeight: '700',
     color: 'white',
@@ -389,8 +389,8 @@ const styles = StyleSheet.create({
   },
   message: {
     color: 'white',
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     textAlign: 'center',
     marginTop: 14,
   },

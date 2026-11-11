@@ -39,6 +39,7 @@ export function PickupTimeSheet({
   const [today] = useState(() => new Date());
   const [index, setIndex] = useState(0);
   const [settled, setSettled] = useState(true);
+  const [quantity, setQuantity] = useState(1);
   const y = useRef(new Animated.Value(0)).current;
   const day = today;
   const slots = useMemo(() => pickupTimes(day, today), [day, today]);
@@ -54,6 +55,7 @@ export function PickupTimeSheet({
           <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
             <View style={styles.handle} />
             <Text style={styles.title}>방문 수령 시간 선택</Text>
+            <Text style={styles.hours}>픽업은 오후 4시까지 가능해요.</Text>
             <View style={styles.day}>
               <Text style={styles.dayText}>{dayLabel(today, 0)}</Text>
             </View>
@@ -145,6 +147,25 @@ export function PickupTimeSheet({
                 오늘 선택 가능한 시간이 없어요. 오늘 예약이 마감됐어요.
               </Text>
             )}
+            <View style={styles.quantityRow}>
+              <Text style={styles.quantityLabel}>예약 수량</Text>
+              <View style={styles.quantityControls}>
+                <Pressable accessibilityRole="button" accessibilityLabel="예약 수량 줄이기"
+                  disabled={quantity <= 1 || submitting}
+                  onPress={() => setQuantity((value) => Math.max(1, value - 1))}
+                  style={[styles.quantityButton, (quantity <= 1 || submitting) && styles.quantityDisabled]}>
+                  <Text style={styles.quantitySymbol}>−</Text>
+                </Pressable>
+                <Text style={styles.quantityValue} accessibilityLiveRegion="polite"
+                  accessibilityLabel={`예약 수량 ${quantity}개`}>{quantity}개</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="예약 수량 늘리기"
+                  disabled={submitting || quantity >= Number.MAX_SAFE_INTEGER}
+                  onPress={() => setQuantity((value) => Math.min(Number.MAX_SAFE_INTEGER, value + 1))}
+                  style={[styles.quantityButton, submitting && styles.quantityDisabled]}>
+                  <Text style={styles.quantitySymbol}>+</Text>
+                </Pressable>
+              </View>
+            </View>
             <View style={styles.footer}>
               <Pressable
                 accessibilityRole="button"
@@ -167,7 +188,10 @@ export function PickupTimeSheet({
                   title="예약하기"
                   loading={submitting}
                   disabled={!slots[index] || !settled || submitting}
-                  onPress={() => onConfirm(slots[index], 1, '')}
+                  onPress={() => {
+                    if (slots[index] && settled && !submitting)
+                      onConfirm(slots[index], quantity, '');
+                  }}
                 />
               </View>
             </View>
@@ -178,6 +202,20 @@ export function PickupTimeSheet({
   );
 }
 const styles = StyleSheet.create({
+  hours: { fontSize: 16, lineHeight: 24, color: '#6B6B6B', marginBottom: 8 },
+  quantityRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 12, marginTop: 12,
+  },
+  quantityLabel: { fontSize: 18, fontWeight: '600', color: '#333333' },
+  quantityControls: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  quantityButton: {
+    width: 44, height: 44, borderRadius: 10, borderWidth: 1, borderColor: '#DADADA',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  quantitySymbol: { fontSize: 26, color: '#176735' },
+  quantityValue: { minWidth: 40, textAlign: 'center', fontSize: 20, color: '#333333' },
+  quantityDisabled: { opacity: 0.35 },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

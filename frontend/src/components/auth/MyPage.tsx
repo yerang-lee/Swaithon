@@ -182,7 +182,7 @@ export function MyPage() {
       <View style={styles.divider} />
       {getAuthSession()?.role === 'MERCHANT' && (
         <>
-          {menu('내 가게 보기', () => void showMyStore())}
+          {menu('내 상품 보기', () => void showMyStore())}
           <View style={styles.line} />
           {menu('예약 관리', () => router.push('/merchant-reservations'))}
           <View style={styles.line} />
@@ -366,9 +366,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   error: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#C23D3D',
-    lineHeight: 22,
+    lineHeight: 24,
     marginBottom: 16,
   },
   retry: {

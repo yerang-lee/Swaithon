@@ -717,8 +717,8 @@ const styles = StyleSheet.create({
 
   previewNotice: {
     color: theme.colors.muted,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
     marginVertical: 10,
   },
 

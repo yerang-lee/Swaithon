@@ -383,6 +383,8 @@ export function MerchantReservationsScreen({
                         </Text>
                       </View>
                     </View>
+                    {(!!item.request_note ||
+                      ['PENDING', 'CONFIRMED', 'READY'].includes(item.status)) && (
                     <View style={styles.cardFooter}>
                       {!!item.request_note && (
                         <Text style={styles.detail}>
@@ -413,6 +415,7 @@ export function MerchantReservationsScreen({
                         />
                       )}
                     </View>
+                    )}
                   </View>
                 </View>
               ))
