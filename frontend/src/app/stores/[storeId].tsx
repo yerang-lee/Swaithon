@@ -13,6 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { ListingImage } from '../../components/products/ListingImage';
 import { BottomNavigation } from '../../components/ui/BottomNavigation';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { isMockMode } from '../../services/devMock';
@@ -251,14 +252,8 @@ export default function StoreScreen() {
                 style={styles.product}
               >
                 <View style={styles.imageBox}>
-                  {product.image ? (
-                    <Image
-                      source={{ uri: product.image }}
-                      style={styles.image}
-                    />
-                  ) : (
-                    <View style={styles.image} />
-                  )}
+                  <ListingImage listingId={product.id} uri={product.image}
+                    style={styles.image} label={`${product.name} 사진`} preview={mock} />
                   {unavailable && (
                     <View style={styles.imageOverlay}>
                       <Text style={styles.badge}>

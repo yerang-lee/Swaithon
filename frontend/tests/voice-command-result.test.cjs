@@ -47,6 +47,7 @@ const modules = {
     },
   },
   '../../utils/voiceCommandPresentation': presentation,
+  '../../services/catalogChanges': { markCatalogChanged() {} },
   '../../utils/appDiagnostics': { logAppError: (...args) => logged.push(args) },
   '../../services/api/images': {
     uploadProductImage: async (...args) => uploads.push(args),

@@ -40,8 +40,12 @@ const get = async (p) => {
   return payload;
 };
 const api = {};
+const imageUrls = {};
+new Function('exports', ts.transpileModule(fs.readFileSync(path.join(__dirname,
+  '../src/utils/imageUrl.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(imageUrls);
 new Function('require', 'exports', source)(
   (name) =>
+    name === '../../utils/imageUrl' ? imageUrls :
     name === './client' ? { ApiError, getJson: get } : { mockRequest: get },
   api,
 );
@@ -55,8 +59,13 @@ new Function('require', 'exports', source)(
     is_on_sale: true,
   });
   assert.equal(result.products[0].image_url, null);
+  const requestedUrl = url;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.test/api';
+  payload = { ...payload, products: [{ ...product, image_url: '/uploads/images/apple.jpg' }] };
+  assert.equal((await api.getProducts({ page: 2 })).products[0].image_url,
+    'https://api.test/uploads/images/apple.jpg');
   assert.equal(result.products[0].sale_price, 8000);
-  const query = new URL(url, 'https://test.invalid').searchParams;
+  const query = new URL(requestedUrl, 'https://test.invalid').searchParams;
   assert.equal(query.get('keyword'), '사과 & 배');
   assert.equal(query.get('market_id'), '1');
   assert.equal(query.get('category_id'), '2');
@@ -127,6 +136,9 @@ new Function('require', 'exports', source)(
   };
   payload = detail;
   assert.deepEqual(await api.getProduct('101'), detail);
+  payload = { ...detail, image_url: '/uploads/images/apple.jpg' };
+  assert.equal((await api.getProduct('101')).image_url,
+    'https://api.test/uploads/images/apple.jpg');
   for (const change of [
     { description: '' },
     { image_url: 'https://example.com/apple.jpg' },

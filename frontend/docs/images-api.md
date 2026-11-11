@@ -1,5 +1,12 @@
 # 상품 이미지 API
 
+## 상품 조회와 표시
+
+- 업로드·삭제와 상품 조회 모두 listings.image_url을 기준으로 합니다. GET /products, GET /products/{listing_id}, GET /stores/{store_id}/products에서 판매 게시물의 사진을 반환하며, GET /stores/me/listings에도 nullable image_url을 제공합니다. products.image_url을 읽어 다른 판매 게시물의 사진으로 대체하지 않습니다.
+- 프론트 상품 목록·상세·내 상품 목록 API는 상대 이미지 경로를 API 서버 origin 기준 절대 주소로 변환합니다. 내 상품 화면은 해당 주소로 Image를 표시하고 사진이 없으면 기존 빈 영역을 유지합니다.
+- 음성 명령 사진 업로드 완료 후 catalog 변경을 알리고, 내 상품 화면은 포커스 진입 때 목록을 재조회합니다.
+- 내 상품·가게·시장 상품 목록은 공통 ListingImage로 표시합니다. 목록 주소가 없거나 이미지 로딩이 실패하면 동일 listing_id의 상품 상세를 한 번 조회해 사진 주소를 보완합니다. 주소가 정상인 카드는 추가 조회하지 않으며, 상세 조회도 실패하면 빈 사진 영역을 유지하고 정제된 오류만 기록합니다. 목록 카드가 바뀌면 이전 상품의 늦은 응답을 무시합니다.
+
 - `POST /images`: 인증된 상인이 `multipart/form-data`로 `image_file`을 전송함. `listing_id`는 선택 정수이며 미전달 시 FormData에서 생략함. Content-Type boundary는 전송 구현에서 생성함.
 - `uploadProductImage(photo, listingId?)`는 HTTP 200 또는 201의 `image_id`, `listing_id`, `image_url`, `file_name`, `uploaded_at`, `message`를 검증하여 반환함.
 - 상품 연결 전 업로드 응답의 `listing_id`는 null이어야 함. 연결 업로드는 요청과 응답의 정수 listing_id가 일치해야 함.

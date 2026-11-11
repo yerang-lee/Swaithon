@@ -1,10 +1,12 @@
 import { ApiError, getJson } from './client';
 import { getAuthSession } from './auth';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 export type MyStoreListing = {
   listing_id: number;
   product_id: number;
   product_name: string;
+  image_url: string | null;
   category_id: number | null;
   price: number;
   sale_price: number | null;
@@ -69,6 +71,7 @@ export async function getMyStoreListings(
           id(item.listing_id) &&
           id(item.product_id) &&
           typeof item.product_name === 'string' &&
+          (item.image_url == null || typeof item.image_url === 'string') &&
           (item.category_id === null || id(item.category_id)) &&
           integer(item.price) &&
           (item.sale_price === null || integer(item.sale_price)) &&
@@ -90,7 +93,9 @@ export async function getMyStoreListings(
         result.listings.length
     )
       throw new Error('내 가게 상품 목록 응답을 확인할 수 없어요.');
-    return result;
+    return { ...result, listings: result.listings.map((item) => ({
+      ...item, image_url: resolveImageUrl(item.image_url),
+    })) };
   } catch (error) {
     globalThis.__jangbosoLogError?.('services/api/myStoreListings.ts', error);
     const status = (error as { status?: number })?.status;

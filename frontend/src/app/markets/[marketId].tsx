@@ -14,6 +14,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { ListingImage } from '../../components/products/ListingImage';
 import { BottomNavigation } from '../../components/ui/BottomNavigation';
 import { AppIcon } from '../../components/ui/AppIcon';
 import {
@@ -382,9 +383,9 @@ export default function MarketScreen() {
                       style={styles.product}
                     >
                       <View style={styles.imageWrap}>
-                        <Thumbnail
-                          uri={product.image_url?.replace(/^<|>$/g, '')}
-                        />
+                        <ListingImage listingId={id} uri={product.image_url}
+                          style={styles.image} label={`${product.product_name} 사진`}
+                          preview={preview === 'true'} />
                         {product.is_sold_out && (
                           <View style={styles.soldOutOverlay}>
                             <Text style={styles.soldOutBadge}>품절</Text>

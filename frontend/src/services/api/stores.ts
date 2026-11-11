@@ -1,4 +1,5 @@
 import { ApiError, getJson } from './client';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 export type MarketStore = {
   store_id: number;
@@ -174,5 +175,7 @@ export async function getStoreProducts(
     )
   )
     throw new Error('상품 목록 응답을 확인할 수 없어요.');
-  return data;
+  return { ...data, products: data.products.map((item) => ({
+    ...item, image_url: resolveImageUrl(item.image_url),
+  })) };
 }

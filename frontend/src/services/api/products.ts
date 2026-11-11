@@ -1,5 +1,6 @@
 import { mockRequest } from '../devMock';
 import { ApiError, getJson } from './client';
+import { resolveImageUrl } from '../../utils/imageUrl';
 export type ProductDetail = {
   listing_id: number;
   product_id: number;
@@ -62,7 +63,7 @@ export async function getProduct(
     !(p.image_url === null || typeof p.image_url === 'string')
   )
     throw new Error('상품 응답 형식이 명세와 달라요.');
-  return p;
+  return { ...p, image_url: resolveImageUrl(p.image_url) };
 }
 
 export type ProductListing = {
@@ -186,5 +187,7 @@ export async function getProducts(
     )
   )
     throw new Error('상품 목록 응답을 확인할 수 없어요.');
-  return result;
+  return { ...result, products: result.products.map((item) => ({
+    ...item, image_url: resolveImageUrl(item.image_url),
+  })) };
 }

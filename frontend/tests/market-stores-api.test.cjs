@@ -11,9 +11,12 @@ const code = ts.transpileModule(
 ).outputText;
 let payload, url;
 const api = {};
+const imageUrls = {};
+new Function('exports', ts.transpileModule(fs.readFileSync(path.join(__dirname,
+  '../src/utils/imageUrl.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(imageUrls);
 class ApiError extends Error {}
 new Function('require', 'exports', code)(
-  () => ({
+  (name) => name === '../../utils/imageUrl' ? imageUrls : ({
     ApiError,
     getJson: async (path) => {
       url = path;
@@ -115,6 +118,10 @@ const store = {
   assert.equal(products.products[0].listing_id, 101);
   assert.equal(products.products[0].category, undefined);
   assert.equal(products.products[0].image_url, null);
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.test/api';
+  payload = { ...payload, products: [{ ...listing, image_url: '/uploads/images/apple.jpg' }] };
+  assert.equal((await api.getStoreProducts(1, 1)).products[0].image_url,
+    'https://api.test/uploads/images/apple.jpg');
   for (const field of ['listing_id', 'product_id', 'store_id', 'category_id'])
     for (const value of ['1', null, 0, -1, 1.5, undefined]) {
       payload = {

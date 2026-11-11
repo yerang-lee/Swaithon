@@ -528,6 +528,7 @@ class MerchantListingItem(BaseModel):
     listing_id: int
     product_id: int
     product_name: str
+    image_url: str | None = None
     category_id: int | None
     price: int
     sale_price: int | None

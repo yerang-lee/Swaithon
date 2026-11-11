@@ -215,7 +215,7 @@ def get_store_products(
             category_id=product.category_id,
             is_sold_out=listing.is_sold_out,
             is_on_sale=listing.sale_price is not None,
-            image_url=product.image_url,
+            image_url=listing.image_url,
             created_at=listing.created_at,
         )
         for listing, product in results
@@ -293,6 +293,7 @@ def get_my_listings(
             listing_id=listing.listing_id,
             product_id=listing.product_id,
             product_name=product.product_name,
+            image_url=listing.image_url,
             category_id=product.category_id,
             price=listing.price,
             sale_price=listing.sale_price,

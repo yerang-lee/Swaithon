@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { PageHeader } from '../components/ui/PageHeader';
+import { ListingImage } from '../components/products/ListingImage';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { getAuthSession } from '../services/api/auth';
@@ -172,6 +173,12 @@ export default function MyStoreScreen() {
                         style={styles.cardImage}
                         accessibilityLabel="상품 사진 영역"
                       >
+                          <ListingImage
+                            listingId={item.listing_id}
+                            uri={item.image_url}
+                            style={styles.productPhoto}
+                            label={`${item.product_name} 사진`}
+                          />
                         {item.is_sold_out && (
                           <View style={styles.imageOverlay}>
                             <Text style={styles.badge}>품절</Text>
@@ -303,6 +310,13 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#E3E3E3',
+  },
+  productPhoto: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   cardInfo: {
     padding: 12,

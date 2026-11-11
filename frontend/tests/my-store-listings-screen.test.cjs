@@ -65,6 +65,7 @@ const modules = {
     ScrollView: 'ScrollView',
     StyleSheet: { create: (s) => s },
     Text: 'Text',
+    Image: 'Image',
     View: 'View',
   },
   'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
@@ -79,6 +80,7 @@ const modules = {
     },
   },
   '../components/ui/PageHeader': { PageHeader: 'PageHeader' },
+  '../components/products/ListingImage': { ListingImage: 'ListingImage' },
   '../components/ui/PrimaryButton': { PrimaryButton: 'PrimaryButton' },
   '../services/catalogChanges': { useCatalogRevision: () => 0 },
   '../components/ui/BottomNavigation': { BottomNavigation: 'BottomNavigation' },
@@ -127,6 +129,7 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
   listing_id: i + 1,
   product_id: i + 1,
   product_name: '상품' + (i + 1),
+  image_url: i === 0 ? 'https://api.test/uploads/images/apple.jpg' : null,
   category_id: null,
   price: 5000,
   sale_price: i === 0 ? 4000 : null,
@@ -142,6 +145,8 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
   lists.shift().resolve({ listings: rows, total_count: 11, page: 1, size: 10 });
   await tick();
   let tree = render();
+  assert.equal(nodes(tree).find((node) => node.type === 'ListingImage').props.uri,
+    'https://api.test/uploads/images/apple.jpg');
   assert.ok(text(tree).includes('상품1'));
   assert.ok(text(tree).includes('4,000원'));
   assert.ok(text(tree).includes('품절'));

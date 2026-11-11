@@ -24,6 +24,7 @@ import {
 import { theme } from '../../constants/theme';
 import { logAppError } from '../../utils/appDiagnostics';
 import { uploadProductImage } from '../../services/api/images';
+import { markCatalogChanged } from '../../services/catalogChanges';
 import type { VoiceCommand } from '../../services/api/voiceCommands';
 
 const intentLabels: Record<string, string> = {
@@ -135,6 +136,7 @@ export function CommandResultScreen({
           '상품은 반영됐지만 사진 연결에 필요한 판매 상품 ID가 없어요. 다시 등록하지 말고 내 상품 목록을 확인해주세요.',
         );
       await uploadProductImage(photo, listingId);
+      markCatalogChanged();
       setUploaded(true);
     } catch (e) {
       logAppError('voice/result/upload', e);

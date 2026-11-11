@@ -8,6 +8,8 @@ const compile = (file) =>
     { compilerOptions: { module: ts.ModuleKind.CommonJS } },
   ).outputText;
 const api = {};
+const imageUrls = {};
+new Function('exports', compile('src/utils/imageUrl.ts'))(imageUrls);
 let session = {
   access_token: 'merchant',
   role: 'MERCHANT',
@@ -17,6 +19,7 @@ const item = {
   listing_id: 1,
   product_id: 1,
   product_name: '사과',
+  image_url: null,
   category_id: 2,
   price: 5000,
   sale_price: 4000,
@@ -43,7 +46,7 @@ new Function(
   compile('src/services/api/myStoreListings.ts'),
 )(
   (name) =>
-    name === './auth'
+    name === '../../utils/imageUrl' ? imageUrls : name === './auth'
       ? { getAuthSession: () => session }
       : {
           ApiError,
@@ -58,6 +61,11 @@ new Function(
 );
 (async () => {
   assert.deepEqual(await api.getMyStoreListings(), response);
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.test/api';
+  response = { ...response, listings: [{ ...item, image_url: '/uploads/images/apple.jpg' }] };
+  assert.equal((await api.getMyStoreListings()).listings[0].image_url,
+    'https://api.test/uploads/images/apple.jpg');
+  response = { ...response, listings: [item] };
   assert.deepEqual(calls[0], [
     '/stores/me/listings?page=1&size=10',
     'merchant',
