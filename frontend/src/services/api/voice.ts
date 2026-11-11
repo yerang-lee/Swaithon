@@ -50,6 +50,7 @@ export type VoiceResult =
   | {
       kind?: 'applied';
       productId: number;
+      listingId?: number;
       productName?: string;
       price?: number;
       unit?: string;
@@ -69,6 +70,7 @@ export type AppliedAnalysis = {
   intent: AnalysisIntent;
   status: 'APPLIED';
   product_id: number;
+  listing_id?: number;
   product_name: string;
   category?: string | null;
   category_name?: string | null;

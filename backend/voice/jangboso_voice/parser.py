@@ -44,7 +44,15 @@ OTHER: 기타
 
 빠진 값은 null. sale_quantity와 sale_unit은 판매 묶음(사과 10개)의 10, 개.
 stock_quantity는 남은 판매 묶음 재고만. 수량으로 재고를 추측하지 마라.
-기본 가격과 할인 가격을 구별한다. 할인 가격은 sale_price. 할인율은 discount_rate.
+가격을 변경할 때는 발화에서 어떤 가격을 바꾸는지 확인한다.
+- 기본 가격 변경은 PRODUCT_UPDATE이며 새 기본 가격은 price에 넣는다.
+- 할인 등록, 할인 가격 변경, 할인율 변경은 SALE_CREATE로 추출한다.
+- 할인 가격은 sale_price, 할인율은 discount_rate에 넣는다.
+- 할인 가격만 변경하면 price는 null로 둔다.
+- "A원에서 B원으로"에서 A는 이전 값이고 B는 변경 후 값이다.
+  해당 가격 필드에 B만 넣는다.
+- 예시: "배 할인 가격을 칠천 원에서 오천 원으로 바꿔 줘."
+  intent=SALE_CREATE, product_name=배, sale_price=5000, price=null.
 한국어 숫자/금액을 숫자로 변환한다. 정정 발화는 최종 값을 사용한다.
 대화 이력은 한 초안의 추가 답변이다. 기존 정보를 보존하여 전체 Command를 반환한다.
 sale_ends_at은 명시된 시각을 기준시각 Asia/Seoul에 따라 ISO8601 +09:00으로 반환한다.

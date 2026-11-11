@@ -104,6 +104,34 @@ export function parseCommand(
     throw new Error('서버 응답을 command_id 기반으로 확인해주세요.');
   const commandId = data.command_id;
   const state = data.status as CommandStatus;
+  if (state === 'NEEDS_INPUT') {
+    // A server-owned pending command can always accept clarification. Optional
+    // analysis/display fields must not prevent the user from answering it.
+    const prompt = [data.question, data.message].find(
+      (value) => typeof value === 'string' && value.trim(),
+    );
+    const transcript = typeof data.transcript === 'string' ? data.transcript :
+      Array.isArray(data.messages) && data.messages.every((v) => typeof v === 'string')
+        ? data.messages.join(' ') : undefined;
+    const expiresAt = Math.min(deadlines.get(commandId) ?? Infinity,
+      typeof data.expires_at === 'string' && Number.isFinite(Date.parse(data.expires_at))
+        ? Date.parse(data.expires_at) : startedAt + 10 * 60 * 1000);
+    deadlines.set(commandId, expiresAt);
+    return {
+      command_id: commandId, status: state,
+      intent: typeof data.intent === 'string' ? data.intent : undefined,
+      message: typeof prompt === 'string' ? prompt : '상품명과 가격을 다시 알려주세요.',
+      question: typeof prompt === 'string' ? prompt : '상품명과 가격을 다시 알려주세요.',
+      transcript,
+      analysis_result: object(data.analysis_result) ? data.analysis_result :
+        object(data.parsed) ? data.parsed : undefined,
+      missing_fields: Array.isArray(data.missing_fields)
+        ? data.missing_fields.filter((value): value is string => typeof value === 'string') : [],
+      needs_confirmation: false, execution_endpoint: null,
+      candidates: [], preview: { before: null, after: null }, result: null,
+      expiresAt,
+    };
+  }
   if (object(data.parsed) && data.analysis_result === undefined) {
     const confirmable = state === 'READY' || state === 'NEEDS_CONFIRMATION';
     data = {
@@ -115,9 +143,6 @@ export function parseCommand(
         data.needs_confirmation === undefined
           ? confirmable
           : data.needs_confirmation,
-      ...(state === 'NEEDS_INPUT'
-        ? { question: data.question ?? data.message }
-        : {}),
       transcript:
         data.transcript ??
         (Array.isArray(data.messages) &&
@@ -136,12 +161,7 @@ export function parseCommand(
       typeof data.needs_confirmation !== 'boolean' ||
       (state === 'READY' &&
         (!data.needs_confirmation || data.missing_fields.length !== 0)) ||
-      (state === 'NEEDS_INPUT' &&
-        (data.needs_confirmation ||
-          !data.missing_fields.length ||
-          typeof data.question !== 'string' ||
-          !data.question.trim())) ||
-      (data.question !== undefined && typeof data.question !== 'string') ||
+      (data.question != null && typeof data.question !== 'string') ||
       (data.transcript !== undefined && typeof data.transcript !== 'string'))
   )
     throw new Error('음성 분석 결과와 추가 질문을 확인할 수 없어요.');

@@ -17,7 +17,10 @@ import {
   type ProductPhotoSource,
 } from '../../utils/productPhoto';
 import { PageHeader } from '../ui/PageHeader';
-import { commandProductPresentation } from '../../utils/voiceCommandPresentation';
+import {
+  commandProductPresentation,
+  confirmedListingId,
+} from '../../utils/voiceCommandPresentation';
 import { theme } from '../../constants/theme';
 import { logAppError } from '../../utils/appDiagnostics';
 import { uploadProductImage } from '../../services/api/images';
@@ -126,16 +129,12 @@ export function CommandResultScreen({
     if (!saved || saved.status !== 'SUCCEEDED' || !photo || uploaded) return;
     setPhotoBusy(true);
     try {
-      const productId = saved.result?.product_id;
-      if (
-        typeof productId !== 'number' ||
-        !Number.isSafeInteger(productId) ||
-        productId <= 0
-      )
+      const listingId = confirmedListingId(saved);
+      if (listingId === null)
         throw new Error(
-          '상품은 반영됐지만 사진 연결에 필요한 상품 ID가 없어요.',
+          '상품은 반영됐지만 사진 연결에 필요한 판매 상품 ID가 없어요. 다시 등록하지 말고 내 상품 목록을 확인해주세요.',
         );
-      await uploadProductImage(photo, productId);
+      await uploadProductImage(photo, listingId);
       setUploaded(true);
     } catch (e) {
       logAppError('voice/result/upload', e);
@@ -257,7 +256,7 @@ export function CommandResultScreen({
             <>
               {canPhoto &&
                 button(
-                  '사진도 함께 등록하기',
+                  photo ? '사진 다시 업로드하기' : '사진도 함께 등록하기',
                   () =>
                     chooseProductPhotoSource(
                       (source) => void pickPhoto(source),
@@ -279,7 +278,9 @@ export function CommandResultScreen({
                 false,
                 (disabled || executionMissing) && !done,
               )}
-              {button('다시 등록하기', () => void onAgain(), true, uncertain)}
+              {done
+                ? button('내 상품 보기', () => void showProducts(), true)
+                : button('다시 등록하기', () => void onAgain(), true, uncertain)}
             </>
           )}
         </View>

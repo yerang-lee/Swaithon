@@ -18,9 +18,15 @@ new Function('exports', compile('src/utils/voiceCommandPresentation.ts'))(
 );
 const jsx = (type, props) => ({ type, props });
 let confirmed = 0;
+let stateIndex = 0;
+let selectedPhoto = null;
+const uploads = [];
+const logged = [];
 const routes = [];
 const modules = {
-  react: { useState: (initial) => [initial, () => {}] },
+  react: { useState: (initial) => [
+    stateIndex++ % 4 === 0 && selectedPhoto ? selectedPhoto : initial, () => {},
+  ] },
   'react/jsx-runtime': { jsx, jsxs: jsx },
   'react-native': {
     Image: 'Image',
@@ -41,6 +47,10 @@ const modules = {
     },
   },
   '../../utils/voiceCommandPresentation': presentation,
+  '../../utils/appDiagnostics': { logAppError: (...args) => logged.push(args) },
+  '../../services/api/images': {
+    uploadProductImage: async (...args) => uploads.push(args),
+  },
 };
 const api = {};
 new Function(
@@ -63,6 +73,17 @@ const command = {
   preview: { before: null, after: null },
   result: null,
 };
+assert.equal(presentation.confirmedListingId({
+  ...command, status: 'SUCCEEDED', result: { product_id: 7, listing_id: '42' },
+}), 42);
+for (const listing_id of [undefined, null, '', 'pending', '1.5', ' 42 ', 0, -1, 1.5, NaN, Infinity, '9007199254740992']) {
+  assert.equal(presentation.confirmedListingId({
+    ...command, status: 'SUCCEEDED', result: { product_id: 7, listing_id },
+  }), null);
+}
+assert.equal(presentation.confirmedListingId({
+  ...command, result: { product_id: 7 },
+}), null);
 const props = {
   command,
   busy: false,
@@ -127,6 +148,21 @@ function text(tree) {
     .find((node) => node.type === 'Pressable' && text(node) === '내 상품 보기')
     .props.onPress();
   assert.equal(routes.pop(), '/my-store');
+  selectedPhoto = { uri: 'file:///photo.jpg' };
+  for (const result of [{ product_id: 7, listing_id: '42' }, { product_id: 7 }]) {
+    tree = api.CommandResultScreen({
+      ...props, command: { ...command, status: 'SUCCEEDED', result },
+    });
+    assert.ok(!text(tree).includes('다시 등록하기'));
+    assert.ok(text(tree).includes('내 상품 보기'));
+    nodes(tree).find((node) => node.type === 'Pressable' &&
+      text(node) === '사진 업로드 다시 시도').props.onPress();
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(confirmed, 1, 'photo retry must not confirm the product again');
+  assert.deepEqual(uploads, [[selectedPhoto, 42]], 'use listing_id, never product_id');
+  assert.equal(logged.length, 1);
+  assert.equal(logged[0][0], 'voice/result/upload');
   console.log(
     'PASS: READY analysis shows product/price/unit without success claim, missing server execute path blocks submission, server path plus user confirmation enables apply',
   );

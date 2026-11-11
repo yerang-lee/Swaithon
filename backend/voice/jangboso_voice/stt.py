@@ -17,6 +17,8 @@ os.environ["PATH"] = FFMPEG_BIN + os.pathsep + os.environ.get("PATH", "")
 class WhisperSTT:
     def __init__(self):
         self.model = None
+        self.processor = None
+        self.model_dir = os.getenv("WHISPER_MODEL_DIR", "").strip()
         self.lock = threading.Lock()
 
     def transcribe(self, audio: bytes, suffix: str):
@@ -47,15 +49,77 @@ class WhisperSTT:
             if not len(samples) or float(np.sqrt(np.mean(samples**2)))<0.002:
                 raise ValueError('음성을 확인하지 못했습니다. 다시 녹음해 주세요.')
             with self.lock:
-                if self.model is None:
-                    model_name = os.getenv('WHISPER_MODEL', 'small').strip().rstrip('\\/')
-                    self.model = whisper.load_model(model_name)
-                result=self.model.transcribe(samples,language='ko',task='transcribe',
-                    fp16=str(self.model.device).startswith('cuda'),condition_on_previous_text=False)
-            text=result['text'].strip()
-            print("WHISPER RESULT:", repr(result))
-            print("WHISPER TEXT:", repr(text))
-            segments=result.get('segments',[])
-            if not text or (segments and all(s.get('no_speech_prob',0)>0.7 for s in segments)):
-                raise ValueError('음성을 확인하지 못했습니다. 다시 녹음해 주세요.')
+                if self.model_dir:
+                    import torch
+                    from transformers import (
+                        WhisperForConditionalGeneration,
+                        WhisperProcessor,
+                    )
+
+                    if self.model is None:
+                        model_dir = Path(self.model_dir).expanduser()
+                        if not (model_dir / "config.json").is_file():
+                            raise RuntimeError(
+                                f"학습 모델의 config.json을 찾을 수 없습니다: {model_dir}"
+                            )
+
+                        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+                        processor = WhisperProcessor.from_pretrained(
+                            model_dir, local_files_only=True
+                        )
+                        model = WhisperForConditionalGeneration.from_pretrained(
+                            model_dir,
+                            local_files_only=True,
+                            use_safetensors=True,
+                        ).to(device).eval()
+                        model.generation_config.forced_decoder_ids = None
+
+                        self.processor = processor
+                        self.model = model
+
+                    batch = self.processor.feature_extractor(
+                        samples,
+                        sampling_rate=16000,
+                        return_attention_mask=True,
+                        return_tensors="pt",
+                    ).to(self.model.device)
+
+                    with torch.inference_mode():
+                        token_ids = self.model.generate(
+                            **batch,
+                            language="korean",
+                            task="transcribe",
+                            max_new_tokens=225,
+                            num_beams=1,
+                            do_sample=False,
+                        )
+
+                    text = self.processor.batch_decode(
+                        token_ids, skip_special_tokens=True
+                    )[0]
+                    segments = []
+
+                else:
+                    if self.model is None:
+                        model_name = os.getenv(
+                            "WHISPER_MODEL", "small"
+                        ).strip().rstrip("\\/")
+                        self.model = whisper.load_model(model_name)
+
+                    result = self.model.transcribe(
+                        samples,
+                        language="ko",
+                        task="transcribe",
+                        fp16=str(self.model.device).startswith("cuda"),
+                        condition_on_previous_text=False,
+                    )
+                    text = result["text"]
+                    segments = result.get("segments", [])
+
+            text = text.strip()
+            if not text or (
+                segments and all(s.get("no_speech_prob", 0) > 0.7 for s in segments)
+            ):
+                raise ValueError("음성을 확인하지 못했습니다. 다시 녹음해 주세요.")
             return text

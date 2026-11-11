@@ -126,13 +126,13 @@ const options = {
   );
   assert.equal(xhr.parts[0].headers['content-type'], 'audio/mp4');
   const photo = new FormData();
-  photo.append('product_id', '101');
+  photo.append('listing_id', '101');
   photo.append('image_file', {
     uri: 'file:///photo.jpg',
     name: 'photo.jpg',
     type: 'image/jpeg',
   });
-  status = 201;
+  status = 200;
   text = '{"image_id":1}';
   await api.postMultipart('https://test.invalid/images', photo);
   assert.equal(xhrs.at(-1).parts[0].string, '101');
@@ -169,9 +169,9 @@ const options = {
     FormData,
     { env: { EXPO_PUBLIC_API_URL: 'https://test.invalid' } },
   );
-  status = 201;
+  status = 200;
   text =
-    '{"image_id":1,"product_id":101,"image_url":"https://example.com/photo.jpg","file_name":"photo.jpg","uploaded_at":"2026-11-10T10:00:00+09:00","message":"이미지가 업로드되었습니다."}';
+    '{"image_id":1,"listing_id":101,"image_url":"https://example.com/photo.jpg","file_name":"photo.jpg","uploaded_at":"2026-11-10T10:00:00+09:00","message":"이미지가 업로드되었습니다."}';
   await images.uploadProductImage(
     { uri: 'file:///photo.jpg', fileName: 'photo.jpg', mimeType: 'image/jpeg' },
     101,

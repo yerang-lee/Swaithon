@@ -1,5 +1,13 @@
 # 명령 기반 음성 연결
 
+## 추가 질문 상태의 missing_fields 규칙
+
+`NEEDS_INPUT`은 특정 필드 부족뿐 아니라 의도 불명확(`UNKNOWN`), 복수 작업(`MULTIPLE`), 대상 상품 검색 실패 등 재확인에도 사용합니다. 현재 백엔드 `_plan()`은 재확인 상황에 `missing_fields: []`와 구체적인 안내를 반환하며, 음성 핸들러가 이를 `question`으로 전달합니다.
+
+프론트는 유효한 서버 command_id와 NEEDS_INPUT 상태를 먼저 확인한 뒤, 보조 분석 필드의 누락이나 형식 때문에 추가 입력 화면을 차단하지 않습니다. question → message → 기본 안내 순으로 질문을 표시하고, 누락 필드는 문자열 항목만 보존하며, transcript 또는 messages의 인식 문장을 표시합니다. needs_confirmation=false와 execution_endpoint=null로 정규화하고 확정 실행은 차단합니다. READY 및 실행 응답의 검증은 유지합니다. 서버 유효 시간이 있으면 보존하고, 같은 명령의 시간이 늘어나지 않도록 캐시하며, 시간이 없으면 기존 10분 fallback을 사용합니다. 실제 답변 시 서버의 만료·소유권 검사가 최종 기준입니다.
+
+백엔드는 공통 invoke에서 최초 분석과 추가 답변 모두 NEEDS_INPUT의 question, needs_confirmation, missing_fields를 정리합니다. 부족 필드를 임의로 만들지는 않습니다. 명령이 생성되기 전 인식 실패나 응답 검증 실패는 프론트의 별도 재입력 화면에서 텍스트 새 분석·재녹음을 제공합니다. 가짜 command_id를 만들거나 실패한 요청을 자동 재전송하지 않습니다. 이 규칙은 현재 구현 계약이며 API CSV가 응답 필드를 확정한다는 의미는 아닙니다.
+
 원본 FRONTEND_HANDOFF.md는 voice-frontend-handoff-reference.md에 보관했습니다. 사용자가 추가 제공한 BACKEND_HANDOFF 내용도 실제 JWT/상점 소유권/상품 DB 통합이 완료되지 않았고 새 경로·필드는 제안임을 명시합니다. 상품 등록/수정하기 화면은 사용자 요청에 따라 command_id 기반 의도 분석을 기본 사용합니다. 작업 선택이나 상품 ID 사전 입력 없이 녹음을 보내고 서버가 반환한 의도와 실행 경로로 처리합니다. 기존 analysis_id 서비스는 호환 코드로 남아 있지만 기본 화면에서 사용하지 않습니다. CSV의 (제안) 행은 확정된 서버 명세로 간주하지 않습니다.
 
 ## 실행 방법

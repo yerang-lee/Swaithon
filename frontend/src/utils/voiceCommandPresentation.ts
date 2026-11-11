@@ -1,5 +1,19 @@
 import type { VoiceCommand } from '../services/api/voiceCommands';
 
+export function confirmedListingId(command: VoiceCommand): number | null {
+  // The voice engine serializes listing IDs as strings; images requires an integer.
+  const value = command.result?.listing_id;
+  const listingId = typeof value === 'string' && /^[0-9]+$/.test(value)
+    ? Number(value)
+    : value;
+  return command.status === 'SUCCEEDED' &&
+    typeof listingId === 'number' &&
+    Number.isSafeInteger(listingId) &&
+    listingId > 0
+    ? listingId
+    : null;
+}
+
 // Only the latest server snapshot decides price/status. Time fields stay in the command.
 export function commandProductPresentation(command: VoiceCommand) {
   const snapshot =

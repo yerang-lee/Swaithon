@@ -212,13 +212,21 @@ export function VoiceResultScreen({
         setApplied(saved);
         setPhase('applied');
       }
-      const productId =
-        saved?.product_id ??
-        (result.kind !== 'analysis' ? result.productId : undefined);
-      if (photo && !uploaded && productId !== undefined) {
+      const listingId =
+        saved?.listing_id ??
+        (result.kind !== 'analysis' ? result.listingId : undefined);
+      if (photo && !uploaded) {
+        if (
+          typeof listingId !== 'number' ||
+          !Number.isSafeInteger(listingId) ||
+          listingId <= 0
+        )
+          throw new Error(
+            '상품은 반영됐지만 사진 연결에 필요한 판매 상품 ID가 없어요. 다시 등록하지 말고 상품 목록을 확인해주세요.',
+          );
         checkSession();
         setPhase('applying');
-        await uploadProductImage(photo, productId);
+        await uploadProductImage(photo, listingId);
         setUploaded(true);
       }
       setPhase('applied');

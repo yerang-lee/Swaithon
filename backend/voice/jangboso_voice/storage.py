@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from database import SessionLocal
 from models import Product, Listing, VoiceCommand, VoiceEvent, ListingPriceHistory
+from .result_identity import attach_result_product_ids
 
 
 def to_datetime(value):
@@ -182,11 +183,14 @@ class PostgreSQLStore:
                 "after": event.after_data,
             })
 
-        return {
+        state = {
             "products": products,
             "commands": commands,
             "events": events,
         }
+        # Repair completed commands created before product IDs were included.
+        attach_result_product_ids(state)
+        return state
 
     # --------------------------------------------------
     # VoiceService -> PostgreSQL
@@ -369,6 +373,8 @@ class PostgreSQLStore:
                 )
 
         # 4. 음성 명령 저장
+        # Listing IDs have been remapped and DB product IDs are now available.
+        attach_result_product_ids(state)
         for data in state["commands"].values():
             command = db.get(
                 VoiceCommand,

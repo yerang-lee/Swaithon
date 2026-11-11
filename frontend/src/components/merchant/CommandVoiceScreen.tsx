@@ -46,6 +46,48 @@ import {
   type VoiceCommand,
 } from '../../services/api/voiceCommands';
 
+function AnalysisDots({ size, color }: { size: number; color: string }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="음성 분석 중"
+      accessibilityState={{ busy: true }}
+      style={{ width: size, height: size, flexDirection: 'row', gap: 16,
+        alignItems: 'center', justifyContent: 'center' }}
+    >
+      {[0, 1, 2].map((index) => (
+        <Animated.View
+          key={index}
+          style={{
+            width: 18, height: 18, borderRadius: 9, backgroundColor: color,
+            opacity: progress.interpolate({
+              inputRange: [0, 0.2 + index * 0.15, 0.4 + index * 0.15, 1],
+              outputRange: [0.3, 1, 0.3, 0.3],
+            }),
+            transform: [{ translateY: progress.interpolate({
+              inputRange: [0, 0.2 + index * 0.15, 0.4 + index * 0.15, 1],
+              outputRange: [0, -10, 0, 0],
+            }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function CommandVoiceScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
@@ -55,11 +97,13 @@ export function CommandVoiceScreen() {
   });
   const state = useAudioRecorderState(recorder, 100);
   const [command, setCommand] = useState<VoiceCommand | null>(null);
+  const [retryInput, setRetryInput] = useState(false);
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const analyzing = busy && !recording && !preparing;
   const ripple = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!recording) {
@@ -135,6 +179,7 @@ export function CommandVoiceScreen() {
       session();
       if (!alive.current) return null;
       setCommand(value);
+      setRetryInput(false);
       setText('');
       setUncertain(false);
       setBlocked(false);
@@ -150,6 +195,9 @@ export function CommandVoiceScreen() {
     } catch (e) {
       logAppError('components/merchant/CommandVoiceScreen.tsx', e);
       if (alive.current) {
+        if (!executing && !command &&
+          (!(e instanceof CommandError) || e.status === 422))
+          setRetryInput(true);
         setError(e instanceof Error ? e.message : '요청을 처리하지 못했어요.');
         if (
           executing &&
@@ -275,6 +323,7 @@ export function CommandVoiceScreen() {
       if (value?.status !== 'CANCELLED') return;
     }
     setCommand(null);
+    setRetryInput(false);
     setText('');
     setError('');
     setBlocked(false);
@@ -358,7 +407,7 @@ export function CommandVoiceScreen() {
       </View>
     </Pressable>
   );
-  if (!command) {
+  if (!command && !retryInput) {
     const seconds = Math.floor(state.durationMillis / 1000);
     return (
       <SafeAreaView style={recordingStyles.safe} edges={['top', 'bottom']}>
@@ -375,7 +424,7 @@ export function CommandVoiceScreen() {
           contentContainerStyle={recordingStyles.body}
         >
           <View style={recordingStyles.center}>
-            {microphone}
+            {analyzing ? <AnalysisDots size={micSize} color="#FFFFFF" /> : microphone}
             <View style={recordingStyles.instructions}>
               <Text accessibilityRole="header" style={recordingStyles.heading}>
                 {recording
@@ -383,9 +432,14 @@ export function CommandVoiceScreen() {
                   : busy
                     ? preparing
                       ? '마이크를 준비하고 있어요...'
-                      : '상품 정보를\n분석하고 있어요...'
+                      : '음성을 분석 중이에요'
                     : '상품 정보를\n음성으로 말해주세요'}
               </Text>
+              {analyzing && (
+                <Text style={recordingStyles.example}>
+                  상품명과 가격을 확인하고 있어요.{'\n'}잠시만 기다려주세요.
+                </Text>
+              )}
               {recording ? (
                 <Text style={recordingStyles.timer}>
                   {String(Math.floor(seconds / 60)).padStart(2, '0')}:
@@ -485,12 +539,20 @@ export function CommandVoiceScreen() {
             <View style={!command ? styles.recordingArea : styles.answerArea}>
               {!command && (
                 <Text style={styles.hint}>
-                  등록, 수정, 할인, 품절 처리를 음성으로 말해주세요. 예: “사과
-                  한 봉지 5천 원으로 등록해 줘” “사과 20% 할인해 줘” · “사과
-                  품절 처리해 줘”
+                  음성을 정확히 분석하지 못했어요. 상품명과 가격을 아래에
+                  입력하거나 마이크를 눌러 다시 말해주세요.
                 </Text>
               )}
-              {microphone}
+              <View style={styles.answerMicrophoneSpace}>
+              {analyzing ? (
+                <View style={{ alignItems: 'center' }}>
+                  <AnalysisDots size={micSize} color={theme.colors.primary} />
+                  <Text accessibilityLiveRegion="polite" style={styles.message}>
+                    추가 정보를 분석 중이에요. 잠시만 기다려주세요.
+                  </Text>
+                </View>
+              ) : microphone}
+              </View>
               {recording && (
                 <Text style={styles.hint}>
                   {Math.floor(state.durationMillis / 1000)}초
@@ -535,7 +597,7 @@ export function CommandVoiceScreen() {
               )}
             </View>
           )}
-          {busy && <ActivityIndicator color="#53B175" />}
+          {busy && !analyzing && <ActivityIndicator color="#53B175" />}
           {!!error && (
             <Text accessibilityRole="alert" style={styles.error}>
               {error}
@@ -628,6 +690,11 @@ const styles = StyleSheet.create({
   answerArea: {
     gap: 16,
   },
+  answerMicrophoneSpace: {
+    // The recording ripple grows to 1.28x: allow 34px per side at 240px.
+    paddingVertical: 36,
+    alignItems: 'center',
+  },
   cancelCommand: {
     marginTop: -8,
   },
@@ -675,6 +742,7 @@ const recordingStyles = StyleSheet.create({
     paddingBottom: 24,
   },
   micRing: {
+    alignSelf: 'center',
     padding: 12,
     backgroundColor: '#A4CEB2',
   },

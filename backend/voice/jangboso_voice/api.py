@@ -50,6 +50,14 @@ def build_router(service_factory, merchant_dependency, stt=None):
 
             if isinstance(result, dict) and "command_id" in result:
 
+                if result.get("status") == "NEEDS_INPUT":
+                    prompt = result.get("question") or result.get("message")
+                    if not isinstance(prompt, str) or not prompt.strip():
+                        prompt = "상품명과 가격을 다시 알려주세요."
+                    result["question"] = prompt
+                    result["needs_confirmation"] = False
+                    result["missing_fields"] = list(result.get("missing_fields") or [])
+
                 result["execution_endpoint"] = (
                     EXECUTION_ENDPOINTS.get(result["intent"])
                     if result["status"] == "NEEDS_CONFIRMATION"
@@ -275,6 +283,15 @@ def build_router(service_factory, merchant_dependency, stt=None):
             else status
         )
 
+        # The engine stores follow-up prompts in message, not question.
+        question = None
+        if response_status == "NEEDS_INPUT":
+            question = result.get("question")
+            if not isinstance(question, str) or not question.strip():
+                question = result.get("message")
+            if not isinstance(question, str) or not question.strip():
+                question = "상품 정보를 추가로 알려주세요."
+
         return {
             "command_id": result["command_id"],
             "intent": intent,
@@ -283,19 +300,17 @@ def build_router(service_factory, merchant_dependency, stt=None):
             "analysis_result": parsed,
             "missing_fields": missing_fields,
             "needs_confirmation": ready,
+            "candidates": result.get("candidates") or [],
+            "preview": result.get("preview"),
             "execution_endpoint": (
                 EXECUTION_ENDPOINTS.get(intent) if ready else None
             ),
             "expires_at": result.get("expires_at"),
-            "question": (
-                result.get("question")
-                if response_status == "NEEDS_INPUT"
-                else None
-            ),
+            "question": question,
             "message": (
                 "음성 인식 및 명령 분석이 완료되었습니다."
                 if ready
-                else "음성 인식은 완료되었으나 추가 정보가 필요합니다."
+                else question
                 if response_status == "NEEDS_INPUT"
                 else result.get("message", "명령 분석에 실패했습니다.")
             ),

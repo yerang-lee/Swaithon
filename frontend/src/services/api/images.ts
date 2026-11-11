@@ -7,7 +7,7 @@ import { isMockMode } from '../devMock';
 
 export type UploadedProductImage = {
   image_id: number;
-  product_id: number | null;
+  listing_id: number | null;
   image_url: string;
   file_name: string;
   uploaded_at: string;
@@ -24,7 +24,7 @@ const validId = (value: unknown): value is number =>
 
 export async function uploadProductImage(
   photo: ImagePickerAsset,
-  productId?: number,
+  listingId?: number,
 ): Promise<UploadedProductImage> {
   const session = getAuthSession();
   if (
@@ -33,13 +33,13 @@ export async function uploadProductImage(
     session.role !== 'MERCHANT'
   )
     throw new Error('상인 계정으로 다시 로그인해주세요.');
-  if (productId !== undefined && !validId(productId))
-    throw new Error('상품 ID를 확인해주세요.');
+  if (listingId !== undefined && !validId(listingId))
+    throw new Error('판매 상품 ID를 확인해주세요.');
   if (!photo.uri) throw new Error('업로드할 사진을 선택해주세요.');
   if (isMockMode()) {
     const image: UploadedProductImage = {
       image_id: ++nextMockImageId,
-      product_id: productId ?? null,
+      listing_id: listingId ?? null,
       image_url: photo.uri,
       file_name: photo.fileName ?? 'product.jpg',
       uploaded_at: new Date().toISOString(),
@@ -56,7 +56,7 @@ export async function uploadProductImage(
   const timeout = setTimeout(() => controller.abort(), 60000);
   try {
     const form = new FormData();
-    if (productId !== undefined) form.append('product_id', String(productId));
+    if (listingId !== undefined) form.append('listing_id', String(listingId));
     if (Platform.OS === 'web') {
       const file =
         photo.file ??
@@ -92,26 +92,36 @@ export async function uploadProductImage(
         errors[response.status] ?? '사진 업로드에 실패했어요.',
       );
     const data = await response.json();
-    if (
-      response.status !== 201 ||
-      !data ||
-      !validId(data.image_id) ||
-      (productId !== undefined
-        ? data.product_id !== productId
-        : data.product_id != null) ||
-      typeof data.file_name !== 'string' ||
-      typeof data.uploaded_at !== 'string' ||
-      !Number.isFinite(Date.parse(data.uploaded_at)) ||
-      typeof data.message !== 'string' ||
-      typeof data.image_url !== 'string' ||
-      !data.image_url
-    )
+    // Fixed diagnostic codes only: never include response values, names or URLs.
+    const invalid: string[] = [];
+    if (response.status !== 200 && response.status !== 201)
+      invalid.push('status/unsupported');
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      invalid.push('body/not_object');
+    } else {
+      if (!validId(data.image_id)) invalid.push('image_id/invalid');
+      if (listingId !== undefined) {
+        if (!validId(data.listing_id)) invalid.push('listing_id/invalid');
+        else if (data.listing_id !== listingId) invalid.push('listing_id/mismatch');
+      } else if (data.listing_id !== null) {
+        invalid.push('listing_id/expected_null');
+      }
+      if (typeof data.file_name !== 'string') invalid.push('file_name/not_string');
+      if (typeof data.uploaded_at !== 'string' ||
+        !Number.isFinite(Date.parse(data.uploaded_at)))
+        invalid.push('uploaded_at/invalid');
+      if (typeof data.message !== 'string') invalid.push('message/not_string');
+      if (typeof data.image_url !== 'string' || !data.image_url)
+        invalid.push('image_url/invalid');
+    }
+    if (invalid.length)
       throw new Error(
-        '업로드 결과를 확인할 수 없어요. 상품 사진을 확인해주세요.',
+        `업로드 결과를 확인할 수 없어요. 상품 사진을 확인해주세요. [IMAGE_RESPONSE:${invalid.join(',')}]`,
       );
     return {
       ...data,
-      product_id: data.product_id ?? null,
+      listing_id: data.listing_id,
+      image_url: new URL(data.image_url, `${new URL(base).origin}/`).href,
     } as UploadedProductImage;
   } catch (error) {
     globalThis.__jangbosoLogError?.('services/api/images.ts', error);
