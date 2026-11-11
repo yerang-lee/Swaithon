@@ -256,7 +256,7 @@ export function CommandResultScreen({
             <>
               {canPhoto &&
                 button(
-                  '사진도 함께 등록하기',
+                  photo ? '사진 다시 업로드하기' : '사진도 함께 등록하기',
                   () =>
                     chooseProductPhotoSource(
                       (source) => void pickPhoto(source),
