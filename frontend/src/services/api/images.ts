@@ -7,7 +7,7 @@ import { isMockMode } from '../devMock';
 
 export type UploadedProductImage = {
   image_id: number;
-  product_id: number | null;
+  listing_id: number | null;
   image_url: string;
   file_name: string;
   uploaded_at: string;
@@ -24,7 +24,7 @@ const validId = (value: unknown): value is number =>
 
 export async function uploadProductImage(
   photo: ImagePickerAsset,
-  productId?: number,
+  listingId?: number,
 ): Promise<UploadedProductImage> {
   const session = getAuthSession();
   if (
@@ -33,13 +33,13 @@ export async function uploadProductImage(
     session.role !== 'MERCHANT'
   )
     throw new Error('상인 계정으로 다시 로그인해주세요.');
-  if (productId !== undefined && !validId(productId))
-    throw new Error('상품 ID를 확인해주세요.');
+  if (listingId !== undefined && !validId(listingId))
+    throw new Error('판매 상품 ID를 확인해주세요.');
   if (!photo.uri) throw new Error('업로드할 사진을 선택해주세요.');
   if (isMockMode()) {
     const image: UploadedProductImage = {
       image_id: ++nextMockImageId,
-      product_id: productId ?? null,
+      listing_id: listingId ?? null,
       image_url: photo.uri,
       file_name: photo.fileName ?? 'product.jpg',
       uploaded_at: new Date().toISOString(),
@@ -56,7 +56,7 @@ export async function uploadProductImage(
   const timeout = setTimeout(() => controller.abort(), 60000);
   try {
     const form = new FormData();
-    if (productId !== undefined) form.append('product_id', String(productId));
+    if (listingId !== undefined) form.append('listing_id', String(listingId));
     if (Platform.OS === 'web') {
       const file =
         photo.file ??
@@ -93,12 +93,12 @@ export async function uploadProductImage(
       );
     const data = await response.json();
     if (
-      response.status !== 201 ||
+      response.status !== 200 ||
       !data ||
       !validId(data.image_id) ||
-      (productId !== undefined
-        ? data.product_id !== productId
-        : data.product_id != null) ||
+      (listingId !== undefined
+        ? data.listing_id !== listingId
+        : data.listing_id !== null) ||
       typeof data.file_name !== 'string' ||
       typeof data.uploaded_at !== 'string' ||
       !Number.isFinite(Date.parse(data.uploaded_at)) ||
@@ -111,7 +111,8 @@ export async function uploadProductImage(
       );
     return {
       ...data,
-      product_id: data.product_id ?? null,
+      listing_id: data.listing_id,
+      image_url: new URL(data.image_url, `${new URL(base).origin}/`).href,
     } as UploadedProductImage;
   } catch (error) {
     globalThis.__jangbosoLogError?.('services/api/images.ts', error);

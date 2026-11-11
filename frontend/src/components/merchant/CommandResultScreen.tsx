@@ -19,7 +19,7 @@ import {
 import { PageHeader } from '../ui/PageHeader';
 import {
   commandProductPresentation,
-  confirmedProductId,
+  confirmedListingId,
 } from '../../utils/voiceCommandPresentation';
 import { theme } from '../../constants/theme';
 import { logAppError } from '../../utils/appDiagnostics';
@@ -129,12 +129,12 @@ export function CommandResultScreen({
     if (!saved || saved.status !== 'SUCCEEDED' || !photo || uploaded) return;
     setPhotoBusy(true);
     try {
-      const productId = confirmedProductId(saved);
-      if (productId === null)
+      const listingId = confirmedListingId(saved);
+      if (listingId === null)
         throw new Error(
-          '상품은 반영됐지만 사진 연결에 필요한 상품 ID가 없어요. 다시 등록하지 말고 내 상품 목록을 확인해주세요.',
+          '상품은 반영됐지만 사진 연결에 필요한 판매 상품 ID가 없어요. 다시 등록하지 말고 내 상품 목록을 확인해주세요.',
         );
-      await uploadProductImage(photo, productId);
+      await uploadProductImage(photo, listingId);
       setUploaded(true);
     } catch (e) {
       logAppError('voice/result/upload', e);

@@ -73,15 +73,15 @@ const command = {
   preview: { before: null, after: null },
   result: null,
 };
-assert.equal(presentation.confirmedProductId({
+assert.equal(presentation.confirmedListingId({
   ...command, status: 'SUCCEEDED', result: { product_id: 7, listing_id: '42' },
-}), 7);
-for (const product_id of [undefined, null, '7', 0, -1, 1.5, NaN, Infinity]) {
-  assert.equal(presentation.confirmedProductId({
-    ...command, status: 'SUCCEEDED', result: { product_id, listing_id: '42' },
+}), 42);
+for (const listing_id of [undefined, null, '', 'pending', '1.5', ' 42 ', 0, -1, 1.5, NaN, Infinity, '9007199254740992']) {
+  assert.equal(presentation.confirmedListingId({
+    ...command, status: 'SUCCEEDED', result: { product_id: 7, listing_id },
   }), null);
 }
-assert.equal(presentation.confirmedProductId({
+assert.equal(presentation.confirmedListingId({
   ...command, result: { product_id: 7 },
 }), null);
 const props = {
@@ -149,7 +149,7 @@ function text(tree) {
     .props.onPress();
   assert.equal(routes.pop(), '/my-store');
   selectedPhoto = { uri: 'file:///photo.jpg' };
-  for (const result of [{ product_id: 7, listing_id: '42' }, { listing_id: '42' }]) {
+  for (const result of [{ product_id: 7, listing_id: '42' }, { product_id: 7 }]) {
     tree = api.CommandResultScreen({
       ...props, command: { ...command, status: 'SUCCEEDED', result },
     });
@@ -160,7 +160,7 @@ function text(tree) {
     await new Promise((resolve) => setImmediate(resolve));
   }
   assert.equal(confirmed, 1, 'photo retry must not confirm the product again');
-  assert.deepEqual(uploads, [[selectedPhoto, 7]], 'never use listing_id as product_id');
+  assert.deepEqual(uploads, [[selectedPhoto, 42]], 'use listing_id, never product_id');
   assert.equal(logged.length, 1);
   assert.equal(logged[0][0], 'voice/result/upload');
   console.log(
