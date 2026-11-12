@@ -188,7 +188,7 @@ export function SignupRoleStep({
                 style={styles.location}
               >
                 <AppIcon name="location-pin" color="#53B175" />
-                <Text style={styles.locationText}>
+                <Text style={[styles.locationText, styles.storeLocationText]}>
                   {location?.name || '지도에서 가게 위치 설정'}
                 </Text>
                 <AppIcon name="arrow-right" size={16} color="#858585" />
@@ -202,12 +202,13 @@ export function SignupRoleStep({
           )}
           {role === 'merchant' && (
             <View style={{ marginTop: 24, gap: 10 }}>
-              <Text style={styles.label}>소속 시장</Text>
+              <Text style={[styles.label, styles.marketLabel]}>소속 시장</Text>
               <View style={styles.searchBox}>
                 <AppIcon name="search" size={19} color="#858585" />
                 <TextInput
                   accessibilityLabel="소속 시장 검색"
                   placeholder="시장 이름 검색 (예: 망원시장)"
+                  placeholderTextColor="#B0B0B0"
                   value={marketQuery}
                   editable={!loading}
                   onChangeText={(value) => {
@@ -276,6 +277,7 @@ export function SignupRoleStep({
                 ))}
                 </ScrollView>
               )}
+              <View style={styles.descriptionField}>
               <AuthField
                 labelColor="#333333"
                 label="가게 설명 (선택)"
@@ -284,6 +286,7 @@ export function SignupRoleStep({
                 editable={!loading}
                 placeholder="가게를 소개해주세요"
               />
+              </View>
             </View>
           )}
           <View style={{ marginTop: 32 }}>
@@ -397,6 +400,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
   },
+  storeLocationText: {
+    fontSize: 20,
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -406,11 +412,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
   },
+  marketLabel: {
+    marginBottom: 0,
+  },
+  descriptionField: {
+    marginTop: 22,
+  },
   searchInput: {
     flex: 1,
     minWidth: 0,
     minHeight: 48,
-    fontSize: 16,
+    fontSize: 20,
     color: '#000000',
   },
   marketAddress: {
