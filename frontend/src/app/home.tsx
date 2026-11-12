@@ -466,7 +466,7 @@ export default function HomeScreen() {
                         color={
                           favorites.includes(item.listing_id)
                             ? '#E84B4B'
-                            : '#777777'
+                            : '#FFFFFF'
                         }
                       />
                     </Pressable>
