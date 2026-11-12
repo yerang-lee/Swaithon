@@ -70,7 +70,6 @@
 │   │   ├── services/         # API, 세션, 위치 등
 │   │   ├── hooks/            # 공통 상태·동작
 │   │   └── utils/            # 표시 형식, 검증, 오류 기록
-│   ├── docs/                 # API 계약과 기능별 연동 문서
 │   └── tests/                # API·화면 회귀 테스트
 ├── backend/
 │   ├── routers/              # 기능별 FastAPI 라우터
@@ -135,7 +134,7 @@ Android 에뮬레이터는 Android 개발 환경이 필요하고, iOS 시뮬레�
 
 개발 모드의 로그인 화면에서 **고객으로 테스트** 또는 **상인으로 테스트**를 선택합니다. 기본으로 활성화하려면 `EXPO_PUBLIC_MOCK_API=true`로 설정합니다.
 
-테스트 데이터와 상품 변경은 모의 처리되며 실제 회원·상품으로 저장되지 않습니다. 지도는 별도 외부 서비스 설정이 필요합니다. 자세한 범위는 [백엔드 없이 화면 테스트](frontend/docs/offline-testing.md)를 참고하세요.
+테스트 데이터와 상품 변경은 모의 처리되며 실제 회원·상품으로 저장되지 않습니다. 지도는 별도 외부 서비스 설정이 필요합니다.
 
 ### 3. 백엔드
 
@@ -220,8 +219,7 @@ node tests/voice-clarification-screen.test.cjs
 
 ## 개발 시 참고
 
-- API 경로와 HTTP 메서드는 [API 목록](frontend/docs/api-spec.csv)을 기준으로 확인합니다. CSV의 진행 상태와 실제 배포 서버의 반영 여부는 다를 수 있습니다.
-- 요청·응답 필드와 인증 방식의 추가 조건은 기능별 문서를 함께 확인합니다. 미확정 사항을 확정된 계약으로 취급하지 않습니다.
+- API 경로, 요청·응답 형식과 인증 조건은 실행 중인 백엔드의 Swagger와 라우터 구현을 함께 확인합니다.
 - 신규 화면과 전체 화면 Modal은 최초 진입 시 안전 영역, 키보드와 하단 버튼 겹침을 확인합니다.
 - 공통 버튼은 `PrimaryButton`과 `theme`의 기본 높이를 사용합니다.
 - 오류는 공통 진단 로거로 기록하며 비밀번호, 토큰, 입력값, 파일과 원본 응답은 남기지 않습니다.
@@ -237,16 +235,4 @@ node tests/voice-clarification-screen.test.cjs
 | 상품 목록 응답 검증 실패 | 배포 서버 응답과 프론트 계약 일치 여부, 서버 수정 반영 여부 |
 | 환경변수 변경이 적용되지 않음 | Expo 또는 백엔드 재시작 여부. Expo 캐시는 `npx expo start -c`로 초기화 |
 
-## 관련 문서
-
-- [인증·회원가입 연동](frontend/docs/auth-api.md)
-- [예약·픽업 QR](frontend/docs/product-reservation.md)
-- [음성 분석·확정 흐름](frontend/docs/voice-stt-api.md)
-- [추천 상품](frontend/docs/recommendations-api.md)
-- [마감 세일](frontend/docs/closing-sale.md)
-- [상품 가격 이력](frontend/docs/price-history.md)
-- [지도 연동](frontend/docs/kakao-map.md)
-- [개발 오류 로깅](frontend/docs/error-logging.md)
-- [독립 음성 프로토타입](voice/README.md)
-
-기능별 문서에는 연동 변경 기록이 포함되어 있습니다. 같은 항목의 설명이 여러 번 나오면 최신 변경 절과 현재 서버 구현을 함께 확인하세요. 루트의 `voice/` 프로토타입과 통합 서버의 `backend/voice/`는 실행 경로가 다릅니다.
+루트의 `voice/`는 독립 음성 프로토타입이며, 통합 서버는 `backend/voice/`를 사용합니다.
