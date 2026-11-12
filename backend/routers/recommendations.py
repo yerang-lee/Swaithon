@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.dialects.postgresql import insert
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from database import get_db
 from security import get_current_user
 
 from ai.recommendation_rules import recommend_from_payload
+from ai.recommendation_runtime import predict_demo
 
 from models import (
     User,
@@ -162,7 +163,24 @@ def build_recommendation_payload(
         })
 
     events = []
+    interest_product_ids = []
     if db is not None:
+        # Include current favorites even when they predate event collection.
+        interest_products = (
+            db.query(Product)
+            .join(Listing, Listing.product_id == Product.product_id)
+            .join(Favorite, Favorite.listing_id == Listing.listing_id)
+            .filter(Favorite.user_id == user_id, Favorite.is_active.is_(True))
+            .distinct()
+            .all()
+        )
+        for product in interest_products:
+            if product.category_id is not None:
+                product_id = str(product.product_id)
+                interest_product_ids.append(product_id)
+                products[product_id] = {
+                    "product_id": product_id, "category_id": str(product.category_id),
+                }
         cutoff = as_of - timedelta(days=30)
         def add_event(key, row, kind, at, **extra):
             events.append({"event_id": key, "product_id": str(row.product_id),
@@ -203,7 +221,7 @@ def build_recommendation_payload(
         "request_id": f"rec_{as_of.strftime('%Y%m%d')}_{uuid.uuid4().hex[:8]}",
         "user": {
             "user_id": str(user_id),
-            "interest_product_ids": [],
+            "interest_product_ids": interest_product_ids,
             "events": events,
         },
         "products": list(products.values()),
@@ -292,6 +310,7 @@ def save_recommendation_result(
 
 @router.get("")
 def get_recommendations(
+    request: Request,
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
     market_id: int | None = Query(None),
@@ -336,11 +355,9 @@ def get_recommendations(
         db=db,
     )
 
-    # 규칙 기반 추천 실행
-    result = run_rule_recommendation(
-        payload=payload,
-        top_n=top_n,
-    )
+    result = predict_demo(payload, getattr(request.app.state, "recommender", None), top_n)
+    if result is None:
+        result = run_rule_recommendation(payload=payload, top_n=top_n)
 
     # 추천 결과에 상품 상세 정보 추가
 

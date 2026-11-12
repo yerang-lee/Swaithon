@@ -27,6 +27,7 @@ from routers.stores import router as stores_router
 from routers.products import router as products_router
 from routers.favorites import router as favorites_router
 from routers.recommendations import router as recommendations_router
+from ai.recommendation_runtime import load_demo_recommender
 from routers.reservations import router as reservations_router
 from routers.notifications import router as notifications_router
 from routers.images import router as images_router
@@ -69,7 +70,9 @@ voice_router = create_voice_router(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    app.state.recommender = load_demo_recommender()
     yield
+    app.state.recommender = None
 
 
 app = FastAPI(

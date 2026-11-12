@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -10,7 +13,7 @@ from .recommendation_rules import (
 
 
 class AIRecommender:
-    def __init__(self, model_path):
+    def __init__(self, model_path, metadata_path=None):
         # 서버가 시작할 때 한 번 실행
         bundle = joblib.load(model_path)
 
@@ -18,6 +21,16 @@ class AIRecommender:
         self.features = list(bundle["features"])
         self.model_version = bundle["version"]
         self.best_iteration = bundle.get("best_iteration")
+        metadata_path = metadata_path or Path(model_path).with_name("metadata.json")
+        self.metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
+        if (
+            self.features != self.metadata["features"]
+            or self.model_version != self.metadata["version"]
+            or self.best_iteration != self.metadata["best_iteration"]
+            or self.model.feature_name_ != self.features
+            or bundle["feature_definition_version"] != self.metadata["feature_definition_version"]
+        ):
+            raise ValueError("Model and metadata do not match")
 
     def recommend(self, payload, top_n=20):
         if (
@@ -99,6 +112,9 @@ class AIRecommender:
                 numeric_features,
                 **predict_options,
             )
+
+        if not np.isfinite(df["score"].to_numpy(dtype=float)).all():
+            raise ValueError("Model returned non-finite scores")
 
         # 6. AI 점수순으로 정렬
         df = df.sort_values(

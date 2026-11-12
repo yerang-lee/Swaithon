@@ -14,7 +14,7 @@ class TrainingInputTest(unittest.TestCase):
         source = ast.parse((Path(__file__).parents[1] / "routers/recommendations.py").read_text(encoding="utf-8"))
         fn = next(n for n in source.body if isinstance(n, ast.FunctionDef) and n.name == "build_recommendation_payload")
         module = ast.Module(body=[ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0), fn], type_ignores=[])
-        models = {n: getattr(db_models, n) for n in ("ProductViewEvent", "FavoriteEvent", "Reservation", "Product")}
+        models = {n: getattr(db_models, n) for n in ("ProductViewEvent", "FavoriteEvent", "Reservation", "Product", "Listing", "Favorite")}
         ns = dict(models, datetime=datetime, timezone=timezone, timedelta=timedelta, uuid=uuid)
         exec(compile(ast.fix_missing_locations(module), "recommendations.py", "exec"), ns)
         now = datetime.now(timezone.utc) - timedelta(hours=1)
