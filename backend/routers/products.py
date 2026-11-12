@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
+from product_display import listing_display_name
 from demo_price_history import get_demo_history_ids
 from models import Listing, Product, Store, Market, ListingPriceHistory, User
 from schemas import ProductDetailResponse, ProductListResponse, ProductListItem
@@ -63,7 +64,7 @@ def get_products(
             store_id=store.store_id,
             market_id=store.market_id,
             store_name=store.store_name,
-            product_name=product.product_name,
+            product_name=listing_display_name(product.product_name, listing),
             category_id=product.category_id,
             category=category_map.get(product.category_id),
             price=listing.price,
@@ -114,7 +115,7 @@ def get_product_detail(
     return ProductDetailResponse(
         listing_id=listing.listing_id,
         product_id=product.product_id,
-        product_name=product.product_name,
+        product_name=listing_display_name(product.product_name, listing),
         category_id=product.category_id,
         description=product.description,
         image_url=listing.image_url,
@@ -171,7 +172,7 @@ def get_price_history(
     return {
         "listing_id": listing.listing_id,
         "product_id": product.product_id,
-        "product_name": product.product_name,
+        "product_name": listing_display_name(product.product_name, listing),
         "store_id": store.store_id,
         "store_name": store.store_name,
         "image_url": listing.image_url,

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from .recommendation_rules import RULE_VERSION
+from .recommendation_personalization import personalize_recommendations
 
 logger = logging.getLogger(__name__)
 MODEL_VERSION = "demo_ranker_data2_v1"
@@ -37,7 +38,7 @@ def predict_demo(payload, recommender, top_n=20):
     if recommender is None:
         return None
     try:
-        output = recommender.recommend(payload, top_n=top_n)
+        output = recommender.recommend(payload, top_n=max(top_n, len(payload['listings'])))
         result = dict(output["response"])
         if result["recommendation_type"] != "ai" or result["model_version"] != MODEL_VERSION:
             raise ValueError("Unexpected demo response")
@@ -55,7 +56,7 @@ def predict_demo(payload, recommender, top_n=20):
         # Existing DB schema stores the feature-generating rule version here.
         # The model version remains in each item's snapshot and API response.
         result["rule_version"] = RULE_VERSION
-        return result
+        return personalize_recommendations(result, payload, top_n)
     except Exception:
         log_model_error("predict")
         return None

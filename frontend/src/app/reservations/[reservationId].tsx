@@ -93,7 +93,7 @@ export default function ReservationDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.store}>{detail.store_name}</Text>
             <Text style={styles.product}>
-              {detail.product_name} {detail.quantity}개
+              {detail.product_name} · 예약 {detail.quantity}개
             </Text>
             <Text style={styles.price}>
               {detail.total_price.toLocaleString('ko-KR')}원

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, str(Path(__file__).parents[1]))
 import models
 from schemas import FavoriteListResponse, ReservationListResponse
+from product_display import listing_display_name
 
 
 def route(filename, name):
@@ -20,6 +21,7 @@ def route(filename, name):
     namespace = {**vars(models), 'Depends': Depends, 'Query': Query, 'HTTPException': HTTPException,
                  'Session': Session, 'get_db': lambda: None, 'get_current_user': lambda: None,
                  'datetime': datetime, 'timezone': timezone, 'func': func,
+                 'listing_display_name': listing_display_name,
                  'category_map': {1: ('VEGETABLE', '채소')}}
     exec(compile(ast.Module(body=[function], type_ignores=[]), filename, 'exec'), namespace)
     return namespace[name]
@@ -38,6 +40,7 @@ class CustomerListPhotosTest(unittest.TestCase):
                 db.add(models.Product(product_id=i, product_name=f'product-{i}', category_id=1,
                                       image_url=f'/uploads/images/standard-{i}.png'))
                 db.add(models.Listing(listing_id=i, store_id=1, product_id=i, price=1000,
+                                      sale_quantity=5., sale_unit='개',
                                       image_url='/uploads/images/listing-1.png' if i == 1 else None))
                 db.add(models.Favorite(favorite_id=i, user_id=1, listing_id=i, is_active=True))
                 db.add(models.Reservation(reservation_id=i, user_id=1, listing_id=i, product_id=i,
@@ -48,10 +51,12 @@ class CustomerListPhotosTest(unittest.TestCase):
             favorites = route('favorites.py', 'get_my_favorites')(page=1, size=10, current_user=user, db=db)
             favorites = FavoriteListResponse(**favorites)
             self.assertEqual({row.listing_id: row.image_url for row in favorites.favorites}, expected)
+            self.assertTrue(all(row.product_name.endswith(' 5개') for row in favorites.favorites))
             reservations = route('users.py', 'get_my_reservations')(
                 page=1, size=10, reservation_status=None, current_user=user, db=db)
             reservations = ReservationListResponse(**reservations)
             self.assertEqual({row.listing_id: row.image_url for row in reservations.reservations}, expected)
+            self.assertTrue(all(row.product_name.endswith(' 5개') for row in reservations.reservations))
         engine.dispose()
 
 

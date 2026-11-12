@@ -47,6 +47,7 @@ const react = {
 };
 let favoriteRevision = 0;
 const modules = {
+  '../services/catalogChanges': { useCatalogRevision: () => 0 },
   '../hooks/useRecommendationTracking': {
     useRecommendationImpressions: () => ({
       carouselRef: { current: null },

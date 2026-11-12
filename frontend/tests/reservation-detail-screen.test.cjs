@@ -105,6 +105,7 @@ const modules = {
   },
   '../../services/devMock': { isMockMode: () => true },
   '../../utils/appDiagnostics': { logAppError() {} },
+  '../../services/catalogChanges': { markCatalogChanged() {} },
   '../products/ListingImage': { ListingImage: 'ListingImage' },
   '../ui/PageHeader': { PageHeader: 'PageHeader' },
   '../ui/PrimaryButton': { PrimaryButton: 'PrimaryButton' },

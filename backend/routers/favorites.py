@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone
 from database import get_db
+from product_display import listing_display_name
 from models import Favorite, FavoriteEvent, Listing, User, Product, Store, Market
 from schemas import (
     FavoriteCreateRequest,
@@ -113,9 +114,9 @@ def create_favorite(
         "listing_id": listing.listing_id,
         "product_id": listing.product_id,
         "store_id": listing.store_id,
-        "product_name": db.query(Product.product_name)
+        "product_name": listing_display_name(db.query(Product.product_name)
             .filter(Product.product_id == listing.product_id)
-            .scalar(),
+            .scalar(), listing),
         "store_name": db.query(Store.store_name)
             .filter(Store.store_id == listing.store_id)
             .scalar(),
@@ -170,6 +171,8 @@ def get_my_favorites(
             Listing.is_sold_out,
             Listing.sale_starts_at,
             Listing.sale_ends_at,
+            Listing.sale_quantity,
+            Listing.sale_unit,
             func.coalesce(Listing.image_url, Product.image_url).label("image_url"),
             Favorite.created_at,
         )
@@ -204,7 +207,7 @@ def get_my_favorites(
             "favorite_id": item.favorite_id,
             "listing_id": item.listing_id,
             "product_id": item.product_id,
-            "product_name": item.product_name,
+            "product_name": listing_display_name(item.product_name, item),
             "store_id": item.store_id,
             "store_name": item.store_name,
             "market_id": item.market_id,

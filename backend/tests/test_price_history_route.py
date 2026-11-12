@@ -4,6 +4,9 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock
+import sys
+sys.path.insert(0, str(Path(__file__).parents[1]))
+from product_display import listing_display_name
 
 
 class PriceHistoryRouteTest(unittest.TestCase):
@@ -16,7 +19,7 @@ class PriceHistoryRouteTest(unittest.TestCase):
         self.models = {name: MagicMock(name=name) for name in
                        ("Listing", "Product", "Store", "ListingPriceHistory")}
         namespace = {**self.models, "Depends": lambda fn: None, "get_db": lambda: None,
-                     "get_demo_history_ids": lambda: set()}
+                     "get_demo_history_ids": lambda: set(), "listing_display_name": listing_display_name}
         from fastapi import HTTPException
         namespace["HTTPException"] = HTTPException
         exec(compile(ast.fix_missing_locations(module), "products.py", "exec"), namespace)

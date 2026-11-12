@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, str(Path(__file__).parents[1]))
 import models
 import schemas
+from product_display import listing_display_name
 
 
 def load_functions(filename, names):
@@ -21,7 +22,8 @@ def load_functions(filename, names):
     for function in functions:
         function.decorator_list = []
     namespace = {**vars(models), **vars(schemas), 'Depends': Depends, 'Query': Query,
-                 'HTTPException': HTTPException, 'Session': Session, 'get_db': lambda: None, 'math': math}
+                 'HTTPException': HTTPException, 'Session': Session, 'get_db': lambda: None, 'math': math,
+                 'get_current_user': lambda: None, 'listing_display_name': listing_display_name}
     exec(compile(ast.Module(body=functions, type_ignores=[]), filename, 'exec'), namespace)
     return namespace
 
@@ -36,10 +38,11 @@ class WithdrawnStoreVisibilityTest(unittest.TestCase):
             self.db.add(models.User(user_id=i, phone=f'test-{i}', password_hash='unused', name=f'user-{i}', role='MERCHANT'))
             self.db.add(models.Store(store_id=i, user_id=i, market_id=1, store_name=f'store-{i}'))
             self.db.add(models.Product(product_id=i, product_name=f'product-{i}', category_id=1))
-            self.db.add(models.Listing(listing_id=i, product_id=i, store_id=i, price=1000))
+            self.db.add(models.Listing(listing_id=i, product_id=i, store_id=i, price=1000,
+                                       sale_quantity=5., sale_unit='개'))
         self.db.commit()
         self.market_routes = load_functions('markets.py', {'get_market_stores'})
-        self.store_routes = load_functions('stores.py', {'get_store', 'get_store_products'})
+        self.store_routes = load_functions('stores.py', {'get_store', 'get_store_products', 'get_my_listings'})
         self.product_routes = load_functions('products.py', {'get_products', 'get_product_detail'})
         self.recommendations = load_functions('recommendations.py', {'calculate_distance_km', 'get_recommendation_candidates'})
 
@@ -84,6 +87,12 @@ class WithdrawnStoreVisibilityTest(unittest.TestCase):
         products = self.product_routes['get_products'](market_id=1, page=1, size=10, db=self.db)
         self.assertEqual(products.total_count, 1)
         self.assertEqual([item.store_id for item in products.products], [2])
+        self.assertEqual(products.products[0].product_name, 'product-2 5개')
+        self.assertEqual(self.product_routes['get_product_detail'](2, db=self.db).product_name, 'product-2 5개')
+        self.assertEqual(self.store_routes['get_store_products'](2, page=1, size=10, db=self.db).products[0].product_name,
+                         'product-2 5개')
+        self.assertEqual(self.store_routes['get_my_listings'](page=1, size=10, is_sold_out=None,
+                         current_user=self.db.get(models.User, 2), db=self.db).listings[0].product_name, 'product-2 5개')
         for market_id in (None, 1):
             candidates = self.recommendations['get_recommendation_candidates'](self.db, 37, 127, market_id)
             self.assertEqual([row['store'].store_id for row in candidates], [2])

@@ -4,6 +4,7 @@ from sqlalchemy import func
 
 from datetime import datetime, timezone
 from database import get_db
+from product_display import listing_display_name
 from dependencies import get_current_user
 from models import (
     User, Market, Store, RefreshToken,
@@ -314,7 +315,7 @@ def get_my_reservations(
 
     # 예약 목록 기본 조회
     query = (
-        db.query(Reservation, Product, Store, Market,
+        db.query(Reservation, Product, Store, Market, Listing,
                  func.coalesce(Listing.image_url, Product.image_url).label("image_url"))
         .outerjoin(Listing, Reservation.listing_id == Listing.listing_id)
         .join(
@@ -354,7 +355,7 @@ def get_my_reservations(
 
     reservations = []
 
-    for reservation, product, store, market, image_url in results:
+    for reservation, product, store, market, listing, image_url in results:
         category_id = product.category_id
 
         category_info = category_map.get(category_id)
@@ -363,7 +364,7 @@ def get_my_reservations(
             "reservation_id": reservation.reservation_id,
             "listing_id": reservation.listing_id,
             "product_id": reservation.product_id,
-            "product_name": product.product_name,
+            "product_name": listing_display_name(product.product_name, listing),
             "image_url": image_url,
             "store_id": reservation.store_id,
             "store_name": store.store_name,

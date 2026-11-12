@@ -9,10 +9,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import get_db
+from product_display import listing_display_name
 from security import get_current_user
 
 from ai.recommendation_rules import recommend_from_payload
 from ai.recommendation_runtime import predict_demo
+from ai.recommendation_personalization import personalize_recommendations
 
 from models import (
     User,
@@ -158,7 +160,7 @@ def build_recommendation_payload(
             "listing_id": str(listing.listing_id),
             "product_id": str(product.product_id),
             "store_id": str(store.store_id),
-            "name": product.product_name,
+            "name": listing_display_name(product.product_name, listing),
             "category_id": str(product.category_id),
             "distance_km": candidate["distance_km"],
             "created_at": listing.created_at.isoformat(),
@@ -210,7 +212,7 @@ def build_recommendation_payload(
             add_event(f"favorite-current:{favorite.favorite_id}", listing,
                       "favorite", occurred_at)
     for row in db.query(Reservation).filter(
-        Reservation.user_id == user_id, Reservation.created_at.between(cutoff, as_of),
+        Reservation.user_id == user_id, Reservation.created_at <= as_of,
     ).all():
         valid = (row.cancelled_at is None or row.cancelled_at > as_of)
         if row.status == "CANCELLED" and row.cancelled_at is None:
@@ -218,6 +220,9 @@ def build_recommendation_payload(
         if valid and row.created_at >= cutoff:
             add_event(f"reserve:{row.reservation_id}", row, "reserve",
                       row.created_at, is_valid_reservation=True)
+        picked_up_at = getattr(row, 'picked_up_at', None)
+        if valid and row.status == 'COMPLETED' and picked_up_at is not None and cutoff <= picked_up_at <= as_of:
+            add_event(f"pickup:{row.reservation_id}", row, "purchase_confirmed", picked_up_at)
     event_products = {int(event["product_id"]) for event in events}
     if event_products:
         for product in db.query(Product).filter(Product.product_id.in_(event_products)).all():
@@ -239,7 +244,8 @@ def build_recommendation_payload(
     }
 
 def run_rule_recommendation(payload: dict, top_n: int = 20):
-    result = recommend_from_payload(payload, top_n=top_n)
+    result = recommend_from_payload(payload, top_n=None)
+    result = personalize_recommendations(result, payload, top_n)
 
     return {
         "request_id": result["request_id"],
@@ -405,7 +411,7 @@ def get_recommendations(
             "store_id": str(store.store_id),
             "store_name": store.store_name,
             "market_id": str(market.market_id),
-            "name": product.product_name,
+            "name": listing_display_name(product.product_name, listing),
             "category_id": str(product.category_id),
             "price": listing.sale_price if listing.sale_price is not None else listing.price,
             "distance_km": candidate["distance_km"],

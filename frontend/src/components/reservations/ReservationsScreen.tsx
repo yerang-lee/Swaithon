@@ -29,6 +29,7 @@ import {
 } from '../../services/api/reservations';
 import { isMockMode } from '../../services/devMock';
 import { ListingImage } from '../products/ListingImage';
+import { markCatalogChanged } from '../../services/catalogChanges';
 
 type Filter = '전체' | '예정' | '완료' | '취소';
 const upcoming = (status: ReservationStatus) =>
@@ -157,6 +158,7 @@ export function ReservationsScreen({
         void getReservationDetail(selected!)
           .then((data) => {
             if (current()) {
+              if (data.status === 'COMPLETED' && latestStatus !== 'COMPLETED') markCatalogChanged();
               latestStatus = data.status;
               setDetailError('');
               setDetailState({ token, data });
@@ -367,7 +369,7 @@ export function ReservationsScreen({
                 />
                 <View style={styles.detailProductText}>
                   <Text style={styles.productName}>
-                    {active.product_name} {active.quantity}개
+                    {active.product_name} · 예약 {active.quantity}개
                   </Text>
                   <Text style={styles.price}>
                     {active.total_price.toLocaleString('ko-KR')}원
@@ -525,7 +527,7 @@ export function ReservationsScreen({
                           {statusLabel(item.status)}
                         </Text>
                         <Text style={styles.productName}>
-                          {item.product_name} {item.quantity}개
+                          {item.product_name} · 예약 {item.quantity}개
                         </Text>
                         <Text style={styles.price}>
                           {item.total_price.toLocaleString('ko-KR')}원

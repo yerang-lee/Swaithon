@@ -1,5 +1,6 @@
 import { resolveImageUrl } from '../utils/imageUrl';
 import { useLocationRevision } from '../services/locationChanges';
+import { useCatalogRevision } from '../services/catalogChanges';
 import { logAppError } from '../utils/appDiagnostics';
 import {
   getRecommendations,
@@ -55,6 +56,7 @@ const green = theme.colors.primary;
 
 export default function HomeScreen() {
   const sharedLocationRevision = useLocationRevision();
+  const catalogRevision = useCatalogRevision();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   useEffect(() => {
     if (tab && ['홈', '관심상품', '예약', '마이'].includes(tab)) setActive(tab);
@@ -192,6 +194,7 @@ export default function HomeScreen() {
       recommendationToken,
       recommendationsRetry,
       favoriteRevision,
+      catalogRevision,
       location?.latitude,
       location?.longitude,
       locationError,

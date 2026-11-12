@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database import get_db
+from product_display import listing_display_name
 from models import Market, Store, User, Listing, Product
 from schemas import (
     StoreCreateRequest,
@@ -211,7 +212,7 @@ def get_store_products(
             listing_id=listing.listing_id,
             product_id=product.product_id,
             store_id=listing.store_id,
-            product_name=product.product_name,
+            product_name=listing_display_name(product.product_name, listing),
             price=listing.price,
             sale_price=listing.sale_price,
             category_id=product.category_id,
@@ -294,7 +295,7 @@ def get_my_listings(
         MerchantListingItem(
             listing_id=listing.listing_id,
             product_id=listing.product_id,
-            product_name=product.product_name,
+            product_name=listing_display_name(product.product_name, listing),
             image_url=listing.image_url,
             category_id=product.category_id,
             price=listing.price,

@@ -14,6 +14,8 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from ai.recommendation_ai import AIRecommender
 from ai.recommendation_rules import recommend_from_payload
+from ai.recommendation_personalization import personalize_recommendations
+from product_display import listing_display_name
 from ai.recommendation_runtime import MODEL_DIR, MODEL_VERSION, load_demo_recommender, predict_demo
 
 
@@ -91,6 +93,7 @@ class DemoRecommendationTest(unittest.TestCase):
         data = payload()
         candidates = [dict(
             listing=SimpleNamespace(listing_id=int(row["listing_id"]), sale_price=100, price=200,
+                                    sale_quantity=5.0, sale_unit='개',
                                     created_at=datetime.fromisoformat(row["created_at"])),
             product=SimpleNamespace(product_id=int(row["product_id"]), category_id=int(row["category_id"]), product_name="test"),
             store=SimpleNamespace(store_id=int(row["store_id"]), store_name="store"),
@@ -107,7 +110,9 @@ class DemoRecommendationTest(unittest.TestCase):
                          get_recommendation_candidates=MagicMock(return_value=candidates),
                          build_recommendation_payload=MagicMock(return_value=data),
                          save_recommendation_result=MagicMock(), predict_demo=predict_demo,
-                         recommend_from_payload=recommend_from_payload)
+                         recommend_from_payload=recommend_from_payload,
+                         personalize_recommendations=personalize_recommendations,
+                         listing_display_name=listing_display_name)
         exec(compile(ast.Module(body=functions, type_ignores=[]), "recommendations.py", "exec"), namespace)
         app = FastAPI()
         app.state.recommender = self.recommender
@@ -118,8 +123,9 @@ class DemoRecommendationTest(unittest.TestCase):
             result = response.json()
             self.assertEqual(result["recommendation_type"], "ai")
             self.assertEqual(result["model_version"], MODEL_VERSION)
-            expected = self.recommender.recommend(data)["response"]["items"]
-            self.assertEqual([i["listing_id"] for i in result["items"]], [i["listing_id"] for i in expected])
+            self.assertEqual(result['items'][0]['name'], 'test 5개')
+            self.assertEqual({i['category_id'] for i in result['items'][:2]}, {'2'})
+            self.assertTrue(all('ranking_base_score' in i['feature_snapshot'] for i in result['items']))
             saved = namespace["save_recommendation_result"].call_args.kwargs["result"]
             self.assertEqual(saved["items"][0]["feature_snapshot"]["model_version"], MODEL_VERSION)
             with patch.object(self.recommender.model, "predict", side_effect=RuntimeError("failed")):

@@ -97,6 +97,10 @@ const modules = {
   },
   '../utils/appDiagnostics': { logAppError() {} },
 };
+const nameHelpers = {};
+new Function('exports', ts.transpileModule(fs.readFileSync(path.join(__dirname,
+  '../src/utils/listingName.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(nameHelpers);
+modules['../utils/listingName'] = nameHelpers;
 const api = {};
 new Function('require', 'exports', source)((name) => modules[name], api);
 function render() {
@@ -161,7 +165,7 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
     false,
   );
   nodes(tree)
-    .find((node) => node.props?.accessibilityLabel === '상품1 상품 상세')
+    .find((node) => node.props?.accessibilityLabel === '상품1 1봉지 상품 상세')
     .props.onPress();
   assert.deepEqual(routes.pop(), {
     pathname: '/products/[listingId]',

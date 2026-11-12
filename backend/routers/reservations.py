@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, func
 
 from database import get_db
+from product_display import listing_display_name
 from security import get_current_user
 from models import (
     User,
@@ -255,7 +256,7 @@ def create_reservation(
             user_id=current_user.user_id,
             type="RESERVATION",
             title="픽업 예약 완료",
-            content=f"{product.product_name} 픽업 예약이 완료되었습니다.",
+            content=f"{listing_display_name(product.product_name, listing)} 픽업 예약이 완료되었습니다.",
             related_id=reservation.reservation_id,
             is_read=False,
         )
@@ -280,7 +281,7 @@ def create_reservation(
         user_id=current_user.user_id,
         listing_id=listing.listing_id,
         product_id=product.product_id,
-        product_name=product.product_name,
+        product_name=listing_display_name(product.product_name, listing),
         store_id=store.store_id,
         store_name=store.store_name,
         quantity=body.quantity,
@@ -327,8 +328,9 @@ def get_merchant_reservations(
 
     # 해당 가게의 예약 조회
     query = (
-        db.query(Reservation, Product)
+        db.query(Reservation, Product, Listing)
         .join(Product, Reservation.product_id == Product.product_id)
+        .outerjoin(Listing, Reservation.listing_id == Listing.listing_id)
         .filter(Reservation.store_id == store.store_id)
     )
 
@@ -353,7 +355,7 @@ def get_merchant_reservations(
             reservation_id=reservation.reservation_id,
             customer_id=reservation.user_id,
             product_id=reservation.product_id,
-            product_name=product.product_name,
+            product_name=listing_display_name(product.product_name, listing),
             quantity=reservation.quantity,
             unit_price=reservation.unit_price,
             total_price=reservation.total_price,
@@ -362,7 +364,7 @@ def get_merchant_reservations(
             status=reservation.status,
             created_at=reservation.created_at,
         )
-        for reservation, product in results
+        for reservation, product, listing in results
     ]
 
     return MerchantReservationListResponse(
@@ -459,12 +461,13 @@ def get_reservation_detail(
             qr_code_data = new_token
             qr_code_expires_at = new_expires_at
 
+    listing = db.get(Listing, reservation.listing_id)
     # 5. 응답 반환
     return ReservationDetailResponse(
         reservation_id=reservation.reservation_id,
         listing_id=reservation.listing_id,
         product_id=reservation.product_id,
-        product_name=product.product_name,
+        product_name=listing_display_name(product.product_name, listing),
         store_id=reservation.store_id,
         store_name=store.store_name,
         quantity=reservation.quantity,
@@ -603,6 +606,7 @@ def verify_pickup(
             detail="상품을 찾을 수 없습니다."
         )
 
+    listing = db.get(Listing, reservation.listing_id)
     # 10. 픽업 완료 처리 및 QR 무효화
     reservation.status = "COMPLETED"
     reservation.picked_up_at = now
@@ -613,7 +617,7 @@ def verify_pickup(
         user_id=reservation.user_id,
         type="RESERVATION",
         title="픽업 완료",
-        content=f"{product.product_name} 픽업이 완료되었습니다.",
+        content=f"{listing_display_name(product.product_name, listing)} 픽업이 완료되었습니다.",
         related_id=reservation.reservation_id,
         is_read=False,
     )
@@ -636,7 +640,7 @@ def verify_pickup(
         reservation_id=reservation.reservation_id,
         listing_id=reservation.listing_id,
         product_id=reservation.product_id,
-        product_name=product.product_name,
+        product_name=listing_display_name(product.product_name, listing),
         store_name=store.store_name,
         status=reservation.status,
         completed_at=reservation.picked_up_at,
