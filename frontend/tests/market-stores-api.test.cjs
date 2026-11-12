@@ -89,7 +89,7 @@ const store = {
   assert.equal(received.category, null);
   assert.equal(received.phone, null);
   assert.equal(received.image_url, null);
-  for (const field of ['category', 'phone', 'image_url']) {
+  for (const field of ['category', 'phone', 'image_url', 'address', 'description']) {
     const value = field === 'image_url' ? '/uploads/stores/1.png' : '문자열';
     payload = { ...detail, [field]: value };
     assert.equal((await api.getStore(1))[field], field === 'image_url'
@@ -99,7 +99,10 @@ const store = {
       await assert.rejects(() => api.getStore(1), /가게 정보 응답/);
     }
   }
-  for (const field of ['market_name', 'address', 'description']) {
+  payload = { ...detail, address: null, description: null };
+  assert.equal((await api.getStore(1)).address, null);
+  assert.equal((await api.getStore(1)).description, null);
+  for (const field of ['market_name', 'store_name']) {
     payload = { ...detail, [field]: null };
     await assert.rejects(() => api.getStore(1), /가게 정보 응답/);
   }

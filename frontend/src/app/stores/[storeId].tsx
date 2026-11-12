@@ -157,15 +157,16 @@ export default function StoreScreen() {
     setLoading(true);
     setError('');
     void Promise.allSettled([
-      getStore(Number(params.storeId)),
+      getStore(Number(params.storeId)).then((detail) => {
+        if (active) setStore(detail);
+        return detail;
+      }),
       getStoreProducts(Number(params.storeId), page),
     ])
       .then(([detail, result]) => {
         if (!active) return;
         const errors: string[] = [];
-        if (detail.status === 'fulfilled') {
-          setStore(detail.value);
-        } else {
+        if (detail.status === 'rejected') {
           logAppError('store/details', detail.reason);
           errors.push('가게 정보를 불러오지 못했어요.');
         }
