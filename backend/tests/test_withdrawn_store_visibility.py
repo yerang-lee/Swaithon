@@ -80,6 +80,8 @@ class WithdrawnStoreVisibilityTest(unittest.TestCase):
                     function(db=self.db, **kwargs)
                 self.assertEqual(error.exception.status_code, 404)
         self.assertEqual(self.store_routes['get_store'](2, db=self.db).store_id, 2)
+        self.assertEqual(self.store_routes['get_store'](2, db=self.db).market_address, 'address')
+        self.assertIsNone(self.store_routes['get_store'](2, db=self.db).address)
         self.assertEqual(self.store_routes['get_store_products'](2, db=self.db, page=1, size=10).total_count, 1)
 
     def test_product_lists_and_recommendation_candidates_hide_withdrawn_owner(self):

@@ -330,6 +330,7 @@ class VoiceAnalysisResponse(BaseModel):
     }
 
 class StoreDetailResponse(BaseModel):
+    market_address: str | None = None
     store_id: int
     market_id: int
     market_name: str

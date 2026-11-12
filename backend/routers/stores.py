@@ -123,6 +123,7 @@ def get_store(
         store_id=store.store_id,
         market_id=store.market_id,
         market_name=market.market_name,
+        market_address=market.address,
         user_id=store.user_id,
         store_name=store.store_name,
         category=store.category,

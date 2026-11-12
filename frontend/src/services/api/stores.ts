@@ -87,6 +87,7 @@ export async function getMarketStores(
 }
 
 export type StoreDetail = {
+  market_address?: string | null;
   store_id: number;
   store_name: string;
   market_id: number;
@@ -126,7 +127,8 @@ export async function getStore(id: number): Promise<StoreDetail> {
     !['category', 'phone', 'image_url', 'address', 'description'].every((key) => {
       const value = (data as unknown as Record<string, unknown>)[key];
       return value === null || typeof value === 'string';
-    })
+    }) ||
+    (data.market_address !== undefined && data.market_address !== null && typeof data.market_address !== 'string')
   )
     throw new Error('가게 정보 응답을 확인할 수 없어요.');
   return { ...data, image_url: resolveImageUrl(data.image_url) };

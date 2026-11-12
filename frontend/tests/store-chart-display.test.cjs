@@ -64,6 +64,7 @@ function text(tree) {
     '../../utils/appDiagnostics': { logAppError: (...args) => errors.push(args) },
     '../../services/api/stores': {
       getStore: async () => ({ store_name: '테스트 가게', market_name: '테스트 시장', address: null,
+        market_address: '서울시 시장로 10',
         description: '신선한 상품을 판매해요', phone: '02-000-0000', category: '과일', image_url: null }),
       getStoreProducts: async () => { throw new Error('products unavailable'); },
     },
@@ -72,6 +73,8 @@ function text(tree) {
   assert.ok(text(store).includes('테스트 가게'));
   assert.ok(text(store).includes('신선한 상품을 판매해요'));
   assert.ok(text(store).includes('02-000-0000'));
+  assert.ok(text(store).includes('소속 시장 주소: 서울시 시장로 10'));
+  assert.ok(!text(store).includes('주소 정보 없음'));
   assert.ok(text(store).includes('상품 목록을 불러오지 못했어요.'));
   assert.equal(errors.length, 1);
   assert.deepEqual(store.props.edges, ['top', 'bottom']);

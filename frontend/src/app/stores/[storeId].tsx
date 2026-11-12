@@ -234,7 +234,10 @@ export default function StoreScreen() {
           <Text style={styles.address}>
             {mock
               ? '서울특별시 용산구 효창원로42길 (테스트 주소)'
-              : store?.address || params.address || '주소 정보 없음'}
+              : store?.address?.trim() || params.address?.trim() ||
+                (store?.market_address?.trim()
+                  ? `소속 시장 주소: ${store.market_address.trim()}`
+                  : '주소 정보 없음')}
           </Text>
           {!!store?.market_name && <Text style={styles.meta}>{store.market_name}</Text>}
           {!!store?.category && <Text style={styles.meta}>{store.category}</Text>}
