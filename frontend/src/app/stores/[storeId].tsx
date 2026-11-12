@@ -16,7 +16,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { ListingImage } from '../../components/products/ListingImage';
 import { BottomNavigation } from '../../components/ui/BottomNavigation';
 import { AppIcon } from '../../components/ui/AppIcon';
-import { isMockMode } from '../../services/devMock';
+
 import {
   getStore,
   getStoreProducts,
@@ -31,41 +31,6 @@ import {
 import { getAuthSession, getMyStoreId } from '../../services/api/auth';
 import { useFavorites } from '../../hooks/useFavorites';
 
-// 상세 API 필드 미확정: 테스트 모드에서만 사용하는 화면 예시입니다.
-const samples = [
-  {
-    id: 'apple',
-    name: '햇사과',
-    price: 5000,
-    salePrice: 4000,
-    status: 'available',
-    image: '',
-  },
-  {
-    id: 'carrot',
-    name: '당근',
-    price: 2500,
-    salePrice: null,
-    status: 'available',
-    image: '',
-  },
-  {
-    id: 'pear',
-    name: '배',
-    price: 6000,
-    salePrice: null,
-    status: 'soldOut',
-    image: '',
-  },
-  {
-    id: 'potato',
-    name: '감자',
-    price: 3000,
-    salePrice: 2500,
-    status: 'ended',
-    image: '',
-  },
-];
 function StorePhoto({ uri }: { uri?: string | null }) {
   const [failed, setFailed] = useState(false);
   const imageUri = uri?.trim().replace(/^<|>$/g, '');
@@ -105,10 +70,9 @@ export default function StoreScreen() {
     storeId: string;
     storeName?: string;
     address?: string;
-    preview?: string;
     marketDistanceMeters?: string;
   }>();
-  const mock = isMockMode() || params.preview === 'true';
+
   const [store, setStore] = useState<StoreDetail | null>(null);
   const [listings, setListings] = useState<StoreListing[]>([]);
   const [page, setPage] = useState(1);
@@ -147,12 +111,11 @@ export default function StoreScreen() {
   const marketDistance = useMarketDistance(
     ownStore ? undefined : store?.market_id,
     ownStore ? undefined : params.marketDistanceMeters,
-    mock,
   );
   const distanceParams = marketDistanceParams(marketDistance);
   const { favorites, pendingFavorites, toggleFavorite } = useFavorites();
   useEffect(() => {
-    if (mock) return;
+
     let active = true;
     setLoading(true);
     setError('');
@@ -204,10 +167,8 @@ export default function StoreScreen() {
     return () => {
       active = false;
     };
-  }, [mock, params.storeId, page, retry, catalogRevision]);
-  const products = mock
-    ? samples
-    : listings.map((p) => ({
+  }, [params.storeId, page, retry, catalogRevision]);
+  const products = listings.map((p) => ({
         id: String(p.listing_id),
         name: p.product_name,
         price: p.price,
@@ -232,9 +193,7 @@ export default function StoreScreen() {
             )}
           </View>
           <Text style={styles.address}>
-            {mock
-              ? '서울특별시 용산구 효창원로42길 (테스트 주소)'
-              : store?.address?.trim() || params.address?.trim() ||
+            {store?.address?.trim() || params.address?.trim() ||
                 (store?.market_address?.trim()
                   ? `소속 시장 주소: ${store.market_address.trim()}`
                   : '주소 정보 없음')}
@@ -244,9 +203,7 @@ export default function StoreScreen() {
           {!!store?.phone && <Text style={styles.meta}>{store.phone}</Text>}
           {!!store?.description && <Text style={styles.address}>{store.description}</Text>}
         </View>
-        {mock && (
-          <Text style={styles.notice}>가게 주소·상품은 테스트 예시입니다.</Text>
-        )}
+
         {products.map((product) => {
           const unavailable = product.status !== 'available';
           const discounted =
@@ -265,7 +222,6 @@ export default function StoreScreen() {
                     pathname: '/products/[listingId]',
                     params: {
                       listingId: product.id,
-                      preview: params.preview,
                       ...distanceParams,
                     },
                   })
@@ -274,7 +230,7 @@ export default function StoreScreen() {
               >
                 <View style={styles.imageBox}>
                   <ListingImage listingId={product.id} uri={product.image}
-                    style={styles.image} label={`${product.name} 사진`} preview={mock} />
+                    style={styles.image} label={`${product.name} 사진`}  />
                   {unavailable && (
                     <View style={styles.imageOverlay}>
                       <Text style={styles.badge}>
@@ -318,7 +274,7 @@ export default function StoreScreen() {
                   }}
                   disabled={pendingFavorites.includes(product.id)}
                   onPress={() =>
-                    void toggleFavorite(product.id, { preview: mock })
+                    void toggleFavorite(product.id)
                   }
                   style={styles.heart}
                 >
@@ -349,10 +305,10 @@ export default function StoreScreen() {
             </Pressable>
           </View>
         )}
-        {!mock && !loading && !error && products.length === 0 && (
+        {!loading && !error && products.length === 0 && (
           <Text style={styles.notice}>등록된 상품이 없어요.</Text>
         )}
-        {!mock && !loading && !error && page * 10 < total && (
+        {!loading && !error && page * 10 < total && (
           <Pressable onPress={() => setPage((v) => v + 1)}>
             <Text style={styles.notice}>상품 더 보기</Text>
           </Pressable>

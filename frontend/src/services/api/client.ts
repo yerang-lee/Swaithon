@@ -31,9 +31,6 @@ async function requestJson(
   token?: string,
   expectedStatus?: number,
 ): Promise<unknown> {
-  if (isMockMode()) return mockRequest(path, method, body, token);
-  if (token?.startsWith('mock-only-'))
-    throw new Error('테스트 세션이 종료됐어요. 다시 로그인해주세요.');
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!baseUrl) {
     logApiError(method, path, 'EXPO_PUBLIC_API_URL이 설정되지 않았습니다.');
@@ -152,4 +149,3 @@ export class ApiError extends Error {
 }
 
 import { logApiError } from '../../utils/apiDiagnostics';
-import { isMockMode, mockRequest } from '../devMock';

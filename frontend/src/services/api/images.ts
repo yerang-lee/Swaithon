@@ -3,7 +3,6 @@ import { postMultipart } from './multipart';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { getAuthSession } from './auth';
 import { ApiError, deleteJson } from './client';
-import { isMockMode } from '../devMock';
 
 export type UploadedProductImage = {
   image_id: number;
@@ -14,11 +13,7 @@ export type UploadedProductImage = {
   message: string;
 };
 export type DeletedProductImage = { image_id: number; message: string };
-const mockImages = new Map<
-  number,
-  { owner: string; image: UploadedProductImage }
->();
-let nextMockImageId = 1000;
+
 const validId = (value: unknown): value is number =>
   Number.isSafeInteger(value) && (value as number) > 0;
 
@@ -36,20 +31,7 @@ export async function uploadProductImage(
   if (listingId !== undefined && !validId(listingId))
     throw new Error('판매 상품 ID를 확인해주세요.');
   if (!photo.uri) throw new Error('업로드할 사진을 선택해주세요.');
-  if (isMockMode()) {
-    const image: UploadedProductImage = {
-      image_id: ++nextMockImageId,
-      listing_id: listingId ?? null,
-      image_url: photo.uri,
-      file_name: photo.fileName ?? 'product.jpg',
-      uploaded_at: new Date().toISOString(),
-      message: '이미지가 업로드되었습니다.',
-    };
-    mockImages.set(image.image_id, { owner: session.access_token, image });
-    return image;
-  }
-  if (session.access_token.startsWith('mock-only-'))
-    throw new Error('테스트 세션이 종료됐어요. 다시 로그인해주세요.');
+
   const base = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!base) throw new Error('API 서버 주소가 설정되지 않았어요.');
   const controller = new AbortController();
@@ -143,14 +125,7 @@ export async function deleteProductImage(
     throw new Error('다시 로그인해주세요.');
   if (!validId(imageId)) throw new Error('이미지 ID를 확인해주세요.');
   try {
-    if (isMockMode()) {
-      const saved = mockImages.get(imageId);
-      if (!saved) throw new ApiError(404, '이미지를 찾을 수 없어요.');
-      if (saved.owner !== session.access_token)
-        throw new ApiError(403, '이미지를 삭제할 권한이 없어요.');
-      mockImages.delete(imageId);
-      return { image_id: imageId, message: '이미지가 삭제되었습니다.' };
-    }
+
     const data = await deleteJson(
       `/images/${imageId}`,
       session.access_token,

@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
 import { postMultipart } from './multipart';
 import { getAuthSession } from './auth';
-import { isMockMode } from '../devMock';
 
 export const AUDIO_LIMIT = { milliseconds: 30000, bytes: 10 * 1024 * 1024 };
 export const registrationConfirmEndpoint =
@@ -516,7 +515,7 @@ async function request(
 ): Promise<VoiceCommand> {
   const access = token();
   const start = Date.now();
-  if (isMockMode()) return mockRequest(path, body, access, previousId);
+
   const base = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!base) throw new Error('서버 주소가 설정되지 않았어요.');
   const controller = new AbortController(),
@@ -660,180 +659,4 @@ export async function executeCommand(command: VoiceCommand, retry = false) {
     { command_id: command.command_id, confirmed: true },
     command.command_id,
   );
-}
-let sequence = 0;
-const drafts = new Map<string, { owner: string; value: VoiceCommand }>();
-function clone(value: VoiceCommand): VoiceCommand {
-  return JSON.parse(JSON.stringify(value)) as VoiceCommand;
-}
-function mockRequest(
-  path: string,
-  body: FormData | Record<string, unknown> | undefined,
-  owner: string,
-  previousId?: string,
-): VoiceCommand {
-  if (!previousId) {
-    const text =
-      body instanceof FormData
-        ? '사과 3개 5천 원 등록해 줘'
-        : String(body?.text ?? '');
-    if (text.includes('조회') || text.trim() === '취소')
-      throw new CommandError(
-        422,
-        'ANALYSIS_FAILED',
-        '상품 등록·수정 등 처리할 내용을 말해주세요.',
-      );
-    const status: CommandStatus = text.includes('질문')
-      ? 'NEEDS_INPUT'
-      : text.includes('후보')
-        ? 'NEEDS_SELECTION'
-        : 'READY';
-    const deleting = text.includes('삭제');
-    const intent = deleting
-      ? 'PRODUCT_DELETE'
-      : text.includes('품절')
-        ? 'SOLD_OUT'
-        : text.includes('할인')
-          ? text.includes('종료')
-            ? 'SALE_DELETE'
-            : text.includes('수정')
-              ? 'SALE_UPDATE'
-              : 'SALE_CREATE'
-          : text.includes('등록')
-            ? 'PRODUCT_CREATE'
-            : 'PRODUCT_UPDATE';
-    const saleIntent = intent === 'SALE_CREATE' || intent === 'SALE_UPDATE';
-    const endpoint: Record<string, string> = {
-      PRODUCT_CREATE: registrationConfirmEndpoint,
-      PRODUCT_UPDATE: '/voice/product-update',
-      PRODUCT_DELETE: '/voice/product-delete',
-      SOLD_OUT: '/voice/sold-out',
-      SALE_CREATE: '/voice/sale-registration',
-      SALE_DELETE: '/voice/sale-delete',
-    };
-    const value: VoiceCommand = {
-      command_id: `mock-command-${++sequence}`,
-      status,
-      intent,
-      message:
-        status === 'NEEDS_INPUT'
-          ? '가격을 얼마로 할까요?'
-          : status === 'NEEDS_SELECTION'
-            ? '어떤 사과인지 선택해주세요.'
-            : '처리할 내용을 확인해주세요.',
-      transcript: text,
-      execution_endpoint:
-        status === 'READY' ? (endpoint[intent] ?? null) : null,
-      candidates:
-        status === 'NEEDS_SELECTION'
-          ? [
-              {
-                listing_id: 'sample-a',
-                product_name: '사과',
-                sale_quantity: 3,
-                sale_unit: '개',
-                price: 5000,
-              },
-              {
-                listing_id: 'sample-b',
-                product_name: '사과',
-                sale_quantity: 10,
-                sale_unit: '개',
-                price: 10000,
-              },
-            ]
-          : [],
-      preview: {
-        before: {
-          product_name: '사과',
-          price: 5000,
-          sale_quantity: 3,
-          sale_unit: '개',
-          stock_quantity: 8,
-        },
-        after: deleting
-          ? { status: 'DELETED' }
-          : {
-              product_name: '사과',
-              price: 6000,
-              effective_price: saleIntent ? 4800 : 6000,
-              sale_active: saleIntent,
-              sale_quantity: 3,
-              sale_unit: '개',
-              stock_quantity: 8,
-            },
-      },
-      result: null,
-      analysis_result: {
-        product_name: '사과',
-        price: status === 'NEEDS_INPUT' ? null : 6000,
-        effective_price:
-          status === 'NEEDS_INPUT' ? null : saleIntent ? 4800 : 6000,
-        sale_active: saleIntent,
-        unit: '한 봉지',
-        category: 'FRUIT',
-        category_name: '과일',
-      },
-      missing_fields: status === 'NEEDS_INPUT' ? ['price'] : [],
-      needs_confirmation: status === 'READY',
-      question: status === 'NEEDS_INPUT' ? '가격을 얼마로 할까요?' : undefined,
-      expiresAt: Date.now() + 600000,
-    };
-    drafts.set(value.command_id, { owner, value });
-    return clone(value);
-  }
-  const item = drafts.get(previousId);
-  if (!item || item.owner !== owner)
-    throw new CommandError(404, 'NOT_FOUND', '명령에 접근할 수 없어요.');
-  const value = item.value;
-  if (path.endsWith('/cancel')) {
-    if (value.status === 'SUCCEEDED')
-      throw new CommandError(409, 'STALE_COMMAND', '이미 실행된 명령이에요.');
-    value.status = 'CANCELLED';
-    value.execution_endpoint = null;
-    value.message = '변경하지 않고 취소했어요.';
-    return clone(value);
-  }
-  const executing = executionPaths.includes(
-    path as (typeof executionPaths)[number],
-  );
-  if (executing && value.status === 'SUCCEEDED') return clone(value);
-  if (value.expiresAt <= Date.now() || value.status === 'CANCELLED')
-    throw new CommandError(409, 'EXPIRED', '명령이 만료되었거나 취소됐어요.');
-  if (executing) {
-    if (
-      path !== value.execution_endpoint ||
-      !['READY', 'NEEDS_CONFIRMATION'].includes(value.status)
-    )
-      throw new CommandError(409, 'WRONG_ENDPOINT', '새로 분석해주세요.');
-    value.status = 'SUCCEEDED';
-    value.result = {
-      ...value.preview.after,
-      product_id: 101,
-      listing_id: 1001,
-      store_id: 101,
-    };
-    value.execution_endpoint = null;
-    value.message = '상품 변경을 완료했어요.';
-    return clone(value);
-  }
-  waiting(value);
-  value.transcript =
-    body instanceof FormData ? '6천 원' : String(body?.text ?? '상품 선택');
-  value.status = 'READY';
-  value.execution_endpoint =
-    value.intent === 'PRODUCT_CREATE'
-      ? registrationConfirmEndpoint
-      : '/voice/product-update';
-  value.analysis_result = {
-    ...value.analysis_result,
-    price: 6000,
-    effective_price: 6000,
-  };
-  value.missing_fields = [];
-  value.needs_confirmation = true;
-  value.question = undefined;
-  value.candidates = [];
-  value.message = '변경할 내용을 확인해주세요.';
-  return clone(value);
 }

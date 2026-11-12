@@ -30,7 +30,6 @@ export function ReservationPickupQr({
   error,
   onRefresh,
   disabled = false,
-  testMode = false,
   status,
 }: {
   detail: ReservationDetail | null;
@@ -38,7 +37,6 @@ export function ReservationPickupQr({
   error: string;
   onRefresh: () => void;
   disabled?: boolean;
-  testMode?: boolean;
   status?: ReservationStatus;
 }) {
   const { width } = useWindowDimensions();
@@ -89,11 +87,7 @@ export function ReservationPickupQr({
   return (
     <View style={styles.panel}>
       <Text style={styles.title}>픽업 QR 코드</Text>
-      {testMode && (
-        <Text style={styles.test}>
-          테스트용 QR · 실제 픽업에는 사용할 수 없어요.
-        </Text>
-      )}
+
       {loading ? (
         <ActivityIndicator
           accessibilityLabel="예약 상세 및 QR 조회 중"
@@ -188,12 +182,7 @@ const styles = StyleSheet.create({
     color: '#777777',
     textAlign: 'center',
   },
-  test: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#98651E',
-    textAlign: 'center',
-  },
+
   error: {
     fontSize: 16,
     lineHeight: 24,

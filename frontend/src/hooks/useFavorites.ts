@@ -31,7 +31,7 @@ type FavoriteState = {
   items: FavoriteView[];
   pending: string[];
 };
-type FavoriteOptions = { requestId?: string; preview?: boolean };
+type FavoriteOptions = { requestId?: string };
 let state: FavoriteState = { ids: [], items: [], pending: [] };
 let generation = 0;
 let mutationRevision = 0;
@@ -58,16 +58,6 @@ async function toggleFavorite(
   id: string,
   options: FavoriteOptions = {},
 ): Promise<void> {
-  if (options.preview) {
-    mutationRevision++;
-    publish({
-      ...state,
-      ids: state.ids.includes(id)
-        ? state.ids.filter((value) => value !== id)
-        : [...state.ids, id],
-    });
-    return;
-  }
   const token = getAuthSession()?.access_token;
   if (ownerToken !== undefined && ownerToken !== token) clearFavorites();
   ownerToken = token;
@@ -158,12 +148,8 @@ export function synchronizeFavorites(
   )
     return false;
   const normalized = items.map(favoriteView);
-  const previousServerIds = new Set(state.items.map((item) => item.listing_id));
-  const previewIds = state.ids.filter((id) => !previousServerIds.has(id));
   publish({
-    ids: [
-      ...new Set([...previewIds, ...normalized.map((item) => item.listing_id)]),
-    ],
+    ids: [...new Set(normalized.map((item) => item.listing_id))],
     items: normalized,
     pending: state.pending,
   });

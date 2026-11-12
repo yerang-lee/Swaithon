@@ -11,12 +11,11 @@ import { logAppError } from '../utils/appDiagnostics';
 export function useMarketDistance(
   marketId: string | number | null | undefined,
   passedDistance?: string,
-  preview = false,
 ): number | null {
   const revision = useLocationRevision();
   // A route can outlive its location; discard its old distance after a shared location change.
   const passed = revision === 0 ? parseMarketDistance(passedDistance) : null;
-  const key = `${String(marketId)}:${passedDistance ?? ''}:${preview}:${revision}`;
+  const key = `${String(marketId)}:${passedDistance ?? ''}:${revision}`;
   const [resolved, setResolved] = useState<{
     key: string;
     distance: number | null;
@@ -24,7 +23,6 @@ export function useMarketDistance(
   useEffect(() => {
     if (
       passed !== null ||
-      preview ||
       marketId === null ||
       marketId === undefined ||
       !String(marketId).trim()
@@ -51,6 +49,6 @@ export function useMarketDistance(
     return () => {
       alive = false;
     };
-  }, [marketId, passedDistance, preview, revision]);
+  }, [marketId, passedDistance, revision]);
   return passed ?? (resolved?.key === key ? resolved.distance : null);
 }

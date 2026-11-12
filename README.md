@@ -100,7 +100,6 @@ Copy-Item .env.example .env
 
 ```dotenv
 EXPO_PUBLIC_API_URL=http://<백엔드 PC의 LAN IP>:8000
-EXPO_PUBLIC_MOCK_API=false
 EXPO_PUBLIC_KAKAO_MAP_KEY=<카카오 JavaScript 키>
 EXPO_PUBLIC_KAKAO_MAP_ORIGIN=https://localhost
 ```
@@ -108,7 +107,6 @@ EXPO_PUBLIC_KAKAO_MAP_ORIGIN=https://localhost
 | 변수 | 용도 |
 | --- | --- |
 | `EXPO_PUBLIC_API_URL` | 앱에서 접근할 백엔드 주소 |
-| `EXPO_PUBLIC_MOCK_API` | 개발용 모의 API 기본 활성화 여부 |
 | `EXPO_PUBLIC_KAKAO_MAP_KEY` | 지도 화면에서 사용하는 JavaScript 키 |
 | `EXPO_PUBLIC_KAKAO_MAP_ORIGIN` | 네이티브 WebView에서 사용하는 지도 origin |
 
@@ -130,13 +128,7 @@ Android 에뮬레이터는 Android 개발 환경이 필요하고, iOS 시뮬레�
 
 휴대폰에서 `localhost`는 휴대폰 자신을 가리킵니다. 실기기 테스트 시 API 주소에는 백엔드 PC의 LAN IP를 사용하고, PC와 휴대폰 사이의 네트워크 연결 및 방화벽 설정을 확인합니다. 환경변수 변경 후에는 Expo를 재시작합니다.
 
-### 2. 백엔드 없이 화면 확인
-
-개발 모드의 로그인 화면에서 **고객으로 테스트** 또는 **상인으로 테스트**를 선택합니다. 기본으로 활성화하려면 `EXPO_PUBLIC_MOCK_API=true`로 설정합니다.
-
-테스트 데이터와 상품 변경은 모의 처리되며 실제 회원·상품으로 저장되지 않습니다. 지도는 별도 외부 서비스 설정이 필요합니다.
-
-### 3. 백엔드
+### 2. 백엔드
 
 별도 터미널에서 저장소 루트를 기준으로 실행합니다. Python 3.11 이상과 PostgreSQL을 준비하고, 음성 파일 처리에 필요한 FFmpeg가 `PATH`에 등록되어 있는지 확인합니다.
 

@@ -27,7 +27,7 @@ import {
   type ReservationItem,
   type ReservationStatus,
 } from '../../services/api/reservations';
-import { isMockMode } from '../../services/devMock';
+
 import { ListingImage } from '../products/ListingImage';
 import { markCatalogChanged } from '../../services/catalogChanges';
 
@@ -407,7 +407,7 @@ export function ReservationsScreen({
               error={detailError}
               onRefresh={refreshDetail}
               disabled={cancelling}
-              testMode={isMockMode()}
+
             />
           </ScrollView>
           <View style={styles.actions}>
@@ -420,7 +420,6 @@ export function ReservationsScreen({
                   params: {
                     storeId: String(active.store_id),
                     storeName: active.store_name,
-                    ...(isMockMode() ? { preview: 'true' } : {}),
                   },
                 })
               }

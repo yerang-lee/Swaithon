@@ -11,7 +11,7 @@ import {
   type ReservationDetail,
 } from '../../services/api/reservations';
 import { getAuthSession } from '../../services/api/auth';
-import { isMockMode } from '../../services/devMock';
+
 import { logAppError } from '../../utils/appDiagnostics';
 
 export default function ReservationDetailScreen() {
@@ -116,7 +116,7 @@ export default function ReservationDetailScreen() {
           detail={detail}
           loading={loading}
           error={error}
-          testMode={isMockMode()}
+
           onRefresh={() => {
             generation.current++;
             setResult(null);

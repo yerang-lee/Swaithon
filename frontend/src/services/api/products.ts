@@ -1,4 +1,3 @@
-import { mockRequest } from '../devMock';
 import { ApiError, getJson } from './client';
 import { resolveImageUrl } from '../../utils/imageUrl';
 export type ProductDetail = {
@@ -18,7 +17,6 @@ export type ProductDetail = {
 };
 export async function getProduct(
   listingId: string,
-  preview = false,
 ): Promise<ProductDetail> {
   if (
     typeof listingId !== 'string' ||
@@ -28,9 +26,7 @@ export async function getProduct(
     throw new Error('잘못된 판매 게시물 ID예요.');
   let data: unknown;
   try {
-    data = await (preview
-      ? mockRequest(`/products/${encodeURIComponent(listingId)}`, 'GET')
-      : getJson(`/products/${encodeURIComponent(listingId)}`));
+    data = await getJson(`/products/${encodeURIComponent(listingId)}`);
   } catch (error) {
     globalThis.__jangbosoLogError?.('services/api/products.ts', error);
     if (error instanceof ApiError) {
@@ -100,7 +96,6 @@ export type ProductQuery = {
 };
 export async function getProducts(
   options: ProductQuery = {},
-  preview = false,
 ): Promise<ProductPage> {
   const page = options.page ?? 1,
     size = options.size ?? 10;
@@ -130,9 +125,7 @@ export async function getProducts(
     if (options[key] !== undefined) query.set(key, String(options[key]));
   let result: ProductPage;
   try {
-    result = (await (preview
-      ? mockRequest(`/products?${query}`, 'GET')
-      : getJson(`/products?${query}`))) as ProductPage;
+    result = (await getJson(`/products?${query}`)) as ProductPage;
   } catch (e) {
     globalThis.__jangbosoLogError?.('services/api/products.ts', e);
     if (e instanceof ApiError)

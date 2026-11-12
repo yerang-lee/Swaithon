@@ -20,7 +20,6 @@ import { AppIcon } from '../../components/ui/AppIcon';
 import {
   getMarketStores,
   type MarketStore,
-  type MarketStoresPage,
 } from '../../services/api/stores';
 import { getProducts, type ProductListing } from '../../services/api/products';
 import { productCategories } from '../../constants/productCategories';
@@ -31,8 +30,6 @@ import {
   marketDistanceParams,
 } from '../../utils/marketDistance';
 import { theme } from '../../constants/theme';
-
-import { mockRequest } from '../../services/devMock';
 
 function Thumbnail({ uri }: { uri?: string | null }) {
   const [failed, setFailed] = useState(false);
@@ -52,17 +49,15 @@ function Thumbnail({ uri }: { uri?: string | null }) {
 }
 export default function MarketScreen() {
   const catalogRevision = useCatalogRevision();
-  const { marketId, marketName, preview, marketDistanceMeters } =
+  const { marketId, marketName, marketDistanceMeters } =
     useLocalSearchParams<{
       marketId: string;
       marketName?: string;
-      preview?: string;
       marketDistanceMeters?: string;
     }>();
   const marketDistance = useMarketDistance(
     marketId,
     marketDistanceMeters,
-    preview === 'true',
   );
   const distanceParams = marketDistanceParams(marketDistance);
   const [tab, setTab] = useState<'stores' | 'products'>('stores');
@@ -95,14 +90,7 @@ export default function MarketScreen() {
       setProducts([]);
     }
     if (tab === 'stores') {
-      void (
-        preview === 'true'
-          ? (mockRequest(
-              `/markets/${Number(marketId)}/stores?page=${page}&size=10&keyword=${encodeURIComponent(keyword)}`,
-              'GET',
-            ) as Promise<MarketStoresPage>)
-          : getMarketStores(Number(marketId), page, keyword)
-      )
+      void getMarketStores(Number(marketId), page, keyword)
         .then((result) => {
           if (!alive) return;
           setStores((previous) =>
@@ -140,8 +128,7 @@ export default function MarketScreen() {
           ...(sellingOnly ? { is_sold_out: false } : {}),
           ...(saleOnly ? { is_on_sale: true } : {}),
         },
-        preview === 'true',
-      )
+          )
         .then((result) => {
           if (!alive) return;
           setProducts((previous) =>
@@ -174,7 +161,6 @@ export default function MarketScreen() {
     };
   }, [
     marketId,
-    preview,
     tab,
     page,
     keyword,
@@ -324,11 +310,7 @@ export default function MarketScreen() {
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
         >
-          {preview === 'true' && (
-            <Text style={styles.previewNotice}>
-              홈 화면 예시 시장의 미리보기입니다.
-            </Text>
-          )}
+
           {tab === 'stores'
             ? stores.map((store) => (
                 <Pressable
@@ -342,8 +324,7 @@ export default function MarketScreen() {
                         storeName: store.store_name,
                         ...distanceParams,
                         ...(store.address ? { address: store.address } : {}),
-                        preview,
-                      },
+                                          },
                     })
                   }
                   style={styles.row}
@@ -377,7 +358,7 @@ export default function MarketScreen() {
                       onPress={() =>
                         router.push({
                           pathname: '/products/[listingId]',
-                          params: { listingId: id, preview, ...distanceParams },
+                          params: { listingId: id, ...distanceParams },
                         })
                       }
                       style={styles.product}
@@ -385,7 +366,7 @@ export default function MarketScreen() {
                       <View style={styles.imageWrap}>
                         <ListingImage listingId={id} uri={product.image_url}
                           style={styles.image} label={`${product.product_name} 사진`}
-                          preview={preview === 'true'} />
+                           />
                         {product.is_sold_out && (
                           <View style={styles.soldOutOverlay}>
                             <Text style={styles.soldOutBadge}>품절</Text>
@@ -431,7 +412,7 @@ export default function MarketScreen() {
                       accessibilityState={{ selected: favorites.includes(id) }}
                       disabled={pendingFavorites.includes(id)}
                       onPress={() =>
-                        void toggleFavorite(id, { preview: preview === 'true' })
+                        void toggleFavorite(id)
                       }
                       style={styles.heart}
                     >
@@ -713,13 +694,6 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     paddingVertical: 20,
     lineHeight: 22,
-  },
-
-  previewNotice: {
-    color: theme.colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-    marginVertical: 10,
   },
 
   status: {

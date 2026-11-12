@@ -28,11 +28,9 @@ const date = (s: string) =>
   });
 export function PriceHistoryChart({
   listingId,
-  preview = false,
   saleActive = false,
 }: {
   listingId: string;
-  preview?: boolean;
   saleActive?: boolean;
 }) {
   const [result, setResult] = useState<{
@@ -51,10 +49,6 @@ export function PriceHistoryChart({
     setError('');
     setSelected(null);
     setDays(0);
-    if (preview) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     void getPriceHistory(listingId)
       .then((data) => {
@@ -73,7 +67,7 @@ export function PriceHistoryChart({
     return () => {
       active = false;
     };
-  }, [listingId, preview, retry]);
+  }, [listingId, retry]);
   const data = result?.id === listingId ? result.data : null;
   if (loading)
     return (
@@ -84,17 +78,13 @@ export function PriceHistoryChart({
   if (!data)
     return (
       <View style={styles.message}>
-        <Text style={styles.muted}>
-          {preview ? '미리보기 상품은 가격 이력이 없어요.' : error}
-        </Text>
-        {!preview && (
-          <Pressable
-            onPress={() => setRetry((v) => v + 1)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.retry}>다시 시도</Text>
-          </Pressable>
-        )}
+        <Text style={styles.muted}>{error}</Text>
+        <Pressable
+          onPress={() => setRetry((v) => v + 1)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.retry}>다시 시도</Text>
+        </Pressable>
       </View>
     );
   const points = data.price_history.filter(

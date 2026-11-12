@@ -20,7 +20,6 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { PickupTimeSheet } from '../../components/reservations/PickupTimeSheet';
-import { demoProducts } from '../../data/demoProducts';
 import { useMarketDistance } from '../../hooks/useMarketDistance';
 import {
   formatMarketDistance,
@@ -38,16 +37,14 @@ import {
 
 export default function ProductDetail() {
   const catalogRevision = useCatalogRevision();
-  const { listingId, preview, requestId, marketDistanceMeters } =
+  const { listingId, requestId, marketDistanceMeters } =
     useLocalSearchParams<{
       listingId: string;
-      preview?: string;
       requestId?: string;
       marketDistanceMeters?: string;
     }>();
-  const demo = demoProducts.find((value) => value.id === listingId);
   const [data, setData] = useState<ProductData | null>(null);
-  const [loading, setLoading] = useState(!demo);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const [imageError, setImageError] = useState(false);
@@ -62,12 +59,8 @@ export default function ProductDetail() {
     setError('');
     setImageError(false);
     setImageOpen(false);
-    if (demo) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
-    void getProduct(listingId, preview === 'true')
+    void getProduct(listingId)
       .then((result) => {
         if (alive) setData(result);
       })
@@ -81,11 +74,10 @@ export default function ProductDetail() {
     return () => {
       alive = false;
     };
-  }, [listingId, demo, retry, preview, catalogRevision]);
+  }, [listingId, retry, catalogRevision]);
   const marketDistance = useMarketDistance(
     data?.market_id,
     marketDistanceMeters,
-    !!demo || preview === 'true',
   );
   const distanceParams = marketDistanceParams(marketDistance);
   useRecommendationView({
@@ -94,11 +86,9 @@ export default function ProductDetail() {
     ready:
       !loading &&
       !!data &&
-      String(data.listing_id) === listingId &&
-      !demo &&
-      preview !== 'true',
+      String(data.listing_id) === listingId,
   });
-  if (loading || (!demo && !data))
+  if (loading || !data)
     return (
       <SafeAreaView style={styles.safe}>
         <PageHeader title="" onBack={() => router.back()} />
@@ -114,32 +104,20 @@ export default function ProductDetail() {
         )}
       </SafeAreaView>
     );
-  const id = String(data?.listing_id ?? demo!.id);
+  const id = String(data.listing_id);
   const favorite = favorites.includes(id);
-  const name = data?.product_name ?? demo!.name;
-  const store = data?.store_name ?? demo!.store;
-  const market = data?.market_name ?? demo?.market ?? '';
-  const distance = demo
-    ? demo.distance
-    : marketDistance !== null
-      ? formatMarketDistance(marketDistance)
-      : '';
-  const price = data
-    ? `${(data.sale_price ?? data.price).toLocaleString('ko-KR')}원`
-    : demo!.price;
+  const name = data.product_name;
+  const store = data.store_name;
+  const market = data.market_name;
+  const distance = marketDistance !== null ? formatMarketDistance(marketDistance) : '';
+  const price = `${(data.sale_price ?? data.price).toLocaleString('ko-KR')}원`;
   const imageUrl = data?.image_url?.replace(/^<|>$/g, '');
   const soldOut = data?.is_sold_out ?? false;
   const discounted =
     !!data && data.sale_price !== null && data.sale_price < data.price;
   async function confirm(date: Date, quantity: number, note: string) {
     if (lock.current) return;
-    if (!data || preview === 'true') {
-      Alert.alert(
-        '미리보기 상품',
-        '실제 상품 ID와 서버가 연결되면 예약할 수 있어요.',
-      );
-      return;
-    }
+    if (!data) return;
     lock.current = true;
     setSubmitting(true);
     try {
@@ -202,9 +180,9 @@ export default function ProductDetail() {
             </Pressable>
           ) : (
             <>
-              <Text style={styles.emoji}>{demo?.emoji ?? '🛍️'}</Text>
+              <Text style={styles.emoji}>{'🛍️'}</Text>
               <Text style={styles.imageNote}>
-                상품 이미지 {demo ? '연결 예정' : '없음'}
+                상품 이미지 없음
               </Text>
             </>
           )}
@@ -217,7 +195,7 @@ export default function ProductDetail() {
         <View style={styles.details}>
           <View style={styles.productRow}>
             <Text style={styles.name}>
-              {name} {demo?.quantity ?? ''}
+              {name}
             </Text>
             <Text style={[styles.price, discounted && styles.salePrice]}>
               {price}
@@ -230,9 +208,8 @@ export default function ProductDetail() {
               router.push({
                 pathname: '/stores/[storeId]',
                 params: {
-                  storeId: String(data?.store_id ?? demo!.storeId),
+                  storeId: String(data!.store_id),
                   storeName: store,
-                  preview: demo ? 'true' : preview,
                   ...distanceParams,
                 },
               });
@@ -258,13 +235,9 @@ export default function ProductDetail() {
             saleActive={discounted}
             key={`${id}-${catalogRevision}`}
             listingId={id}
-            preview={!!demo || preview === 'true'}
+
           />
-          {!!demo && (
-            <Text style={styles.note}>
-              현재 상품 정보는 화면 확인용 예시입니다.
-            </Text>
-          )}
+
         </View>
       </ScrollView>
       <View style={styles.footer}>
@@ -275,7 +248,6 @@ export default function ProductDetail() {
           disabled={pendingFavorites.includes(id)}
           onPress={() =>
             void toggleFavorite(id, {
-              preview: !!demo || preview === 'true',
               requestId,
             })
           }
@@ -307,7 +279,6 @@ export default function ProductDetail() {
           favoritePending={pendingFavorites.includes(id)}
           onToggleFavorite={() =>
             void toggleFavorite(id, {
-              preview: !!demo || preview === 'true',
               requestId,
             })
           }

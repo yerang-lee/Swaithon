@@ -1,7 +1,6 @@
 import { markLocationChanged } from './locationChanges';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { isMockMode, mockLocation } from './devMock';
 
 export type ExplorationLocation = {
   latitude: number;
@@ -11,7 +10,7 @@ export type ExplorationLocation = {
 };
 const storageKey = 'jangboso.exploration-location.v1';
 export async function readLocation(): Promise<ExplorationLocation | null> {
-  if (isMockMode()) return { ...mockLocation };
+
   const raw = await AsyncStorage.getItem(storageKey);
   if (!raw) return null;
   try {
@@ -40,16 +39,12 @@ export function isLocation(value: unknown): value is ExplorationLocation {
   );
 }
 export async function saveLocation(value: ExplorationLocation) {
-  if (isMockMode()) {
-    Object.assign(mockLocation, value);
-    markLocationChanged();
-    return;
-  }
+
   await AsyncStorage.setItem(storageKey, JSON.stringify(value));
   markLocationChanged();
 }
 export async function getCurrentLocation(): Promise<ExplorationLocation> {
-  if (isMockMode()) return { ...mockLocation };
+
   const permission = await Location.requestForegroundPermissionsAsync();
   if (!permission.granted)
     throw new Error(

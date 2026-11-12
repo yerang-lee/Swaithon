@@ -9,7 +9,6 @@ import {
   SafeAreaProvider,
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
-import { MockModeBanner } from '../components/ui/MockModeBanner';
 
 installDiagnostics(() => {
   const session = getAuthSession();
@@ -58,7 +57,7 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#FFFFFF' },
         }}
       />
-      <MockModeBanner />
+
     </SafeAreaProvider>
   );
 }

@@ -17,7 +17,6 @@ import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { getAuthSession } from '../services/api/auth';
 import { verifyPickup, type PickupResult } from '../services/api/pickup';
 import { logAppError } from '../utils/appDiagnostics';
-import { useMockMode } from '../services/devMock';
 
 export default function PickupScan() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -28,7 +27,6 @@ export default function PickupScan() {
   const locked = useRef(false);
   const visit = useRef(0);
   const active = useRef(false);
-  const testMode = useMockMode();
   useFocusEffect(
     useCallback(() => {
       locked.current = false;
@@ -102,11 +100,7 @@ export default function PickupScan() {
           <Text style={styles.note}>상인 계정에서 이용할 수 있어요.</Text>
         ) : (
           <>
-            {testMode && !result && (
-              <Text style={styles.note}>
-                테스트 모드 · 실제 예약은 변경되지 않아요.
-              </Text>
-            )}
+
             {result ? (
               <View style={styles.card}>
                 <Text style={styles.title}>픽업이 완료되었어요</Text>

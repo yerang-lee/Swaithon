@@ -22,12 +22,6 @@ import { SignupRoleStep, type SignupProfile } from './SignupRoleStep';
 import { registerOnboarding } from '../../services/api/onboarding';
 import { ApiError } from '../../services/api/client';
 import { logApiError } from '../../utils/apiDiagnostics';
-import {
-  isMockMode,
-  prepareMockAccount,
-  setMockMode,
-} from '../../services/devMock';
-import { clearFavorites } from '../../hooks/useFavorites';
 
 export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
   const signup = mode === 'signup';
@@ -128,12 +122,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
       setError('닉네임은 50자 이내로 입력해주세요.');
       return;
     }
-    // 일반 인증은 이전 테스트 입장 상태와 관계없이 실제 서버를 사용합니다.
-    if (isMockMode()) {
-      authApi.clearAuthSession();
-      clearFavorites();
-    }
-    setMockMode(false);
+
     setError('');
     if (signup) {
       setRoleStep(true);
@@ -323,50 +312,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
                 </Pressable>
               </View>
             )}
-            {!signup && __DEV__ && (
-              <View style={{ gap: 12, marginTop: 24 }}>
-                <Text style={styles.smallMuted}>
-                  서버 없이 테스트 (예시 데이터)
-                </Text>
-                {(['MERCHANT', 'CUSTOMER'] as const).map((role) => (
-                  <Pressable
-                    key={role}
-                    accessibilityRole="button"
-                    disabled={loading}
-                    style={styles.back}
-                    onPress={async () => {
-                      setLoading(true);
-                      setError('');
-                      authApi.clearAuthSession();
-                      clearFavorites();
-                      setMockMode(true);
-                      try {
-                        await authApi.login(
-                          prepareMockAccount(role),
-                          'mock-only',
-                        );
-                        router.replace('/home');
-                      } catch (e) {
-                        logAppError('components/auth/AuthScreen.tsx', e);
-                        setError(
-                          e instanceof Error
-                            ? e.message
-                            : '테스트 입장에 실패했어요.',
-                        );
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                  >
-                    <Text style={[styles.smallMuted, styles.green]}>
-                      {role === 'MERCHANT'
-                        ? '상인으로 테스트'
-                        : '고객으로 테스트'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+
             {signup && (
               <Pressable
                 accessibilityRole="link"
