@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from market_assets import mount_market_images
 
 from database import test_connection, engine
 from models import (
@@ -85,6 +86,7 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+mount_market_images(app, UPLOAD_DIR)
 
 app.mount(
     "/uploads",

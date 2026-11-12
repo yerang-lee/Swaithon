@@ -77,7 +77,13 @@ export async function getMarketStores(
     throw new Error('가게 목록 응답을 확인할 수 없어요.');
   }
 
-  return result;
+  return {
+    ...result,
+    stores: result.stores.map((store) => ({
+      ...store,
+      image_url: resolveImageUrl(store.image_url),
+    })),
+  };
 }
 
 export type StoreDetail = {
@@ -123,7 +129,7 @@ export async function getStore(id: number): Promise<StoreDetail> {
     })
   )
     throw new Error('가게 정보 응답을 확인할 수 없어요.');
-  return data;
+  return { ...data, image_url: resolveImageUrl(data.image_url) };
 }
 export async function getStoreProducts(
   id: number,

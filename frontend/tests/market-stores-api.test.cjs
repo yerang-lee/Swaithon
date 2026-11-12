@@ -52,6 +52,10 @@ const store = {
   assert.equal(result.stores.length, 2);
   assert.equal(result.stores[0].address, null);
   assert.equal(result.stores[1].address, '서울시 가게 주소');
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.com/api';
+  payload.stores[1].image_url = '/uploads/stores/shop.jpg';
+  assert.equal((await api.getMarketStores(5, 1, ' 과일 ')).stores[1].image_url,
+    'https://api.example.com/uploads/stores/shop.jpg');
   const query = new URL(url, 'https://test.invalid');
   assert.equal(query.pathname, '/markets/5/stores');
   assert.equal(query.searchParams.get('keyword'), '과일');
@@ -86,8 +90,10 @@ const store = {
   assert.equal(received.phone, null);
   assert.equal(received.image_url, null);
   for (const field of ['category', 'phone', 'image_url']) {
-    payload = { ...detail, [field]: '문자열' };
-    assert.equal((await api.getStore(1))[field], '문자열');
+    const value = field === 'image_url' ? '/uploads/stores/1.png' : '문자열';
+    payload = { ...detail, [field]: value };
+    assert.equal((await api.getStore(1))[field], field === 'image_url'
+      ? 'https://api.example.com/uploads/stores/1.png' : value);
     for (const value of [undefined, 123, {}]) {
       payload = { ...detail, [field]: value };
       await assert.rejects(() => api.getStore(1), /가게 정보 응답/);

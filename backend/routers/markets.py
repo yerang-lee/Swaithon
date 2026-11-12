@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from math import radians, sin, cos, sqrt, atan2
 from database import get_db
 from models import Market, Store
+from market_assets import market_photo_path
 from schemas import (
     MarketResponse,
     MarketListResponse,
@@ -307,6 +308,7 @@ async def get_nearby_markets(
             image = market_images.get(document["place_id"]) or named_images.get(
                 document["market_name"].replace(" ", "")
             )
+            image = market_photo_path(document["market_name"], image)
             image_path = image or "/uploads/markets/default-market.jpg"
             # Mobile clients need a complete URL; resolve using this request's
             # server host, never localhost or a baked-in development address.

@@ -137,7 +137,7 @@ const modules = {
             market_name: markets[0].market_name,
             market_distance: markets[0].distance,
             address: '테스트시장내부',
-            image_url: null,
+            image_url: 'https://api.example.com/uploads/stores/9.png',
           },
         ],
         failedMarketCount: 0,
@@ -211,6 +211,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
     ['새 주변 시장', '미등록시장'],
   );
   assert.equal(stores.items[0].name, '실제 가게');
+  assert.equal(stores.items[0].imageUrl, 'https://api.example.com/uploads/stores/9.png');
   assert.equal(stores.items[0].description, '새 주변 시장');
   assert.equal(markets.items[0].description, '');
   assert.ok(!stores.items[0].description.includes('테스트시장내부'));
