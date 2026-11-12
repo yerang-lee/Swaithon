@@ -70,17 +70,15 @@ new Function('require', 'exports', compile('src/hooks/useMarketDistance.ts'))(
               : { logAppError() {} },
   hook,
 );
-const render = (id, passed, preview = false) => {
+const render = (id, passed) => {
   cleanup?.();
-  const value = hook.useMarketDistance(id, passed, preview);
+  const value = hook.useMarketDistance(id, passed);
   cleanup = scheduled.shift()();
   return value;
 };
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 (async () => {
   assert.equal(render(1, '350'), 350);
-  assert.equal(nearbyCalls.length, 0);
-  assert.equal(render(1, undefined, true), null);
   assert.equal(nearbyCalls.length, 0);
   assert.equal(render(5), null);
   await tick();
@@ -100,7 +98,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   await tick();
   stale([{ market_id: 5, distance: 10 }]);
   await tick();
-  assert.equal(state.key, '6::false:0');
+  assert.equal(state.key, '6::0');
   assert.equal(state.distance, 900);
   assert.equal(render(7), null);
   await tick();
@@ -114,7 +112,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   requests.at(-1)([{ market_id: 6, distance: 1600 }]);
   await tick();
   assert.equal(state.distance, 1600);
-  assert.equal(state.key, '6:350:false:1');
+  assert.equal(state.key, '6:350:1');
   console.log(
     'PASS: distance-only formatting, route validation/zero, inherited distance avoids requests, direct entry uses exact market ID, stale response suppression and unavailable distance stays null',
   );

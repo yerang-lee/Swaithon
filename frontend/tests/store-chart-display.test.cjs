@@ -56,7 +56,7 @@ function text(tree) {
   const renderStore = mount('app/stores/[storeId].tsx', {
     'expo-router': { router: {}, useLocalSearchParams: () => ({ storeId: '9' }) },
     '../../services/catalogChanges': { useCatalogRevision: () => 0 },
-    '../../services/devMock': { isMockMode: () => false },
+
     '../../services/api/auth': { getAuthSession: () => null },
     '../../hooks/useMarketDistance': { useMarketDistance: () => null },
     '../../utils/marketDistance': { marketDistanceParams: () => ({}) },

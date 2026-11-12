@@ -991,12 +991,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: theme.colors.muted,
   },
-  demo: {
-    fontSize: 16,
-    color: theme.colors.muted,
-    marginTop: 26,
-    textAlign: 'center',
-  },
+
   modal: {
     flex: 1,
     justifyContent: 'flex-end',

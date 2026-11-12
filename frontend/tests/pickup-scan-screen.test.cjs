@@ -81,7 +81,7 @@ const modules = {
     },
   },
   '../utils/appDiagnostics': { logAppError() {} },
-  '../services/devMock': { useMockMode: () => false },
+
 };
 const api = {};
 new Function('require', 'exports', source)((name) => modules[name], api);

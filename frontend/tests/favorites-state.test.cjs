@@ -113,13 +113,6 @@ const item = {
   await switched;
   assert.equal(api.useFavorites().favorites.includes('104'), false);
   api.clearFavorites();
-  const count = requests.length;
-  await api.useFavorites().toggleFavorite('apple', { preview: true });
-  assert.deepEqual(api.useFavorites().favorites, ['apple']);
-  await api.useFavorites().toggleFavorite('apple', { preview: true });
-  assert.deepEqual(api.useFavorites().favorites, []);
-  assert.equal(requests.length, count);
-  api.clearFavorites();
   const numericAdd = api.useFavorites().toggleFavorite('7');
   requests.at(-1).resolve({
     favorite_id: 8,
@@ -142,7 +135,7 @@ const item = {
   await numericCancel;
   assert.deepEqual(api.useFavorites().favorites, []);
   console.log(
-    'PASS: add/cancel server-confirmed state, favorite ID mapping, no duplicate taps, failure keeps favorite, re-add IDs, stale cancellation/account isolation, preview-only toggles',
+    'PASS: add/cancel server-confirmed state, favorite ID mapping, no duplicate taps, failure keeps favorite, re-add IDs, stale cancellation/account isolation',
   );
 })().catch((e) => {
   console.error(e);

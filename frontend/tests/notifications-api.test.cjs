@@ -157,9 +157,7 @@ new Function(
     compile('src/services/api/client.ts'),
   )(
     (name) =>
-      name === '../devMock'
-        ? { isMockMode: () => false }
-        : { logApiError() {} },
+      ({ logApiError() {} }),
     client,
     async (url, options) => {
       request = { url, ...options };
@@ -181,72 +179,7 @@ new Function(
   assert.equal(request.method, 'PATCH');
   assert.equal(request.body, undefined);
   assert.equal(request.headers.Authorization, 'Bearer owner');
-  const mock = {};
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'process',
-    compile('src/services/devMock.ts'),
-  )(() => ({}), mock, true, { env: {} });
-  const token = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
-  ).access_token;
-  const first = await mock.mockRequest(
-    '/users/me/notifications?page=1&size=10',
-    'GET',
-    undefined,
-    token,
-  );
-  assert.equal(first.notifications.length, 10);
-  assert.equal(first.total_count, 12);
-  const id = first.notifications.find((item) => !item.is_read).notification_id;
-  const read = await mock.mockRequest(
-    `/notifications/${id}/read`,
-    'PATCH',
-    undefined,
-    token,
-  );
-  assert.equal(read.is_read, true);
-  assert.deepEqual(
-    await mock.mockRequest(
-      `/notifications/${id}/read`,
-      'PATCH',
-      undefined,
-      token,
-    ),
-    read,
-  );
-  const unread = await mock.mockRequest(
-    '/users/me/notifications?is_read=false',
-    'GET',
-    undefined,
-    token,
-  );
-  assert.equal(unread.unread_count, first.unread_count - 1);
-  assert.ok(unread.notifications.every((item) => !item.is_read));
-  assert.equal(
-    (
-      await mock.mockRequest(
-        '/users/me/notifications?page=2&size=10',
-        'GET',
-        undefined,
-        token,
-      )
-    ).notifications.length,
-    2,
-  );
-  await assert.rejects(
-    mock.mockRequest('/notifications/1002/read', 'PATCH', undefined, token),
-    (error) => error.status === 403,
-  );
-  await assert.rejects(
-    mock.mockRequest('/notifications/2999/read', 'PATCH', undefined, token),
-    (error) => error.status === 404,
-  );
-  console.log(
-    'PASS: notification GET/Bearer/query/filter/pagination, validation/errors/account guards, bodyless PATCH/200/read response, and mock ownership/idempotent reads',
-  );
+  console.log('PASS: notifications-api server API regression checks');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

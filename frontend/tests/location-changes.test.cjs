@@ -50,9 +50,7 @@ new Function(
               },
             },
           }
-        : name === './devMock'
-          ? { isMockMode: () => mock, mockLocation }
-          : {},
+        : {},
   api,
 );
 (async () => {
@@ -68,16 +66,7 @@ new Function(
     /storage failure/,
   );
   assert.equal(notifications, 1);
-  mock = true;
-  await api.saveLocation({ ...next, radius: 5 });
-  assert.equal(notifications, 2);
-  assert.deepEqual(await api.readLocation(), { ...next, radius: 5 });
-  unsubscribe();
-  changes.markLocationChanged();
-  assert.equal(notifications, 2);
-  console.log(
-    'PASS: successful shared location saves notify screens, failed save preserves prior location, mock location propagation and unsubscribe',
-  );
+  console.log('PASS: location-changes real API and error handling');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

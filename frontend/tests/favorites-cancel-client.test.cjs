@@ -18,7 +18,7 @@ new Function(
   compile('src/services/api/client.ts'),
 )(
   (name) =>
-    name === '../devMock' ? { isMockMode: () => false } : { logApiError() {} },
+    ({ logApiError() {} }),
   client,
   async (url, options) => {
     call = { url, ...options };
@@ -42,80 +42,7 @@ new Function(
     () => client.deleteJson('/favorites/favorite_1', 'test-token', 200),
     /응답 상태/,
   );
-  const mock = {};
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'process',
-    compile('src/services/devMock.ts'),
-  )(() => ({}), mock, true, { env: {} });
-  async function login(phone) {
-    await mock.mockRequest('/auth/signup', 'POST', { phone, name: '테스트' });
-    return (await mock.mockRequest('/auth/login', 'POST', { phone }))
-      .access_token;
-  }
-  const owner = await login('01011112222'),
-    other = await login('01022223333');
-  const saved = await mock.mockRequest(
-    '/favorites',
-    'POST',
-    { listing_id: 101, request_id: 'rec_1' },
-    owner,
-  );
-  const path = '/favorites/' + encodeURIComponent(saved.favorite_id);
-  const listed = await mock.mockRequest(
-    '/users/me/favorites?page=1&size=10',
-    'GET',
-    undefined,
-    owner,
-  );
-  assert.equal(listed.total_count, 1);
-  assert.equal(listed.favorites[0].favorite_id, saved.favorite_id);
-  assert.equal(listed.favorites[0].image_url, null);
-  assert.equal(
-    (
-      await mock.mockRequest(
-        '/users/me/favorites?page=1&size=10',
-        'GET',
-        undefined,
-        other,
-      )
-    ).total_count,
-    0,
-  );
-  await assert.rejects(
-    () => mock.mockRequest(path, 'DELETE', undefined, other),
-    /다른 사용자/,
-  );
-  const removed = await mock.mockRequest(path, 'DELETE', undefined, owner);
-  assert.equal(removed.favorite_id, saved.favorite_id);
-  assert.equal(removed.listing_id, 101);
-  assert.equal(
-    (
-      await mock.mockRequest(
-        '/users/me/favorites?page=1&size=10',
-        'GET',
-        undefined,
-        owner,
-      )
-    ).total_count,
-    0,
-  );
-  await assert.rejects(
-    () => mock.mockRequest(path, 'DELETE', undefined, owner),
-    /찾을 수 없/,
-  );
-  const readded = await mock.mockRequest(
-    '/favorites',
-    'POST',
-    { listing_id: 101 },
-    owner,
-  );
-  assert.notEqual(readded.favorite_id, saved.favorite_id);
-  console.log(
-    'PASS: real client bodyless DELETE/Bearer/200 check, mock ownership and repeated cancellation, re-add creates new favorite ID',
-  );
+  console.log('PASS: favorites-cancel-client server API regression checks');
 })().catch((e) => {
   console.error(e);
   process.exitCode = 1;

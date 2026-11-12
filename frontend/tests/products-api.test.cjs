@@ -46,7 +46,7 @@ new Function('exports', ts.transpileModule(fs.readFileSync(path.join(__dirname,
 new Function('require', 'exports', source)(
   (name) =>
     name === '../../utils/imageUrl' ? imageUrls :
-    name === './client' ? { ApiError, getJson: get } : { mockRequest: get },
+    name === './client' ? { ApiError, getJson: get } : {},
   api,
 );
 (async () => {

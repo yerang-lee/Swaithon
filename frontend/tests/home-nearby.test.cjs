@@ -114,7 +114,7 @@ const modules = {
       toggleFavorite() {},
     }),
   },
-  '../data/demoProducts': { demoProducts: [] },
+
   '../constants/theme': {
     theme: {
       colors: { primary: '#53B175', text: '#000', border: '#DDD' },

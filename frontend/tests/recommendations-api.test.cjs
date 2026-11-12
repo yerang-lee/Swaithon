@@ -162,33 +162,7 @@ const recommend = (options = {}) =>
   session = { access_token: 'current-user', expiresAt: Date.now() + 60000 };
   changeAccount = true;
   await assert.rejects(recommend(), /계정이 변경/);
-  const mock = {};
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'process',
-    compile('src/services/devMock.ts'),
-  )(() => ({}), mock, true, { env: {} });
-  const token = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
-  ).access_token;
-  const preview = await mock.mockRequest(
-    '/recommendations?latitude=37.5&longitude=127&top_n=3',
-    'GET',
-    undefined,
-    token,
-  );
-  assert.equal(preview.items.length, 3);
-  assert.equal(typeof preview.items[0].listing_id, 'string');
-  const detail = await mock.mockRequest(
-    `/products/${preview.items[0].listing_id}`,
-    'GET',
-  );
-  assert.equal(String(detail.listing_id), preview.items[0].listing_id);
-  console.log(
-    'PASS: recommendation query/Bearer contract, rank order, empty/invalid payloads, errors, account guards and mock recommendations/detail IDs',
-  );
+  console.log('PASS: recommendations-api server API regression checks');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

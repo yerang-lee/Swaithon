@@ -57,7 +57,7 @@ const modules = {
       return { image_id: 1001, message: '삭제 완료' };
     },
   },
-  '../devMock': { isMockMode: () => mock },
+
 };
 const api = {};
 new Function('require', 'exports', 'FormData', source)(
@@ -135,20 +135,7 @@ const photo = {
   await assert.rejects(api.deleteProductImage(1001), /삭제할 수 없는/);
   status = 415;
   await assert.rejects(api.uploadProductImage(photo), /지원하지 않는/);
-  mock = true;
-  const saved = await api.uploadProductImage(photo, 101);
-  assert.equal(saved.listing_id, 101);
-  assert.equal((await api.uploadProductImage(photo)).listing_id, null);
-  assert.equal(
-    (await api.deleteProductImage(saved.image_id)).image_id,
-    saved.image_id,
-  );
-  await assert.rejects(api.deleteProductImage(saved.image_id), /찾을 수/);
-  session = null;
-  await assert.rejects(api.deleteProductImage(1001), /로그인/);
-  console.log(
-    'PASS: image multipart field/auth, optional listing ID, upload result validation, deletion contract/errors, mock lifecycle and session guard',
-  );
+  console.log('PASS: images-api real API and error handling');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

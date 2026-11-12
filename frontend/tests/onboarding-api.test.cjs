@@ -87,42 +87,7 @@ const merchant = {
   );
   response = { ...response, store_id: null };
   await assert.rejects(() => api.registerOnboarding(merchant), /응답/);
-  const mock = {};
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'process',
-    compile('src/services/devMock.ts'),
-  )(() => ({}), mock, true, { env: {} });
-  async function account(phone) {
-    await mock.mockRequest('/auth/signup', 'POST', { phone, name: '테스트' });
-    return (await mock.mockRequest('/auth/login', 'POST', { phone }))
-      .access_token;
-  }
-  const token1 = await account('01011112222'),
-    token2 = await account('01011113333');
-  const first = await mock.mockRequest(
-    '/users/me/onboarding',
-    'PATCH',
-    merchant,
-    token1,
-  );
-  const second = await mock.mockRequest(
-    '/users/me/onboarding',
-    'PATCH',
-    { ...merchant, store_name: '다른가게' },
-    token2,
-  );
-  assert.equal(first.market_id, second.market_id);
-  assert.notEqual(first.store_id, second.store_id);
-  await assert.rejects(
-    () => mock.mockRequest('/users/me/onboarding', 'PATCH', merchant, token1),
-    (e) => e.status === 409,
-  );
-  console.log(
-    'PASS: customer role-only, merchant Kakao payload, coordinates/required fields, 200 response, role update, reused market and duplicate onboarding',
-  );
+  console.log('PASS: onboarding-api server API regression checks');
 })().catch((e) => {
   console.error(e);
   process.exitCode = 1;

@@ -103,7 +103,7 @@ const modules = {
     cancelReservation: (id) =>
       new Promise((resolve) => cancels.push({ id, resolve })),
   },
-  '../../services/devMock': { isMockMode: () => true },
+
   '../../utils/appDiagnostics': { logAppError() {} },
   '../../services/catalogChanges': { markCatalogChanged() {} },
   '../products/ListingImage': { ListingImage: 'ListingImage' },
@@ -203,7 +203,7 @@ const panel = (tree) =>
   tree = render();
   assert.equal(panel(tree).detail.qr_code_data, response.qr_code_data);
   assert.equal(panel(tree).detail.status, 'READY');
-  assert.equal(panel(tree).testMode, true);
+  assert.equal(panel(tree).testMode, undefined);
   assert.ok(text(tree).includes('상세 사과'));
   assert.equal(walk(tree).find(n => n.type === 'ListingImage').props.listingId, 101);
   assert.equal(walk(tree).find(n => n.type === 'ListingImage').props.uri, '/uploads/images/reservation.png');

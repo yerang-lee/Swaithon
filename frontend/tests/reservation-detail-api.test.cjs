@@ -112,69 +112,7 @@ new Function('require', 'exports', compile('src/services/api/reservations.ts'))(
       return now;
     }
   }
-  const mock = {};
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'process',
-    'Date',
-    'setTimeout',
-    compile('src/services/devMock.ts'),
-  )(
-    () => ({}),
-    mock,
-    true,
-    { env: {} },
-    ClockDate,
-    (fn) => {
-      fn();
-      return 0;
-    },
-  );
-  const token = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
-  ).access_token;
-  const get = (id, access = token) =>
-    mock.mockRequest(`/reservations/${id}`, 'GET', undefined, access);
-  const list = await mock.mockRequest(
-    '/users/me/reservations?page=1&size=10',
-    'GET',
-    undefined,
-    token,
-  );
-  assert.equal(list.reservations[0].status, 'READY');
-  assert.equal(list.reservations[0].reservation_id, 501);
-  const first = await get(501),
-    same = await get(501);
-  assert.equal(first.qr_code_data, same.qr_code_data);
-  assert.ok(first.qr_code_data.startsWith('TEST_ONLY_PICKUP_'));
-  assert.equal(Date.parse(first.qr_code_expires_at) - now, 24 * 60 * 60 * 1000);
-  now += 24 * 60 * 60 * 1000 + 1;
-  const renewed = await get(501);
-  assert.notEqual(renewed.qr_code_data, first.qr_code_data);
-  assert.equal(
-    Date.parse(renewed.qr_code_expires_at) - now,
-    24 * 60 * 60 * 1000,
-  );
-  for (const id of [502, 503, 504, 505]) {
-    const detail = await get(id);
-    assert.equal(detail.qr_code_data, null);
-    assert.equal(detail.qr_code_expires_at, null);
-  }
-  await mock.mockRequest('/reservations/501/cancel', 'PATCH', undefined, token);
-  const cancelled = await get(501);
-  assert.equal(cancelled.status, 'CANCELLED');
-  assert.equal(cancelled.qr_code_data, null);
-  const merchant = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000001' })
-  ).access_token;
-  await assert.rejects(get(501, merchant), (error) => error.status === 403);
-  await assert.rejects(get(999), (error) => error.status === 404);
-  await assert.rejects(get(501, ''), (error) => error.status === 401);
-  console.log(
-    'PASS: reservation detail GET/Bearer/integer IDs, state-dependent QR nullability, schema/errors/account guards, mock READY-only preview, 24-hour reuse/renewal, cancellation and ownership',
-  );
+  console.log('PASS: reservation-detail-api server API regression checks');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

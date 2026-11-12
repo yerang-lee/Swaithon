@@ -134,56 +134,7 @@ new Function(
     api.getMyStoreListings(),
     (error) => error.status === 401,
   );
-  const mock = {};
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'setTimeout',
-    compile('src/services/devMock.ts'),
-  )(
-    () => ({ useSyncExternalStore() {} }),
-    mock,
-    true,
-    (fn) => {
-      fn();
-      return 0;
-    },
-  );
-  const merchant = await mock.mockRequest('/auth/login', 'POST', {
-    phone: '01000000001',
-  });
-  const owned = await mock.mockRequest(
-    '/stores/me/listings?page=1&size=10',
-    'GET',
-    undefined,
-    merchant.access_token,
-  );
-  assert.ok(owned.listings.length > 0);
-  assert.equal(owned.listings[0].listing_id, 1001);
-  assert.equal(
-    owned.listings.every((item) => (item.listing_id - 1001) % 6 === 0),
-    true,
-  );
-  const customer = await mock.mockRequest('/auth/login', 'POST', {
-    phone: '01000000002',
-  });
-  await assert.rejects(
-    mock.mockRequest(
-      '/stores/me/listings',
-      'GET',
-      undefined,
-      customer.access_token,
-    ),
-    (error) => error.status === 403,
-  );
-  await assert.rejects(
-    mock.mockRequest('/stores/me/listings', 'GET'),
-    (error) => error.status === 401,
-  );
-  console.log(
-    'PASS: own listings endpoint/Bearer without store ID, pagination/filter/nullability, invalid responses, auth/errors/stale account and mock ownership',
-  );
+  console.log('PASS: my-store-listings-api server API regression checks');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

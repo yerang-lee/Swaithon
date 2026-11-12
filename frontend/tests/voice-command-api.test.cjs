@@ -868,52 +868,6 @@ async function main() {
   assert.equal(JSON.stringify(diagnostics).includes('file:///'), false);
   globalThis.__jangbosoLogError = previousLogger;
   status = 200;
-  mock = true;
-  let draft = await api.analyzeText('질문');
-  assert.equal(draft.status, 'NEEDS_INPUT');
-  const answered = await api.answerText(draft, '6000');
-  assert.equal(answered.command_id, draft.command_id);
-  assert.equal(answered.expiresAt, draft.expiresAt);
-  const applied = await api.executeCommand(answered);
-  assert.equal((await api.executeCommand(answered, true)).status, 'SUCCEEDED');
-  await assert.rejects(() => api.cancelCommand(applied));
-  draft = await api.analyzeText('후보');
-  assert.equal(draft.status, 'NEEDS_SELECTION');
-  const selected = await api.selectCandidate(
-    draft,
-    draft.candidates[1].listing_id,
-  );
-  assert.equal(selected.command_id, draft.command_id);
-  draft = await api.analyzeText('삭제');
-  assert.equal(draft.intent, 'PRODUCT_DELETE');
-  assert.equal((await api.cancelCommand(draft)).status, 'CANCELLED');
-  for (const [text, intent, endpoint] of [
-    ['사과 등록', 'PRODUCT_CREATE', '/voice/product-registration/confirm'],
-    ['사과 품절', 'SOLD_OUT', '/voice/sold-out'],
-    ['사과 할인', 'SALE_CREATE', '/voice/sale-registration'],
-    ['사과 할인 종료', 'SALE_DELETE', '/voice/sale-delete'],
-  ]) {
-    const draft = await api.analyzeText(text);
-    assert.equal(draft.intent, intent);
-    assert.equal(draft.execution_endpoint, endpoint);
-    const saved = await api.executeCommand(draft);
-    assert.equal(saved.result.product_id, 101);
-    assert.equal(saved.result.store_id, 101);
-  }
-  await assert.rejects(
-    () => api.analyzeText('조회'),
-    (error) => error.status === 422,
-  );
-  const saleUpdate = await api.analyzeText('사과 할인 수정');
-  assert.equal(saleUpdate.intent, 'SALE_UPDATE');
-  assert.equal(saleUpdate.status, 'READY');
-  assert.equal(saleUpdate.execution_endpoint, null);
-  draft = await api.analyzeText('사과');
-  session = { ...session, access_token: 'other-account' };
-  await assert.rejects(
-    () => api.cancelCommand(draft),
-    (e) => e.status === 404,
-  );
   mock = false;
   environment.env.EXPO_PUBLIC_VOICE_COMMAND_API = 'false';
   response = state('NEEDS_INPUT');
@@ -925,7 +879,7 @@ async function main() {
     (e) => e.status === 403,
   );
   console.log(
-    'PASS: initial/follow-up IDs, file field/MIME, selection, server execution allowlist, same-command retry, cancellation, error redaction, size/duration, mock ownership/idempotency, default command flow and merchant guard',
+    'PASS: initial/follow-up IDs, file field/MIME, selection, server execution allowlist, same-command retry, cancellation, error redaction, size/duration, default command flow and merchant guard',
   );
 }
 main().catch((e) => {

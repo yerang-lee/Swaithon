@@ -81,10 +81,10 @@ function render(file, slots, params) {
       }),
     },
     '../../services/api/auth': { getAuthSession: () => session },
-    '../../services/devMock': { isMockMode: () => false },
+
     '../../constants/theme': { theme: { colors: { primary: '#53B175' } } },
     '../../constants/productCategories': { productCategories: [] },
-    '../../data/demoProducts': { demoProducts: [] },
+
   };
   const api = {};
   new Function('require', 'exports', compile(file))(

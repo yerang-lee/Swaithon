@@ -87,78 +87,7 @@ new Function('require', 'exports', compile('src/services/api/pickup.ts'))(
   };
   changed = true;
   await assert.rejects(() => api.verifyPickup('pickup_token'));
-  const mock = {};
-  let now = Date.now();
-  class ClockDate extends Date {
-    constructor(...args) {
-      super(...(args.length ? args : [now]));
-    }
-    static now() {
-      return now;
-    }
-  }
-  new Function(
-    'require',
-    'exports',
-    '__DEV__',
-    'process',
-    'Date',
-    'setTimeout',
-    compile('src/services/devMock.ts'),
-  )(
-    () => ({}),
-    mock,
-    true,
-    { env: {} },
-    ClockDate,
-    (fn) => {
-      fn();
-      return 0;
-    },
-  );
-  const customer = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
-  ).access_token;
-  const merchant = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000001' })
-  ).access_token;
-  const get = (id) =>
-    mock.mockRequest(`/reservations/${id}`, 'GET', undefined, customer);
-  const verify = (qr, token = merchant) =>
-    mock.mockRequest(
-      '/reservations/pickup/verify',
-      'POST',
-      { qr_code_data: qr },
-      token,
-    );
-  const qr = (await get(501)).qr_code_data;
-  await assert.rejects(verify(qr, customer), (e) => e.status === 403);
-  await assert.rejects(verify('unknown'), (e) => e.status === 404);
-  const outcomes = await Promise.allSettled([verify(qr), verify(qr)]);
-  assert.equal(outcomes.filter((x) => x.status === 'fulfilled').length, 1);
-  assert.equal(outcomes.filter((x) => x.status === 'rejected').length, 1);
-  assert.equal((await get(501)).status, 'COMPLETED');
-  assert.equal((await get(501)).qr_code_data, null);
-  await assert.rejects(verify(qr), (e) => e.status === 410);
-  const foreign = (await get(506)).qr_code_data;
-  await assert.rejects(verify(foreign), (e) => e.status === 403);
-  // 새 테스트 고객으로 초기화한 뒤 QR 만료 검증
-  mock.setMockMode(true);
-  mock.prepareMockAccount('CUSTOMER');
-  const newCustomer = (
-    await mock.mockRequest('/auth/login', 'POST', { phone: '01000000002' })
-  ).access_token;
-  const expiring = await mock.mockRequest(
-    '/reservations/501',
-    'GET',
-    undefined,
-    newCustomer,
-  );
-  now += 24 * 3600000;
-  await assert.rejects(verify(expiring.qr_code_data), (e) => e.status === 410);
-  console.log(
-    'PASS: pickup POST/200/Bearer/exact body, merchant/auth guards, response validation, sanitized errors, account change, mock ownership/expiry/single success and completed customer detail without QR',
-  );
+  console.log('PASS: pickup-verify-api server API regression checks');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

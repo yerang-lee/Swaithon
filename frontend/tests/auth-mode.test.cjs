@@ -14,7 +14,7 @@ const source = ts.transpileModule(
     },
   },
 ).outputText;
-let mock = true,
+let mock = false,
   states = [],
   index = 0,
   loginCalls = [],
@@ -76,14 +76,7 @@ const modules = {
   '../../services/api/client': { ApiError: class extends Error {} },
   '../../utils/apiDiagnostics': { logApiError() {} },
   '../../utils/appDiagnostics': { logAppError() {} },
-  '../../services/devMock': {
-    isMockMode: () => mock,
-    setMockMode: (value) => {
-      mock = value;
-    },
-    prepareMockAccount: (role) =>
-      role === 'MERCHANT' ? '01000000001' : '01000000002',
-  },
+
   '../../hooks/useFavorites': { clearFavorites() {} },
 };
 const api = {};
@@ -124,26 +117,10 @@ function fields() {
     .props.onPress();
   assert.equal(mock, false);
   assert.equal(loginCalls.at(-1).mock, false);
-  assert.equal(cleared, 1);
+  assert.equal(cleared, 0);
   assert.equal(routes.at(-1), '/home');
-  tree = render();
-  await walk(tree)
-    .find(
-      (n) =>
-        n.props?.onPress &&
-        walk(n).some((child) => label(child) === '상인으로 테스트'),
-    )
-    .props.onPress();
-  assert.equal(mock, true);
-  assert.equal(loginCalls.at(-1).mock, true);
-  tree = render();
-  await walk(tree)
-    .find((n) => n.type === 'PrimaryButton')
-    .props.onPress();
-  assert.equal(loginCalls.at(-1).mock, false);
-  assert.equal(mock, false);
+  assert.ok(!walk(tree).some(n => label(n).includes('테스트')));
   fields();
-  mock = true;
   tree = render('signup');
   await walk(tree)
     .find((n) => n.type === 'PrimaryButton')
@@ -155,7 +132,7 @@ function fields() {
   assert.equal(signupCalls.at(-1).mock, false);
   assert.equal(loginCalls.at(-1).mock, false);
   console.log(
-    'PASS: ordinary login leaves mock mode, explicit test login stays mock, next ordinary login switches back, signup/onboarding use server mode',
+    'PASS: login and signup use server authentication; no offline test buttons',
   );
 })().catch((e) => {
   console.error(e);

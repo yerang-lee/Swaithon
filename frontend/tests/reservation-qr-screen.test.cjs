@@ -142,10 +142,10 @@ function text(node) {
 }
 const qr = (tree) => walk(tree).find((node) => node.type === 'QRCode');
 (async () => {
-  let tree = render({ testMode: true });
+  let tree = render();
   assert.equal(qr(tree).props.value, detail.qr_code_data);
   assert.equal(qr(tree).props.quietZone, 24);
-  assert.ok(text(tree).includes('테스트용 QR'));
+  assert.ok(!text(tree).includes('테스트용 QR'));
   assert.ok(text(tree).includes('유효기간:'));
   assert.equal(text(tree).includes(detail.qr_code_data), false);
   assert.equal(qr(render({ loading: true })), undefined);
