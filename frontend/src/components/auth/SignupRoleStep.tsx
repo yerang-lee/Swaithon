@@ -1,6 +1,7 @@
 import { logAppError } from '../../utils/appDiagnostics';
 import { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -62,7 +63,7 @@ export function SignupRoleStep({
     let active = true;
     setMarkets([]);
     setMarketError('');
-    if (role !== 'merchant' || !marketQuery.trim()) {
+    if (role !== 'merchant' || !marketQuery.trim() || selectedMarket) {
       setMarketsLoading(false);
       return;
     }
@@ -87,7 +88,7 @@ export function SignupRoleStep({
       active = false;
       clearTimeout(timer);
     };
-  }, [role, marketQuery, searchRetry]);
+  }, [role, marketQuery, searchRetry, selectedMarket]);
   const lock = useRef(false);
   async function complete() {
     if (lock.current || !role) return;
@@ -134,6 +135,7 @@ export function SignupRoleStep({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
+          nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.body}
         >
@@ -186,7 +188,7 @@ export function SignupRoleStep({
                 style={styles.location}
               >
                 <AppIcon name="location-pin" color="#53B175" />
-                <Text style={styles.locationText}>
+                <Text style={[styles.locationText, styles.storeLocationText]}>
                   {location?.name || '지도에서 가게 위치 설정'}
                 </Text>
                 <AppIcon name="arrow-right" size={16} color="#858585" />
@@ -200,12 +202,13 @@ export function SignupRoleStep({
           )}
           {role === 'merchant' && (
             <View style={{ marginTop: 24, gap: 10 }}>
-              <Text style={styles.label}>소속 시장</Text>
+              <Text style={[styles.label, styles.marketLabel]}>소속 시장</Text>
               <View style={styles.searchBox}>
                 <AppIcon name="search" size={19} color="#858585" />
                 <TextInput
                   accessibilityLabel="소속 시장 검색"
                   placeholder="시장 이름 검색 (예: 망원시장)"
+                  placeholderTextColor="#B0B0B0"
                   value={marketQuery}
                   editable={!loading}
                   onChangeText={(value) => {
@@ -216,7 +219,7 @@ export function SignupRoleStep({
                   style={styles.searchInput}
                 />
               </View>
-              {marketsLoading ? (
+              {selectedMarket || !marketQuery.trim() ? null : marketsLoading ? (
                 <Text style={styles.subtitle}>시장을 검색하고 있어요.</Text>
               ) : marketError ? (
                 <View>
@@ -231,49 +234,50 @@ export function SignupRoleStep({
                     <Text style={styles.retry}>다시 검색</Text>
                   </Pressable>
                 </View>
-              ) : !marketQuery.trim() ? (
-                <Text style={styles.subtitle}>
-                  가게가 속한 시장을 검색해 선택해주세요.
-                </Text>
               ) : markets.length === 0 ? (
                 <Text style={styles.subtitle}>
                   검색된 시장이 없어요. 시장 이름을 다시 확인해주세요.
                 </Text>
               ) : (
-                markets.map((market) => (
+                <ScrollView
+                  style={styles.marketResults}
+                  contentContainerStyle={styles.marketResultsContent}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                {markets.map((market) => (
                   <Pressable
                     key={market.place_id}
                     disabled={loading}
                     accessibilityRole="radio"
                     accessibilityState={{
-                      checked: selectedMarket?.place_id === market.place_id,
+                      checked: false,
                     }}
                     onPress={() => {
                       setSelectedMarket(market);
+                      setMarketQuery(market.market_name);
+                      setMarkets([]);
+                      setMarketsLoading(false);
+                      setMarketError('');
                       setValidation('');
+                      Keyboard.dismiss();
                     }}
                     style={[
                       styles.location,
-                      {
-                        borderColor:
-                          selectedMarket?.place_id === market.place_id
-                            ? '#53B175'
-                            : '#E2E2E2',
-                      },
+                      styles.marketResult,
                     ]}
                   >
                     <View style={{ flex: 1, gap: 6 }}>
-                      <Text style={styles.locationText}>
+                      <Text style={styles.locationText} numberOfLines={1}>
                         {market.market_name}
                       </Text>
-                      <Text style={styles.marketAddress}>{market.address}</Text>
+                      <Text style={styles.marketAddress} numberOfLines={1}>{market.address}</Text>
                     </View>
-                    {selectedMarket?.place_id === market.place_id && (
-                      <Text style={{ color: '#53B175' }}>✓</Text>
-                    )}
                   </Pressable>
-                ))
+                ))}
+                </ScrollView>
               )}
+              <View style={styles.descriptionField}>
               <AuthField
                 labelColor="#333333"
                 label="가게 설명 (선택)"
@@ -282,6 +286,7 @@ export function SignupRoleStep({
                 editable={!loading}
                 placeholder="가게를 소개해주세요"
               />
+              </View>
             </View>
           )}
           <View style={{ marginTop: 32 }}>
@@ -395,6 +400,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
   },
+  storeLocationText: {
+    fontSize: 20,
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -404,17 +412,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
   },
+  marketLabel: {
+    marginBottom: 0,
+  },
+  descriptionField: {
+    marginTop: 22,
+  },
   searchInput: {
     flex: 1,
     minWidth: 0,
     minHeight: 48,
-    fontSize: 16,
+    fontSize: 20,
     color: '#000000',
   },
   marketAddress: {
     fontSize: 13,
     color: '#000000',
     lineHeight: 20,
+  },
+  marketResults: {
+    maxHeight: 272,
+    flexGrow: 0,
+  },
+  marketResultsContent: {
+    gap: 10,
+  },
+  marketResult: {
+    height: 84,
   },
   retry: {
     paddingVertical: 10,
