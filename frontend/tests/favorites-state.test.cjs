@@ -38,16 +38,19 @@ const item = {
   store_name: '가게',
 };
 (async () => {
+  assert.equal(api.useFavorites().favoriteRevision, 0);
   const first = api
     .useFavorites()
     .toggleFavorite('101', { requestId: 'rec_1' });
   assert.deepEqual(api.useFavorites().pendingFavorites, ['101']);
+  assert.equal(api.useFavorites().favoriteRevision, 0);
   assert.deepEqual(api.useFavorites().favorites, []);
   await api.useFavorites().toggleFavorite('101');
   assert.equal(requests.length, 1);
   assert.deepEqual(requests[0].args, ['101', 'rec_1']);
   requests[0].resolve(item);
   await first;
+  assert.equal(api.useFavorites().favoriteRevision, 1);
   assert.deepEqual(api.useFavorites().favorites, ['101']);
   assert.equal(api.useFavorites().favoriteItems[0].favorite_id, 'favorite_1');
   const cancelling = api
@@ -66,6 +69,7 @@ const item = {
     message: '취소',
   });
   await cancelling;
+  assert.equal(api.useFavorites().favoriteRevision, 2);
   assert.deepEqual(api.useFavorites().favorites, []);
   assert.deepEqual(api.useFavorites().favoriteItems, []);
   assert.deepEqual(api.useFavorites().pendingFavorites, []);
@@ -76,6 +80,7 @@ const item = {
   assert.equal(requests.at(-1).args[0], 'favorite_2');
   requests.at(-1).reject(new Error('취소 실패'));
   await failed;
+  assert.equal(api.useFavorites().favoriteRevision, 3);
   assert.deepEqual(api.useFavorites().favorites, ['101']);
   assert.equal(api.useFavorites().favoriteItems[0].favorite_id, 'favorite_2');
   assert.deepEqual(api.useFavorites().pendingFavorites, []);

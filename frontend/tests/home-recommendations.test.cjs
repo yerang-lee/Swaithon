@@ -42,9 +42,10 @@ const react = {
     ];
   },
   useEffect() {},
-  useCallback: (fn) => fn,
+  useCallback: (fn, deps) => { fn.dependencies = deps; return fn; },
   useRef: (value) => ({ current: value }),
 };
+let favoriteRevision = 0;
 const modules = {
   '../hooks/useRecommendationTracking': {
     useRecommendationImpressions: () => ({
@@ -80,6 +81,7 @@ const modules = {
   '../hooks/useFavorites': {
     useFavorites: () => ({
       favorites: [],
+      favoriteRevision,
       pendingFavorites: ['1002'],
       toggleFavorite: (...args) => hearts.push(args),
     }),
@@ -227,6 +229,24 @@ const result = {
   assert.deepEqual(requests[0].options, { latitude: 35.1, longitude: 129.1 });
   requests.shift().resolve({ request_id: 'new-location', items: [] });
   await tick();
+  render();
+  const beforeFavorite = focus[1].dependencies;
+  const stopOldRecommendation = focus[1]();
+  await tick();
+  const oldFavoriteRequest = requests.shift();
+  favoriteRevision++;
+  render();
+  assert.notDeepEqual(focus[1].dependencies, beforeFavorite);
+  stopOldRecommendation();
+  focus[1]();
+  await tick();
+  const refreshedFavoriteRequest = requests.shift();
+  assert.ok(refreshedFavoriteRequest, 'successful favorite change requests new recommendations');
+  oldFavoriteRequest.resolve({ ...result, items: [{ ...result.items[0], name: '찜 전 추천' }] });
+  refreshedFavoriteRequest.resolve({ ...result, request_id: 'after-favorite', items: [{ ...result.items[0], name: '찜 후 추천' }] });
+  await tick();
+  assert.ok(text(render()).includes('찜 후 추천'));
+  assert.ok(!text(render()).includes('찜 전 추천'));
   slots[0] = '예약';
   session = { ...session, role: 'MERCHANT' };
   assert.equal(render().type, 'MerchantReservationsScreen');

@@ -73,7 +73,7 @@ export default function HomeScreen() {
       );
     }, []),
   );
-  const { favorites, pendingFavorites, toggleFavorite } = useFavorites();
+  const { favorites, pendingFavorites, toggleFavorite, favoriteRevision } = useFavorites();
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [location, setLocation] = useState<ExplorationLocation | null>(null);
@@ -191,6 +191,7 @@ export default function HomeScreen() {
       active,
       recommendationToken,
       recommendationsRetry,
+      favoriteRevision,
       location?.latitude,
       location?.longitude,
       locationError,

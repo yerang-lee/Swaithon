@@ -134,6 +134,7 @@ export function useFavorites() {
     favorites: selected.ids,
     favoriteItems: selected.items,
     pendingFavorites: selected.pending,
+    favoriteRevision: mutationRevision,
     toggleFavorite,
   };
 }

@@ -2,7 +2,6 @@ import { useLocationRevision } from '../../services/locationChanges';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -37,29 +36,8 @@ import {
 } from '../../utils/marketDistance';
 import { logAppError } from '../../utils/appDiagnostics';
 import { theme } from '../../constants/theme';
+import { ListingImage } from '../products/ListingImage';
 
-function FavoriteImage({ item }: { item: FavoriteListing }) {
-  const [failed, setFailed] = useState(false);
-  const uri = item.image_url?.trim().replace(/^<|>$/g, '');
-  useEffect(() => setFailed(false), [uri]);
-  return uri && /^https?:\/\//.test(uri) && !failed ? (
-    <Image
-      source={{ uri }}
-      resizeMode="cover"
-      accessibilityLabel={`${item.product_name} 이미지`}
-      style={styles.image}
-      onError={() => {
-        logAppError(
-          'favorites/image',
-          new Error('관심상품 이미지를 불러오지 못했어요.'),
-        );
-        setFailed(true);
-      }}
-    />
-  ) : (
-    <View accessibilityLabel="상품 이미지 없음" style={styles.image} />
-  );
-}
 export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
   const sharedLocationRevision = useLocationRevision();
   const [items, setItems] = useState<FavoriteListing[]>([]);
@@ -209,7 +187,8 @@ export function FavoritesScreen({ onTab }: { onTab: (tab: string) => void }) {
                     style={styles.product}
                   >
                     <View style={styles.imageWrap}>
-                      <FavoriteImage item={item} />
+                      <ListingImage listingId={item.listing_id} uri={item.image_url}
+                        style={styles.image} label={`${item.product_name} 이미지`} />
                       {item.is_sold_out && (
                         <View style={styles.soldOutOverlay}>
                           <Text style={styles.soldOutBadge}>품절</Text>

@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Listing, Product, Store, Market, ListingPriceHistory
+from demo_price_history import get_demo_history_ids
+from models import Listing, Product, Store, Market, ListingPriceHistory, User
 from schemas import ProductDetailResponse, ProductListResponse, ProductListItem
 
 router = APIRouter(prefix="/products", tags=["Products"])
@@ -23,7 +24,8 @@ def get_products(
         db.query(Listing, Product, Store)
         .join(Product, Listing.product_id == Product.product_id)
         .join(Store, Listing.store_id == Store.store_id)
-        .filter(Store.market_id == market_id)
+        .join(User, Store.user_id == User.user_id)
+        .filter(Store.market_id == market_id, User.deleted_at.is_(None))
     )
 
     if category_id is not None:
@@ -96,7 +98,8 @@ def get_product_detail(
         .join(Product, Listing.product_id == Product.product_id)
         .join(Store, Listing.store_id == Store.store_id)
         .join(Market, Store.market_id == Market.market_id)
-        .filter(Listing.listing_id == listing_id)
+        .join(User, Store.user_id == User.user_id)
+        .filter(Listing.listing_id == listing_id, User.deleted_at.is_(None))
         .first()
     )
 
@@ -164,6 +167,7 @@ def get_price_history(
         .all()
     )
 
+    demo_ids = get_demo_history_ids()
     return {
         "listing_id": listing.listing_id,
         "product_id": product.product_id,
@@ -172,6 +176,7 @@ def get_price_history(
         "store_name": store.store_name,
         "image_url": listing.image_url,
         "current_price": current_price,
+        "has_demo_history": any(history.history_id in demo_ids for history in histories),
         "price_history": [
             {
                 "price": history.price,

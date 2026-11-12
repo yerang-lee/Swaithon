@@ -116,6 +116,8 @@ export async function reserveProduct(
 export type ReservationStatus =
   'PENDING' | 'CONFIRMED' | 'READY' | 'COMPLETED' | 'CANCELLED';
 export type ReservationItem = {
+  listing_id?: number;
+  image_url?: string | null;
   reservation_id: number;
   product_id: number;
   product_name: string;
@@ -295,6 +297,8 @@ export async function getReservations(
           [r.unit_price, r.total_price].every(
             (n) => Number.isFinite(n) && n >= 0,
           ) &&
+          (r.image_url === undefined || r.image_url === null || typeof r.image_url === 'string') &&
+          (r.listing_id === undefined || (Number.isSafeInteger(r.listing_id) && r.listing_id > 0)) &&
           statuses.includes(r.status) &&
           Number.isFinite(Date.parse(r.pickup_at)),
       )

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from math import radians, sin, cos, sqrt, atan2
 from database import get_db
-from models import Market, Store
+from models import Market, Store, User
 from market_assets import market_photo_path
 from schemas import (
     MarketResponse,
@@ -371,8 +371,9 @@ def get_market_stores(
             detail="존재하지 않는 시장입니다."
         )
 
-    query = db.query(Store).filter(
-        Store.market_id == market_id
+    query = db.query(Store).join(User, Store.user_id == User.user_id).filter(
+        Store.market_id == market_id,
+        User.deleted_at.is_(None),
     )
 
     if keyword and keyword.strip():

@@ -464,6 +464,7 @@ class PickupVerifyResponse(BaseModel):
     message: str
 
 class ReservationListItem(BaseModel):
+    image_url: str | None = None
     reservation_id: int
     listing_id: int
     product_id: int

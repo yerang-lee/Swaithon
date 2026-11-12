@@ -105,6 +105,7 @@ const modules = {
   },
   '../../services/devMock': { isMockMode: () => true },
   '../../utils/appDiagnostics': { logAppError() {} },
+  '../products/ListingImage': { ListingImage: 'ListingImage' },
   '../ui/PageHeader': { PageHeader: 'PageHeader' },
   '../ui/PrimaryButton': { PrimaryButton: 'PrimaryButton' },
   './ReservationPickupQr': { ReservationPickupQr: 'ReservationPickupQr' },
@@ -146,6 +147,8 @@ function text(node) {
 }
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 const item = {
+  listing_id: 101,
+  image_url: '/uploads/images/reservation.png',
   reservation_id: 501,
   product_id: 1,
   product_name: '목록 사과',
@@ -181,6 +184,8 @@ const panel = (tree) =>
   lists.shift().resolve({ reservations: [item], total_count: 1 });
   await tick();
   let tree = render();
+  assert.equal(walk(tree).find(n => n.type === 'ListingImage').props.listingId, 101);
+  assert.equal(walk(tree).find(n => n.type === 'ListingImage').props.uri, '/uploads/images/reservation.png');
   assert.ok(text(tree).includes('픽업 예정'));
   walk(tree)
     .find(
@@ -199,6 +204,8 @@ const panel = (tree) =>
   assert.equal(panel(tree).detail.status, 'READY');
   assert.equal(panel(tree).testMode, true);
   assert.ok(text(tree).includes('상세 사과'));
+  assert.equal(walk(tree).find(n => n.type === 'ListingImage').props.listingId, 101);
+  assert.equal(walk(tree).find(n => n.type === 'ListingImage').props.uri, '/uploads/images/reservation.png');
   assert.ok(text(tree).includes('10,000원'));
   timers.forEach((fn) => fn());
   assert.equal(details.length, 1);

@@ -9,6 +9,7 @@ export type PriceHistory = {
   store_id: number;
   store_name: string;
   current_price: number;
+  has_demo_history?: boolean;
   price_history: PricePoint[];
 };
 export async function getPriceHistory(id: string): Promise<PriceHistory> {
@@ -34,6 +35,7 @@ export async function getPriceHistory(id: string): Promise<PriceHistory> {
       typeof data.product_name !== 'string' ||
       typeof data.store_name !== 'string' ||
       !price(data.current_price) ||
+      (data.has_demo_history !== undefined && typeof data.has_demo_history !== 'boolean') ||
       !Array.isArray(data.price_history) ||
       data.price_history.some(
         (p, i, all) =>

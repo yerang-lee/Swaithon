@@ -100,6 +100,7 @@ const modules = {
   },
   '../../utils/marketDistance': helpers,
   '../../utils/appDiagnostics': { logAppError() {} },
+  '../products/ListingImage': { ListingImage: 'ListingImage' },
   '../../constants/theme': {
     theme: { colors: { primary: '#53B175', brandText: '#176735' } },
   },
@@ -141,7 +142,7 @@ const item = {
   sale_price: 8000,
   is_sold_out: false,
   is_on_sale: true,
-  image_url: null,
+  image_url: '/uploads/images/favorite.png',
   created_at: '2026-11-03T10:00:00+09:00',
 };
 (async () => {
@@ -160,6 +161,8 @@ const item = {
   ]);
   await tick();
   let tree = render();
+  const photo = walk(tree).find(n => n.type === 'ListingImage' && n.props.listingId === 101);
+  assert.equal(photo.props.uri, '/uploads/images/favorite.png');
   assert.equal(
     walk(tree).find((n) => n.type === 'PageHeader').props.title,
     '관심상품',

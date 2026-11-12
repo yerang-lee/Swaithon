@@ -90,7 +90,9 @@ def get_recommendation_candidates(
         .join(Product, Listing.product_id == Product.product_id)
         .join(Store, Listing.store_id == Store.store_id)
         .join(Market, Store.market_id == Market.market_id)
+        .join(User, Store.user_id == User.user_id)
         .filter(
+            User.deleted_at.is_(None),
             Listing.deleted_at.is_(None),
             Listing.is_sold_out.is_(False),
             Store.market_id.isnot(None),
@@ -131,7 +133,7 @@ def build_recommendation_payload(
     user_id: int,
     latitude: float,
     longitude: float,
-    db: Session | None = None,
+    db: Session,
 ):
     as_of = datetime.now(timezone.utc)
 
@@ -164,57 +166,65 @@ def build_recommendation_payload(
 
     events = []
     interest_product_ids = []
-    if db is not None:
-        # Include current favorites even when they predate event collection.
-        interest_products = (
-            db.query(Product)
-            .join(Listing, Listing.product_id == Product.product_id)
-            .join(Favorite, Favorite.listing_id == Listing.listing_id)
-            .filter(Favorite.user_id == user_id, Favorite.is_active.is_(True))
-            .distinct()
-            .all()
-        )
-        for product in interest_products:
+    # Include current favorites even when they predate event collection.
+    active_favorites = (
+        db.query(Favorite, Listing, Product)
+        .join(Listing, Favorite.listing_id == Listing.listing_id)
+        .join(Product, Listing.product_id == Product.product_id)
+        .filter(Favorite.user_id == user_id, Favorite.is_active.is_(True))
+        .all()
+    )
+    for favorite, listing, product in active_favorites:
+        if product.category_id is not None:
+            product_id = str(product.product_id)
+            interest_product_ids.append(product_id)
+            products[product_id] = {
+                "product_id": product_id, "category_id": str(product.category_id),
+            }
+    cutoff = as_of - timedelta(days=30)
+    def add_event(key, row, kind, at, **extra):
+        events.append({"event_id": key, "product_id": str(row.product_id),
+                       "store_id": str(row.store_id), "event_type": kind,
+                       "occurred_at": at.isoformat(), **extra})
+    for row in db.query(ProductViewEvent).filter(
+        ProductViewEvent.user_id == user_id,
+        ProductViewEvent.occurred_at.between(cutoff, as_of),
+    ).all():
+        add_event(f"view:{row.event_id}", row, "detail_view", row.occurred_at)
+    latest = {}
+    for row in db.query(FavoriteEvent).filter(
+        FavoriteEvent.user_id == user_id, FavoriteEvent.occurred_at <= as_of,
+    ).order_by(FavoriteEvent.occurred_at, FavoriteEvent.event_id).all():
+        latest[row.listing_id] = row
+    for row in latest.values():
+        if row.event_type == "FAVORITE" and row.occurred_at >= cutoff:
+            add_event(f"favorite:{row.event_id}", row, "favorite", row.occurred_at)
+    # Legacy favorites may predate FavoriteEvent collection. Their real update
+    # time supplies the missing action; never manufacture an action at as_of.
+    # An existing event (including cancellation) always wins over this fallback.
+    for favorite, listing, product in active_favorites:
+        if favorite.listing_id in latest or product.category_id is None:
+            continue
+        occurred_at = favorite.updated_at or favorite.created_at
+        if occurred_at is not None and cutoff <= occurred_at <= as_of:
+            add_event(f"favorite-current:{favorite.favorite_id}", listing,
+                      "favorite", occurred_at)
+    for row in db.query(Reservation).filter(
+        Reservation.user_id == user_id, Reservation.created_at.between(cutoff, as_of),
+    ).all():
+        valid = (row.cancelled_at is None or row.cancelled_at > as_of)
+        if row.status == "CANCELLED" and row.cancelled_at is None:
+            valid = False
+        if valid and row.created_at >= cutoff:
+            add_event(f"reserve:{row.reservation_id}", row, "reserve",
+                      row.created_at, is_valid_reservation=True)
+    event_products = {int(event["product_id"]) for event in events}
+    if event_products:
+        for product in db.query(Product).filter(Product.product_id.in_(event_products)).all():
             if product.category_id is not None:
-                product_id = str(product.product_id)
-                interest_product_ids.append(product_id)
-                products[product_id] = {
-                    "product_id": product_id, "category_id": str(product.category_id),
-                }
-        cutoff = as_of - timedelta(days=30)
-        def add_event(key, row, kind, at, **extra):
-            events.append({"event_id": key, "product_id": str(row.product_id),
-                           "store_id": str(row.store_id), "event_type": kind,
-                           "occurred_at": at.isoformat(), **extra})
-        for row in db.query(ProductViewEvent).filter(
-            ProductViewEvent.user_id == user_id,
-            ProductViewEvent.occurred_at.between(cutoff, as_of),
-        ).all():
-            add_event(f"view:{row.event_id}", row, "detail_view", row.occurred_at)
-        latest = {}
-        for row in db.query(FavoriteEvent).filter(
-            FavoriteEvent.user_id == user_id, FavoriteEvent.occurred_at <= as_of,
-        ).order_by(FavoriteEvent.occurred_at, FavoriteEvent.event_id).all():
-            latest[row.listing_id] = row
-        for row in latest.values():
-            if row.event_type == "FAVORITE" and row.occurred_at >= cutoff:
-                add_event(f"favorite:{row.event_id}", row, "favorite", row.occurred_at)
-        for row in db.query(Reservation).filter(
-            Reservation.user_id == user_id, Reservation.created_at <= as_of,
-        ).all():
-            valid = (row.cancelled_at is None or row.cancelled_at > as_of)
-            if row.status == "CANCELLED" and row.cancelled_at is None:
-                valid = False
-            if valid and row.created_at >= cutoff:
-                add_event(f"reserve:{row.reservation_id}", row, "reserve",
-                          row.created_at, is_valid_reservation=True)
-        event_products = {int(event["product_id"]) for event in events}
-        if event_products:
-            for product in db.query(Product).filter(Product.product_id.in_(event_products)).all():
-                if product.category_id is not None:
-                    products[str(product.product_id)] = {
-                        "product_id": str(product.product_id), "category_id": str(product.category_id)}
-        events = [event for event in events if event["product_id"] in products]
+                products[str(product.product_id)] = {
+                    "product_id": str(product.product_id), "category_id": str(product.category_id)}
+    events = [event for event in events if event["product_id"] in products]
 
     return {
         "as_of": as_of.isoformat(),

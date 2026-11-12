@@ -78,7 +78,7 @@ function text(tree) {
   assert.ok(nodes(store).some(n => n.type === 'ScrollView'));
 
   const renderChart = mount('components/products/PriceHistoryChart.tsx', {
-    '../../services/api/priceHistory': { getPriceHistory: async () => ({ current_price: 10000,
+    '../../services/api/priceHistory': { getPriceHistory: async () => ({ current_price: 10000, has_demo_history: true,
       price_history: [{ price: 10000, recorded_at: '2026-11-11T00:00:00Z' },
         { price: 9000, recorded_at: '2026-11-12T00:00:00Z' }] }) },
     '../../utils/appDiagnostics': { logAppError() {} },
@@ -86,7 +86,10 @@ function text(tree) {
   const chart = await renderChart('PriceHistoryChart', { listingId: '1' });
   assert.ok(text(chart).includes('가격 (단위: 원)'));
   assert.ok(text(chart).includes('날짜 (월/일)'));
+  assert.ok(text(chart).includes('개발용 예시 가격 이력이 포함되어 있어요.'));
   const labels = nodes(chart).filter(n => n.type === 'SvgText');
   assert.equal(labels.filter(n => String(n.props.children).endsWith('원')).length, 3);
+  assert.ok(labels.filter(n => String(n.props.children).endsWith('원')).every(
+    n => Number(String(n.props.children).replace(/[^\d]/g, '')) % 500 === 0));
   console.log('PASS: store information survives product errors, nullable address, safe area and scroll preserved; chart price/date units visible');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -102,11 +102,11 @@ export function PriceHistoryChart({
   );
   const chosen = selected === null ? null : points[selected];
   const values = points.map((p) => p.price);
-  const low = Math.min(...values),
-    high = Math.max(...values);
-  const padding = Math.max((high - low) * 0.2, high * 0.05, 1);
-  const min = Math.max(0, low - padding),
-    max = high + padding;
+  const low = values.length ? Math.min(...values) : 0,
+    high = values.length ? Math.max(...values) : 0;
+  const min = Math.max(0, Math.floor(low / 500) * 500 - 500);
+  const tickStep = Math.max(500, Math.ceil((high + 500 - min) / 1000) * 500);
+  const max = min + tickStep * 2;
   const first = points.length ? Date.parse(points[0].recorded_at) : 0;
   const last = points.length
     ? Date.parse(points[points.length - 1].recorded_at)
@@ -125,6 +125,9 @@ export function PriceHistoryChart({
     .join(' ');
   return (
     <View style={styles.container}>
+      {data.has_demo_history && (
+        <Text style={styles.demoNote}>개발용 예시 가격 이력이 포함되어 있어요.</Text>
+      )}
       <View style={styles.tabs}>
         {periods.map((p) => (
           <Pressable
@@ -246,6 +249,7 @@ export function PriceHistoryChart({
 }
 
 const styles = StyleSheet.create({
+  demoNote: { fontSize: 12, color: '#7C7C7C', lineHeight: 18 },
   axisUnit: { fontSize: 12, color: '#666', textAlign: 'right' },
   dateUnit: { fontSize: 12, color: '#666', textAlign: 'left', marginTop: 2 },
   container: {

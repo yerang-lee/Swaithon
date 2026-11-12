@@ -28,6 +28,7 @@ import {
   type ReservationStatus,
 } from '../../services/api/reservations';
 import { isMockMode } from '../../services/devMock';
+import { ListingImage } from '../products/ListingImage';
 
 type Filter = '전체' | '예정' | '완료' | '취소';
 const upcoming = (status: ReservationStatus) =>
@@ -358,9 +359,11 @@ export function ReservationsScreen({
             <Text style={styles.date}>{dateLabel(active.pickup_at)}</Text>
             <View style={styles.card}>
               <View style={styles.detailProduct}>
-                <View
+                <ListingImage
+                  listingId={active.listing_id ?? ''}
+                  uri={items.find(item => item.reservation_id === active.reservation_id)?.image_url}
                   style={styles.detailPhoto}
-                  accessibilityLabel="예약 상품 사진 영역"
+                  label={`${active.product_name} 예약 상품 사진`}
                 />
                 <View style={styles.detailProductText}>
                   <Text style={styles.productName}>
@@ -504,9 +507,11 @@ export function ReservationsScreen({
                       </Text>
                     </View>
                     <View style={styles.cardBody}>
-                      <View
+                      <ListingImage
+                        listingId={item.listing_id ?? ''}
+                        uri={item.image_url}
                         style={styles.photo}
-                        accessibilityLabel="예약 상품 사진 영역"
+                        label={`${item.product_name} 예약 상품 사진`}
                       />
                       <View style={styles.cardText}>
                         <Text

@@ -15,7 +15,8 @@ class PriceHistoryRouteTest(unittest.TestCase):
         module = ast.Module(body=[ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0), route], type_ignores=[])
         self.models = {name: MagicMock(name=name) for name in
                        ("Listing", "Product", "Store", "ListingPriceHistory")}
-        namespace = {**self.models, "Depends": lambda fn: None, "get_db": lambda: None}
+        namespace = {**self.models, "Depends": lambda fn: None, "get_db": lambda: None,
+                     "get_demo_history_ids": lambda: set()}
         from fastapi import HTTPException
         namespace["HTTPException"] = HTTPException
         exec(compile(ast.fix_missing_locations(module), "products.py", "exec"), namespace)
@@ -33,8 +34,8 @@ class PriceHistoryRouteTest(unittest.TestCase):
         self.history_query.filter.return_value = self.history_query
         self.history_query.order_by.return_value = self.history_query
         self.history_query.all.return_value = [
-            SimpleNamespace(price=5000, recorded_at="2026-11-11T00:00:00+00:00"),
-            SimpleNamespace(price=4000, recorded_at="2026-11-11T01:00:00+00:00"),
+            SimpleNamespace(history_id=1, price=5000, recorded_at="2026-11-11T00:00:00+00:00"),
+            SimpleNamespace(history_id=2, price=4000, recorded_at="2026-11-11T01:00:00+00:00"),
         ]
         def query(*models):
             if len(models) == 1:

@@ -105,7 +105,8 @@ def get_store(
     result = (
         db.query(Store, Market)
         .join(Market, Store.market_id == Market.market_id)
-        .filter(Store.store_id == store_id)
+        .join(User, Store.user_id == User.user_id)
+        .filter(Store.store_id == store_id, User.deleted_at.is_(None))
         .first()
     )
 
@@ -147,7 +148,8 @@ def get_store_products(
     # 1. 가게 존재 여부 확인
     store = (
         db.query(Store)
-        .filter(Store.store_id == store_id)
+        .join(User, Store.user_id == User.user_id)
+        .filter(Store.store_id == store_id, User.deleted_at.is_(None))
         .first()
     )
 

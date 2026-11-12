@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, timezone
 from database import get_db
 from models import Favorite, FavoriteEvent, Listing, User, Product, Store, Market
@@ -169,7 +170,7 @@ def get_my_favorites(
             Listing.is_sold_out,
             Listing.sale_starts_at,
             Listing.sale_ends_at,
-            Product.image_url,
+            func.coalesce(Listing.image_url, Product.image_url).label("image_url"),
             Favorite.created_at,
         )
         .join(Listing, Favorite.listing_id == Listing.listing_id)
