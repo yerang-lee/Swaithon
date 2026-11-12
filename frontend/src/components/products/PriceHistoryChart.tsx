@@ -111,7 +111,8 @@ export function PriceHistoryChart({
   const last = points.length
     ? Date.parse(points[points.length - 1].recorded_at)
     : 0;
-  const plotRight = Math.max(60, width - 52);
+  const axisWidth = Math.max(64, won(Math.round(max)).length * 8 + 12);
+  const plotRight = Math.max(60, width - axisWidth);
   const x = (i: number) =>
     last === first
       ? (8 + plotRight) / 2
@@ -154,6 +155,7 @@ export function PriceHistoryChart({
         </View>
       ) : (
         <>
+          <Text style={styles.axisUnit}>가격 (단위: 원)</Text>
           <View
             onStartShouldSetResponder={() => true}
             onMoveShouldSetResponder={() => true}
@@ -183,7 +185,7 @@ export function PriceHistoryChart({
                   fontSize={11}
                   fill="#888"
                 >
-                  {Math.round(v).toLocaleString('ko-KR')}
+                  {won(Math.round(v))}
                 </SvgText>
               ))}
               <Path d={path} stroke="#53B175" strokeWidth={2.5} fill="none" />
@@ -221,6 +223,7 @@ export function PriceHistoryChart({
                 </SvgText>
               )}
             </Svg>
+            <Text style={styles.dateUnit}>날짜 (월/일)</Text>
           </View>
         </>
       )}
@@ -243,6 +246,8 @@ export function PriceHistoryChart({
 }
 
 const styles = StyleSheet.create({
+  axisUnit: { fontSize: 12, color: '#666', textAlign: 'right' },
+  dateUnit: { fontSize: 12, color: '#666', textAlign: 'left', marginTop: 2 },
   container: {
     marginTop: 5,
     gap: 10,

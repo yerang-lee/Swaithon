@@ -156,20 +156,33 @@ export default function StoreScreen() {
     let active = true;
     setLoading(true);
     setError('');
-    void Promise.all([
+    void Promise.allSettled([
       getStore(Number(params.storeId)),
       getStoreProducts(Number(params.storeId), page),
     ])
       .then(([detail, result]) => {
         if (!active) return;
-        setStore(detail);
-        setTotal(result.total_count);
+        const errors: string[] = [];
+        if (detail.status === 'fulfilled') {
+          setStore(detail.value);
+        } else {
+          logAppError('store/details', detail.reason);
+          errors.push('가게 정보를 불러오지 못했어요.');
+        }
+        if (result.status === 'rejected') {
+          logAppError('store/products', result.reason);
+          errors.push('상품 목록을 불러오지 못했어요.');
+          setError(errors.join(' '));
+          return;
+        }
+        setError(errors.join(' '));
+        setTotal(result.value.total_count);
         setListings((previous) =>
           page === 1
-            ? result.products
+            ? result.value.products
             : [
                 ...new Map(
-                  [...previous, ...result.products].map((p) => [
+                  [...previous, ...result.value.products].map((p) => [
                     p.listing_id,
                     p,
                   ]),
@@ -222,6 +235,10 @@ export default function StoreScreen() {
               ? '서울특별시 용산구 효창원로42길 (테스트 주소)'
               : store?.address || params.address || '주소 정보 없음'}
           </Text>
+          {!!store?.market_name && <Text style={styles.meta}>{store.market_name}</Text>}
+          {!!store?.category && <Text style={styles.meta}>{store.category}</Text>}
+          {!!store?.phone && <Text style={styles.meta}>{store.phone}</Text>}
+          {!!store?.description && <Text style={styles.address}>{store.description}</Text>}
         </View>
         {mock && (
           <Text style={styles.notice}>가게 주소·상품은 테스트 예시입니다.</Text>

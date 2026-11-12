@@ -92,8 +92,8 @@ export type StoreDetail = {
   market_id: number;
   market_name: string;
   category: string | null;
-  address: string;
-  description: string;
+  address: string | null;
+  description: string | null;
   phone: string | null;
   image_url: string | null;
 };
@@ -119,11 +119,11 @@ export async function getStore(id: number): Promise<StoreDetail> {
     !data ||
     data.store_id !== id ||
     !Number.isSafeInteger(data.market_id) ||
-    !['store_name', 'market_name', 'address', 'description'].every(
+    !['store_name', 'market_name'].every(
       (key) =>
         typeof (data as unknown as Record<string, unknown>)[key] === 'string',
     ) ||
-    !['category', 'phone', 'image_url'].every((key) => {
+    !['category', 'phone', 'image_url', 'address', 'description'].every((key) => {
       const value = (data as unknown as Record<string, unknown>)[key];
       return value === null || typeof value === 'string';
     })
