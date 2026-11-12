@@ -97,10 +97,6 @@ const modules = {
   },
   '../utils/appDiagnostics': { logAppError() {} },
 };
-const nameHelpers = {};
-new Function('exports', ts.transpileModule(fs.readFileSync(path.join(__dirname,
-  '../src/utils/listingName.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(nameHelpers);
-modules['../utils/listingName'] = nameHelpers;
 const api = {};
 new Function('require', 'exports', source)((name) => modules[name], api);
 function render() {
@@ -132,7 +128,7 @@ const tick = () => new Promise((done) => setImmediate(done));
 const rows = Array.from({ length: 10 }, (_, i) => ({
   listing_id: i + 1,
   product_id: i + 1,
-  product_name: '상품' + (i + 1),
+  product_name: '상품' + (i + 1) + ' 1봉지',
   image_url: i === 0 ? 'https://api.test/uploads/images/apple.jpg' : null,
   category_id: null,
   price: 5000,
@@ -156,6 +152,8 @@ const rows = Array.from({ length: 10 }, (_, i) => ({
   assert.equal(nodes(tree).find((node) => node.type === 'ListingImage').props.uri,
     'https://api.test/uploads/images/apple.jpg');
   assert.ok(text(tree).includes('상품1'));
+  assert.ok(text(tree).includes('상품1 1봉지'));
+  assert.ok(!text(tree).includes('1봉지 1봉지'));
   assert.ok(text(tree).includes('4,000원'));
   assert.ok(text(tree).includes('품절'));
   assert.equal(

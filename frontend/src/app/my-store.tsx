@@ -1,4 +1,3 @@
-import { listingName } from '../utils/listingName';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -177,7 +176,7 @@ export default function MyStoreScreen() {
                     <Pressable
                       key={item.listing_id}
                       accessibilityRole="button"
-                      accessibilityLabel={`${listingName(item)} 상품 상세`}
+                      accessibilityLabel={`${item.product_name} 상품 상세`}
                       style={styles.card}
                       onPress={() =>
                         router.push({
@@ -194,7 +193,7 @@ export default function MyStoreScreen() {
                             listingId={item.listing_id}
                             uri={item.image_url}
                             style={styles.productPhoto}
-                            label={`${listingName(item)} 사진`}
+                            label={`${item.product_name} 사진`}
                           />
                         {item.is_sold_out && (
                           <View style={styles.imageOverlay}>
@@ -204,7 +203,7 @@ export default function MyStoreScreen() {
                       </View>
                       <View style={styles.cardInfo}>
                         <Text style={styles.productName}>
-                          {listingName(item)}
+                          {item.product_name}
                         </Text>
                         <View style={styles.prices}>
                           {discounted && (
