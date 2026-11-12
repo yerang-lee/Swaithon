@@ -61,4 +61,13 @@ for (const mode of ['pending-command', 'recognition-failure']) {
   if (command) assert.ok(all.some((node) => node.props.children === '5천원'));
   assert.equal(tree.type, 'SafeAreaView');
 }
-console.log('PASS: missing product and recognition failure both show text and voice input; transcript retained');
+index = 0;
+retry = false;
+command = { status: 'CANCELLED', transcript: '복숭아 3개 2천원 할인',
+  question: '변경 내용을 확인해 주세요.', expiresAt: Date.now() + 600000 };
+const cancelled = nodes(api.CommandVoiceScreen());
+assert.ok(cancelled.some(n => n.props.children === '명령이 취소되었어요. 상품 변경은 완료되지 않았어요.'));
+assert.ok(cancelled.some(n => n.type === 'PrimaryButton' && n.props.title === '새 작업 시작'));
+assert.ok(!cancelled.some(n => n.props.children === command.transcript || n.props.children === command.question));
+assert.ok(!cancelled.some(n => n.type === 'TextInput'));
+console.log('PASS: clarification inputs and separate cancelled state with restart and no stale transcript/preview');

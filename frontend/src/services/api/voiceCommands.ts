@@ -274,24 +274,24 @@ export function parseCommand(
         : '분석 결과를 확인해주세요.',
     transcript:
       typeof data.transcript === 'string' ? data.transcript : undefined,
-    analysis_result: object(data.analysis_result)
+    analysis_result: state !== 'CANCELLED' && object(data.analysis_result)
       ? data.analysis_result
       : undefined,
     missing_fields: Array.isArray(data.missing_fields)
       ? (data.missing_fields as string[])
       : undefined,
     needs_confirmation:
-      typeof data.needs_confirmation === 'boolean'
+      state === 'CANCELLED' ? false : typeof data.needs_confirmation === 'boolean'
         ? data.needs_confirmation
         : undefined,
-    question: typeof data.question === 'string' ? data.question : undefined,
+    question: state !== 'CANCELLED' && typeof data.question === 'string' ? data.question : undefined,
     execution_endpoint: endpoint as string | null,
     candidates: candidates as Candidate[],
     preview: {
-      before: (preview.before as Record<string, unknown>) ?? null,
-      after: (preview.after as Record<string, unknown>) ?? null,
+      before: state === 'CANCELLED' ? null : (preview.before as Record<string, unknown>) ?? null,
+      after: state === 'CANCELLED' ? null : (preview.after as Record<string, unknown>) ?? null,
     },
-    result: (data.result as Record<string, unknown>) ?? null,
+    result: state === 'CANCELLED' ? null : (data.result as Record<string, unknown>) ?? null,
     expiresAt,
   };
 }

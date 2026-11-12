@@ -495,10 +495,12 @@ export function CommandVoiceScreen() {
         >
           {command && (
             <Text style={styles.message}>
-              {command.question ?? command.message}
+              {command.status === 'CANCELLED'
+                ? '명령이 취소되었어요. 상품 변경은 완료되지 않았어요.'
+                : command.question ?? command.message}
             </Text>
           )}
-          {!!command?.transcript && (
+          {command?.status !== 'CANCELLED' && !!command?.transcript && (
             <View style={styles.card}>
               <Text style={styles.label}>인식한 내용</Text>
               <Text style={styles.value}>{command.transcript}</Text>

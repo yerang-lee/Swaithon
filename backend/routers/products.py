@@ -20,6 +20,8 @@ def get_products(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
+    is_on_sale: bool | None = None,
+    is_sold_out: bool | None = None,
 ):
     query = (
         db.query(Listing, Product, Store)
@@ -34,6 +36,16 @@ def get_products(
 
     if keyword:
         query = query.filter(Product.product_name.ilike(f"%{keyword}%"))
+
+    if is_sold_out is not None:
+        query = query.filter(Listing.is_sold_out.is_(is_sold_out))
+
+    if is_on_sale is not None:
+        discounted = (
+            Listing.sale_price.is_not(None)
+            & (Listing.sale_price < Listing.price)
+        )
+        query = query.filter(discounted.is_(is_on_sale))
 
     total_count = query.count()
 

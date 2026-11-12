@@ -43,8 +43,8 @@ export async function getClosingSaleProducts(
         for (let page = 1; isActive(); page++) {
           const result = await getProducts({
             market_id: market.market_id!,
-            is_on_sale: true,
-            is_sold_out: false,
+            // The running server may not support sale/stock query filters yet.
+            // Fetch every page and apply both conditions below instead.
             page,
             size: 10,
           });
