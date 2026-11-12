@@ -229,7 +229,17 @@ async function main() {
   assert.deepEqual(JSON.parse(calls.at(-1).body), { listing_id: 'listing-2' });
   await assert.rejects(() => api.selectCandidate(selection, 'first-guess'));
   response = state('CANCELLED');
-  await api.cancelCommand(selection);
+  response.parsed = { intent: 'SALE_CREATE', product_name: '복숭아', price: null, sale_price: 2000 };
+  response.preview = {
+    before: { price: 4000, effective_price: 4000 },
+    after: { price: 4000, effective_price: 2000, sale_active: true },
+  };
+  const cancelledCommand = await api.cancelCommand(selection);
+  assert.equal(cancelledCommand.status, 'CANCELLED');
+  assert.equal(cancelledCommand.analysis_result, undefined);
+  assert.deepEqual(cancelledCommand.preview, { before: null, after: null });
+  assert.equal(cancelledCommand.result, null);
+  assert.equal(cancelledCommand.needs_confirmation, false);
   assert.ok(calls.at(-1).url.endsWith('/commands/cmd-1/cancel'));
   assert.equal(calls.at(-1).body, undefined);
   status = 503;

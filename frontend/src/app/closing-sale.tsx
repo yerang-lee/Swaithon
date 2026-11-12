@@ -385,14 +385,14 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   name: {
-    fontSize: 17,
-    lineHeight: 23,
+    fontSize: 21,
+    lineHeight: 29,
     fontWeight: '700',
     color: '#181725',
   },
   meta: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 21,
     color: '#858585',
   },
   prices: {

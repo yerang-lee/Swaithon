@@ -42,8 +42,8 @@ new Function('require', 'exports', compile('src/services/api/closingSale.ts'))(
         }
       : {
           getProducts: async (options) => {
-            assert.equal(options.is_on_sale, true);
-            assert.equal(options.is_sold_out, false);
+            assert.equal(options.is_on_sale, undefined);
+            assert.equal(options.is_sold_out, undefined);
             calls.push(options);
             activeCalls++;
             peak = Math.max(peak, activeCalls);
@@ -60,10 +60,14 @@ new Function('require', 'exports', compile('src/services/api/closingSale.ts'))(
             if (options.market_id === 1)
               return options.page === 1
                 ? {
-                    products: [product(1, 101), product(1, 102, 10000)],
-                    total_count: 3,
+                    products: [
+                      product(1, 101), product(1, 102, 10000),
+                      { ...product(1, 104), is_on_sale: false },
+                      { ...product(1, 105), is_sold_out: true },
+                    ],
+                    total_count: 5,
                   }
-                : { products: [product(1, 103, 0)], total_count: 3 };
+                : { products: [product(1, 103, 0)], total_count: 5 };
             return {
               products: [product(options.market_id, id)],
               total_count: 1,

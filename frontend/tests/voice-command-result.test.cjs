@@ -113,6 +113,19 @@ function text(tree) {
 }
 (async () => {
   let tree = api.CommandResultScreen(props);
+  const saleTree = api.CommandResultScreen({ ...props, command: {
+    ...command, status: 'NEEDS_CONFIRMATION', intent: 'SALE_CREATE',
+    execution_endpoint: '/voice/sale-registration',
+    analysis_result: { product_name: '복숭아', price: null, sale_price: 2000, sale_quantity: 3, sale_unit: '개' },
+    preview: {
+      before: { price: 4000, effective_price: 4000, sale_active: false },
+      after: { price: 4000, effective_price: 2000, sale_active: true },
+    },
+  } });
+  assert.ok(text(saleTree).includes('2,000원'));
+  assert.ok(text(saleTree).includes('기존 가격 4,000원'));
+  assert.ok(!text(saleTree).includes('가격 정보 없음'));
+  assert.ok(!text(saleTree).includes('할인이 등록되었어요!'));
   assert.ok(text(tree).includes('AI 분석 결과'));
   assert.ok(text(tree).includes('사과 한 봉지'));
   assert.ok(text(tree).includes('10,000원'));

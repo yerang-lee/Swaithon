@@ -16,20 +16,22 @@ export function confirmedListingId(command: VoiceCommand): number | null {
 
 // Only the latest server snapshot decides price/status. Time fields stay in the command.
 export function commandProductPresentation(command: VoiceCommand) {
+  const previewing = ['READY', 'NEEDS_CONFIRMATION'].includes(command.status);
+  if (!previewing && command.status !== 'SUCCEEDED')
+    return { price: null, saleActive: null };
   const snapshot =
     command.status === 'SUCCEEDED'
       ? command.result
-      : (command.analysis_result ??
-        command.preview.after ??
-        command.preview.before);
+      : (command.preview.after ?? command.analysis_result);
   return {
     price:
       typeof snapshot?.effective_price === 'number' &&
       Number.isFinite(snapshot.effective_price) &&
       snapshot.effective_price >= 0
         ? snapshot.effective_price
-        : command.status === 'READY' &&
-            command.analysis_result &&
+        : previewing &&
+            snapshot === command.analysis_result &&
+            !['SALE_CREATE', 'SALE_UPDATE'].includes(command.intent ?? '') &&
             typeof snapshot?.price === 'number' &&
             Number.isFinite(snapshot.price) &&
             snapshot.price >= 0

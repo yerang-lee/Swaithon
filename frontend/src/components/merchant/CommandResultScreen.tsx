@@ -98,6 +98,7 @@ export function CommandResultScreen({
         ? data.sale_unit
         : '';
   const { price, saleActive } = commandProductPresentation(command);
+  const previousPrice = !done ? command.preview.before?.effective_price : null;
   const executionMissing = !done && !command.execution_endpoint;
   const locked = busy || photoBusy;
   const canPhoto = intent === 'PRODUCT_CREATE' || intent === 'PRODUCT_UPDATE';
@@ -206,6 +207,13 @@ export function CommandResultScreen({
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>판매 가격</Text>
+              {typeof previousPrice === 'number' &&
+                Number.isFinite(previousPrice) && previousPrice >= 0 &&
+                price !== null && previousPrice !== price && (
+                  <Text style={styles.label}>
+                    기존 가격 {previousPrice.toLocaleString('ko-KR')}원
+                  </Text>
+                )}
               <Text
                 style={[styles.value, saleActive === true && styles.salePrice]}
               >

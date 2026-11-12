@@ -69,7 +69,9 @@ assert.equal(command.preview.after.ends_at, '2099-01-01T00:00:00Z');
 const ready = {
   ...command,
   status: 'READY',
+  intent: 'PRODUCT_CREATE',
   analysis_result: { product_name: '사과', price: 10000, unit: '한 봉지' },
+  preview: { before: null, after: null },
 };
 assert.deepEqual(api.commandProductPresentation(ready), {
   price: 10000,
@@ -83,6 +85,22 @@ assert.deepEqual(api.commandProductPresentation(ready), {
   price: 8000,
   saleActive: true,
 });
+const discount = {
+  ...command, status: 'NEEDS_CONFIRMATION', intent: 'SALE_CREATE',
+  analysis_result: { product_name: '복숭아', price: null, sale_price: 2000 },
+  preview: {
+    before: { price: 4000, effective_price: 4000, sale_active: false },
+    after: { price: 4000, effective_price: 2000, sale_active: true },
+  },
+};
+assert.deepEqual(api.commandProductPresentation(discount), { price: 2000, saleActive: true });
+assert.deepEqual(api.commandProductPresentation({ ...discount, status: 'READY' }),
+  { price: 2000, saleActive: true });
+assert.deepEqual(api.commandProductPresentation({ ...discount, status: 'CANCELLED' }),
+  { price: null, saleActive: null });
+assert.deepEqual(api.commandProductPresentation({ ...discount,
+  preview: { before: discount.preview.before, after: null } }),
+  { price: null, saleActive: null });
 console.log(
   'PASS: server effective price including zero, sale flag regardless of dates, no stale preview fallback, hidden time fields preserved',
 );
