@@ -222,7 +222,7 @@ class VoiceService:
         if p is None:
             return dict(listing_id='pending' if preview else str(uuid4()), store_id=c['store_id'],
                 product_name=d['product_name'].strip(), price=d['price'], sale_quantity=d['sale_quantity'],
-                sale_unit=d['sale_unit'], stock_quantity=d['stock_quantity'], is_sold_out=False,
+                sale_unit=d['sale_unit'], stock_quantity=15 if d['stock_quantity'] is None else d['stock_quantity'], is_sold_out=False,
                 sale=None, deleted_at=None, version=1)
         p=deepcopy(p)
         if intent=='PRODUCT_UPDATE':

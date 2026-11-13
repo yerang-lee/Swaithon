@@ -641,7 +641,7 @@ class VoiceService:
                 "sale_price": None,
                 "sale_quantity": data["sale_quantity"],
                 "sale_unit": data["sale_unit"],
-                "stock_quantity": data["stock_quantity"],
+                "stock_quantity": 15 if data["stock_quantity"] is None else data["stock_quantity"],
                 "is_sold_out": False,
                 "status": "ACTIVE",
                 "sale": None,
